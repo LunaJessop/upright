@@ -1,0 +1,3 @@
+# Express API is deployed separately; keep uploads lean and avoid nested installs.
+server/node_modules
+server/dist
