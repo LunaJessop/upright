@@ -3,12 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3002";
-
-type Status = "loading" | "ok" | "offline";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3001";
 
 export function ServerStatusIndicator() {
-  const [status, setStatus] = useState<Status>("loading");
+  const [status, setStatus] = useState("loading");
 
   const check = useCallback(async () => {
     const controller = new AbortController();
@@ -19,8 +17,8 @@ export function ServerStatusIndicator() {
         cache: "no-store",
       });
       if (res.ok) {
-        const data = (await res.json()) as { ok?: boolean };
-        setStatus(data.ok === true ? "ok" : "offline");
+        const data = await res.json();
+        setStatus(data?.ok === true ? "ok" : "offline");
       } else {
         setStatus("offline");
       }
