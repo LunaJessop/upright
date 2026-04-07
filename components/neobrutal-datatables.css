@@ -1,0 +1,218 @@
+/* Neobrutal DataTables 2.x — uses :root tokens from app/globals.css */
+
+.brutal-dt {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  --brutal-border: 3px solid #000;
+  --brutal-shadow: var(--shadow-brutal-sm-val);
+  --brutal-shadow-btn: var(--shadow-brutal-btn-val);
+  --brutal-header: var(--nv-violet);
+  --brutal-header-fg: #fff;
+  --brutal-row-alt: var(--nv-row-alt);
+  --brutal-accent: var(--nv-cyan);
+}
+
+.brutal-dt .dt-container {
+  padding: 1rem;
+  background: var(--nv-paper);
+  border: var(--brutal-border);
+  box-shadow: var(--shadow-brutal-val);
+  font-weight: 600;
+}
+
+.brutal-dt .dt-layout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.brutal-dt .dt-layout-cell {
+  flex: 1 1 auto;
+}
+
+.brutal-dt .dt-layout-cell.dt-layout-full {
+  flex: 1 1 100%;
+}
+
+.brutal-dt .dt-layout-table {
+  width: 100%;
+}
+
+.brutal-dt .dt-length,
+.brutal-dt .dt-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.brutal-dt .dt-length label,
+.brutal-dt .dt-search label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.brutal-dt .dt-input {
+  border: var(--brutal-border) !important;
+  background: var(--nv-paper) !important;
+  padding: 0.4rem 0.65rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  box-shadow: var(--brutal-shadow-btn) !important;
+  border-radius: 0 !important;
+  min-height: 2.25rem;
+}
+
+.brutal-dt .dt-input:focus {
+  outline: 2px solid var(--nv-violet) !important;
+  outline-offset: 2px;
+}
+
+.brutal-dt select.dt-input {
+  cursor: pointer;
+}
+
+.brutal-dt table.dataTable {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border: var(--brutal-border);
+  margin: 0 !important;
+  background: var(--nv-paper);
+}
+
+.brutal-dt table.dataTable thead th {
+  background: var(--brutal-header);
+  color: var(--brutal-header-fg);
+  border: var(--brutal-border);
+  border-bottom-width: 4px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.brutal-dt table.dataTable tbody td {
+  border: var(--brutal-border);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  vertical-align: middle;
+  background: var(--nv-paper);
+}
+
+.brutal-dt table.dataTable thead th:nth-child(3),
+.brutal-dt table.dataTable tbody td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.brutal-dt table.dataTable tbody tr:nth-child(even) td {
+  background: var(--brutal-row-alt);
+}
+
+.brutal-dt table.dataTable tbody tr:hover td {
+  background: var(--brutal-accent);
+}
+
+.brutal-dt table.dataTable thead th.dt-orderable-asc,
+.brutal-dt table.dataTable thead th.dt-orderable-desc {
+  cursor: pointer;
+}
+
+.brutal-dt table.dataTable thead th.dt-ordering-asc,
+.brutal-dt table.dataTable thead th.dt-ordering-desc {
+  background: var(--nv-violet-dark);
+  box-shadow: inset 0 -4px 0 var(--nv-cyan);
+}
+
+.brutal-dt .dt-column-order {
+  opacity: 0.85;
+  margin-left: 0.25rem;
+}
+
+.brutal-dt .dt-info {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(17, 24, 39, 0.72);
+  padding: 0.5rem 0;
+}
+
+.brutal-dt .dt-paging {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.brutal-dt .dt-paging-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  border: var(--brutal-border);
+  background: var(--nv-paper);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  box-shadow: var(--brutal-shadow-btn);
+  cursor: pointer;
+  border-radius: 0;
+  color: #000;
+}
+
+.brutal-dt .dt-paging-button:hover:not(.disabled):not(.current) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 #000;
+}
+
+.brutal-dt .dt-paging-button:active:not(.disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.brutal-dt .dt-paging-button.current {
+  background: var(--nv-violet);
+  color: #fff;
+  cursor: default;
+}
+
+.brutal-dt .dt-paging-button.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: 2px 2px 0 0 #999;
+  border-color: #666;
+  color: #666;
+}
+
+.brutal-dt .dt-processing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--nv-canvas) 92%, transparent);
+  color: var(--nv-ink);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  border: var(--brutal-border);
+}
+
+.brutal-dt .dt-container {
+  position: relative;
+}

@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3001";
+import { API_BASE, checkHealth } from "@/app/api/apiHandler";
 
 export function ServerStatusIndicator() {
   const [status, setStatus] = useState("loading");
@@ -12,16 +10,8 @@ export function ServerStatusIndicator() {
     const controller = new AbortController();
     const t = window.setTimeout(() => controller.abort(), 4000);
     try {
-      const res = await fetch(`${API_BASE}/health`, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data?.ok === true ? "ok" : "offline");
-      } else {
-        setStatus("offline");
-      }
+      const data = await checkHealth({ signal: controller.signal });
+      setStatus(data?.ok === true ? "ok" : "offline");
     } catch {
       setStatus("offline");
     } finally {
