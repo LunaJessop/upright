@@ -3,23 +3,25 @@
 
 /* -------------------------------------------------------------------------- */
 /* Design tokens — NexaVerse-style palette + neobrutal chrome                  */
-/* Use in Tailwind: bg-nv-canvas, text-nv-ink, shadow-brutal, border-brutal    */
-/* Use in plain CSS: var(--nv-violet), var(--shadow-brutal-sm), etc.           */
+/* Light theme: white canvas, ink text on light surfaces, white on dark accents  */
 /* -------------------------------------------------------------------------- */
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
 
   --nv-violet: #7c3aed;
   --nv-violet-dark: #5b21b6;
   --nv-teal: #4da1a9;
   --nv-cyan: #00d1c1;
   --nv-lavender: #7b61ff;
-  --nv-canvas: #f3f4f6;
+  --nv-canvas: #ffffff;
   --nv-ink: #111827;
   --nv-paper: #ffffff;
   --nv-row-alt: #e8e4ff;
+
+  --nv-text-on-light: var(--nv-ink);
+  --nv-text-on-dark: #ffffff;
 
   --shadow-brutal-val: 6px 6px 0 0 #000;
   --shadow-brutal-sm-val: 4px 4px 0 0 #000;
@@ -52,14 +54,55 @@
     monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--nv-canvas);
+  color: var(--nv-ink);
+}
+
+/* Light surfaces — always use dark ink text (overrides inherited white/light) */
+.bg-nv-paper,
+.bg-nv-canvas,
+.bg-nv-row-alt,
+.bg-nv-cyan,
+.bg-white,
+[class~="bg-nv-cyan/25"],
+[class~="bg-nv-cyan/20"],
+[class~="bg-nv-cyan/30"],
+[class~="hover:bg-nv-cyan/20"],
+[class~="hover:bg-nv-canvas"] {
+  color: var(--nv-text-on-light);
+}
+
+/* Dark accent surfaces — keep light text */
+.bg-nv-violet,
+.bg-nv-violet-dark,
+.bg-nv-lavender,
+.bg-nv-teal,
+.bg-nv-ink,
+[class*="bg-nv-violet/"] {
+  color: var(--nv-text-on-dark);
+}
+
+/* Form controls on light backgrounds */
+.bg-nv-paper input,
+.bg-nv-paper select,
+.bg-nv-paper textarea,
+.bg-nv-canvas input,
+.bg-nv-canvas select,
+.bg-nv-canvas textarea,
+[class~="bg-nv-cyan/25"] input,
+[class~="bg-nv-cyan/25"] select,
+[class~="bg-nv-cyan/25"] textarea {
+  color: var(--nv-ink);
+}
+
+.bg-nv-paper input::placeholder,
+.bg-nv-paper textarea::placeholder,
+[class~="bg-nv-cyan/25"] input::placeholder,
+[class~="bg-nv-cyan/25"] textarea::placeholder {
+  color: rgb(0 0 0 / 0.4);
 }

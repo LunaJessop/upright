@@ -1,8 +1,9 @@
 /* Neobrutal DataTables 2.x — uses :root tokens from app/globals.css */
 
 .brutal-dt {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   --brutal-border: 3px solid #000;
   --brutal-shadow: var(--shadow-brutal-sm-val);
   --brutal-shadow-btn: var(--shadow-brutal-btn-val);
@@ -13,11 +14,14 @@
 }
 
 .brutal-dt .dt-container {
-  padding: 1rem;
-  background: var(--nv-paper);
-  border: var(--brutal-border);
-  box-shadow: var(--shadow-brutal-val);
+  position: relative;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   font-weight: 600;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .brutal-dt .dt-layout-row {
@@ -38,6 +42,9 @@
 
 .brutal-dt .dt-layout-table {
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .brutal-dt .dt-length,
@@ -49,6 +56,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--nv-ink);
 }
 
 .brutal-dt .dt-length label,
@@ -62,6 +70,7 @@
 .brutal-dt .dt-input {
   border: var(--brutal-border) !important;
   background: var(--nv-paper) !important;
+  color: var(--nv-ink) !important;
   padding: 0.4rem 0.65rem !important;
   font-size: 0.875rem !important;
   font-weight: 600 !important;
@@ -80,16 +89,17 @@
 }
 
 .brutal-dt table.dataTable {
-  width: 100% !important;
+  width: max-content !important;
+  min-width: 100%;
   border-collapse: collapse !important;
-  border: var(--brutal-border);
+  border: none;
   margin: 0 !important;
   background: var(--nv-paper);
 }
 
 .brutal-dt table.dataTable thead th {
   background: var(--brutal-header);
-  color: var(--brutal-header-fg);
+  color: var(--nv-text-on-dark);
   border: var(--brutal-border);
   border-bottom-width: 4px;
   padding: 0.65rem 0.75rem;
@@ -99,6 +109,7 @@
   letter-spacing: 0.06em;
   text-align: left;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .brutal-dt table.dataTable tbody td {
@@ -107,6 +118,8 @@
   font-size: 0.875rem;
   vertical-align: middle;
   background: var(--nv-paper);
+  color: var(--nv-ink);
+  white-space: nowrap;
 }
 
 .brutal-dt table.dataTable thead th:nth-child(3),
@@ -121,6 +134,7 @@
 
 .brutal-dt table.dataTable tbody tr:hover td {
   background: var(--brutal-accent);
+  color: var(--nv-ink);
 }
 
 .brutal-dt table.dataTable thead th.dt-orderable-asc,
@@ -211,8 +225,4 @@
   font-size: 0.8rem;
   letter-spacing: 0.1em;
   border: var(--brutal-border);
-}
-
-.brutal-dt .dt-container {
-  position: relative;
 }
