@@ -137,6 +137,10 @@
   color: var(--nv-ink);
 }
 
+.brutal-dt--clickable table.dataTable tbody tr {
+  cursor: pointer;
+}
+
 .brutal-dt table.dataTable thead th.dt-orderable-asc,
 .brutal-dt table.dataTable thead th.dt-orderable-desc {
   cursor: pointer;

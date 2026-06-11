@@ -3,15 +3,19 @@
 import { useEffect, useRef } from "react";
 import "./neobrutal-datatables.css";
 
-export default function NeobrutalDataTable({ rows }) {
+export default function NeobrutalDataTable({ rows, onRowClick }) {
   const tableRef = useRef(null);
   const apiRef = useRef(null);
+  const onRowClickRef = useRef(onRowClick);
+  onRowClickRef.current = onRowClick;
 
   useEffect(
     () => {
       if (!tableRef.current) return undefined;
 
       let destroyed = false;
+
+      const tableEl = tableRef.current;
 
       (async () => {
         const $ = (await import("jquery")).default;
@@ -21,17 +25,21 @@ export default function NeobrutalDataTable({ rows }) {
           data: rows,
           autoWidth: false,
           columns: [
-            { data: "organization_id", title: "Company" },
             { data: "name", title: "Part name" },
             { data: "sku", title: "Sku" },
-            { data: "description", title: "Description" },
-            { data: "item_type", title: "Type" },
-            { data: "make_or_buy", title: " Make or Buy" },
-            { data: "unit_of_measure", title: "Units" },
-            { data: "default_cost", title: "Cost" },
-            { data: "active", title: "Active" },
-            { data: "vendor", title: "Vendor" },
-            { data: "bom", title: "BOM" }
+            { data: "description", title: "Description", defaultContent: "" },
+            { data: "item_type", title: "Type", defaultContent: "" },
+            { data: "make_or_buy", title: "Make or Buy", defaultContent: "" },
+            { data: "unit_of_measure", title: "Units", defaultContent: "" },
+            { data: "default_cost", title: "Cost", defaultContent: "" },
+            {
+              data: "active",
+              title: "Active",
+              defaultContent: "",
+              render: (value) => (value === true ? "Yes" : value === false ? "No" : ""),
+            },
+            { data: "vendor", title: "Vendor", defaultContent: "" },
+            { data: "bom", title: "BOM", defaultContent: "—" },
           ],
           layout: {
             topStart: "pageLength",
@@ -43,6 +51,13 @@ export default function NeobrutalDataTable({ rows }) {
           lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
           order: [[0, "asc"]]
         });
+
+        $(tableEl).on("click.brutalRow", "tbody tr", function () {
+          const handler = onRowClickRef.current;
+          if (!handler || !apiRef.current) return;
+          const rowData = apiRef.current.row(this).data();
+          if (rowData) handler(rowData);
+        });
       })();
 
       return () => {
@@ -51,13 +66,20 @@ export default function NeobrutalDataTable({ rows }) {
           apiRef.current.destroy();
           apiRef.current = null;
         }
+        import("jquery").then(({ default: $ }) => {
+          $(tableEl).off("click.brutalRow");
+        });
       };
     },
     [rows]
   );
 
   return (
-    <div className="brutal-dt w-full min-w-0 max-w-full">
+    <div
+      className={`brutal-dt w-full min-w-0 max-w-full ${
+        onRowClick ? "brutal-dt--clickable" : ""
+      }`}
+    >
       <table ref={tableRef} className="w-full" />
     </div>
   );

@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata = {
   title: "Upright",
   description: "Upright app",
+  icons: {
+    icon: [{ url: "/icon.ico", type: "image/x-icon" }],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({ children }) {

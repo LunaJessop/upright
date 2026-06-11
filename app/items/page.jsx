@@ -1,29 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import NeobrutalDataTable from "@/components/NeobrutalDataTable";
-import { fetchCatalogItems, PLACEHOLDER_ITEMS } from "./placeholderItems";
+import { GetAllItems } from "@/app/api/apiHandler";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 
 export default function ItemsPage() {
-  const [items, setItems] = useState(PLACEHOLDER_ITEMS);
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const loadItems = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const rows = await fetchCatalogItems();
-      setItems(rows);
+      const rows = await GetAllItems();
+      setItems(Array.isArray(rows) ? rows : []);
     } catch {
       setError("Failed to load items.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
 
   return (
     <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
@@ -50,14 +56,6 @@ export default function ItemsPage() {
               >
                 Add item
               </Link>
-              <button
-                type="button"
-                onClick={() => void loadItems()}
-                disabled={loading}
-                className="border-brutal border-black bg-nv-cyan px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Refresh
-              </button>
             </div>
           </div>
 
@@ -79,7 +77,10 @@ export default function ItemsPage() {
 
           {!loading && !error && items.length > 0 && (
             <div className="min-w-0 max-w-full overflow-hidden">
-              <NeobrutalDataTable rows={items} />
+              <NeobrutalDataTable
+                rows={items}
+                onRowClick={(row) => router.push(`/items/${row.id}`)}
+              />
             </div>
           )}
         </section>

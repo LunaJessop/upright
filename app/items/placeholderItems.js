@@ -5,7 +5,6 @@ export const PLACEHOLDER_ITEMS = [
     name: "Aluminum bracket",
     sku: "BRK-001",
     description: "6061-T6 mounting bracket",
-    item_type: "component",
     make_or_buy: "buy",
     unit_of_measure: "ea",
     default_cost: "12.50",

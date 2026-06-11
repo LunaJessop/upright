@@ -1,5 +1,9 @@
-@import "tailwindcss";
+/* Only scan this app — avoid Tailwind auto-detecting sibling projects in ~/Documents/coding */
+@import "tailwindcss" source(none);
 @config "../tailwind.config.mjs";
+
+@source "./**/*.{js,jsx}";
+@source "../components/**/*.{js,jsx}";
 
 /* -------------------------------------------------------------------------- */
 /* Design tokens — NexaVerse-style palette + neobrutal chrome                  */

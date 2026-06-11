@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import uprightLogo from "@/app/assets/upright-logo.png";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
 
@@ -84,12 +86,15 @@ export default function Navbar() {
     <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r-brutal border-black bg-nv-canvas">
       <Link
         href="/"
-        className="border-b-brutal border-black bg-nv-violet px-4 py-5 text-white"
+        className="flex flex-col items-center gap-2 border-b-brutal border-black bg-nv-violet px-4 py-5 text-white"
       >
-        <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/80">
-          Upright
-        </p>
-        <p className="text-xl font-black uppercase leading-tight">MRP</p>
+        <Image
+          src={uprightLogo}
+          alt="Upright logo"
+          className="h-auto w-28"
+          priority
+        />
+        <p className="text-sm font-black lowercase tracking-wide">upright</p>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" aria-label="Main">

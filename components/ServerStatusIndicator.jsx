@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { API_BASE, checkHealth } from "@/app/api/apiHandler";
+import {checkHealth } from "@/app/api/apiHandler";
 
 export function ServerStatusIndicator() {
   const [status, setStatus] = useState("loading");
@@ -49,7 +49,7 @@ export function ServerStatusIndicator() {
       className="pointer-events-none fixed right-4 top-4 z-50 flex max-w-[min(100vw-2rem,20rem)] items-center gap-2 rounded-full border border-zinc-200 bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-sm backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-zinc-200"
       role="status"
       aria-live="polite"
-      title={`${API_BASE}/health`}
+      title={`${process.env.NEXT_PUBLIC_API_URL}/health`}
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
       <span className="truncate font-medium">{label}</span>
