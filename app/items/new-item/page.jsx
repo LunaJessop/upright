@@ -2,65 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import NeobrutalDataTable from "@/components/NeobrutalDataTable";
-import { PLACEHOLDER_ITEMS } from "@/app/items/placeholderItems";
+import BrutalSwitch from "@/components/BrutalSwitch";
+import BomRecipeEditor from "@/components/BomRecipeEditor";
+import { CreateItem, GetAllItems } from "@/app/api/apiHandler";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
-const brutalBorder = "border-brutal border-black";
 const inputClass =
   "w-full border-0 bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet border-brutal border-black";
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
-
-function BrutalSwitch({
-  ariaLabel,
-  value,
-  setValue,
-  offValue,
-  onValue,
-  offLabel,
-  onLabel,
-  className = "",
-}) {
-  const isOn = value === onValue;
-
-  return (
-    <div className={className}>
-      <div
-        className="relative inline-flex h-8 w-auto overflow-hidden rounded-full border-brutal border-black bg-nv-paper shadow-brutal-sm"
-        role="group"
-        aria-label={ariaLabel}
-      >
-        <span
-          aria-hidden
-          className={`absolute inset-y-0 w-1/2 bg-nv-cyan transition-transform duration-150 ease-out ${
-            isOn
-              ? "translate-x-full border-l-brutal border-black"
-              : "translate-x-0 border-r-brutal border-black"
-          }`}
-        />
-        <button
-          type="button"
-          aria-pressed={!isOn}
-          onClick={() => setValue(offValue)}
-          className={`relative z-10 flex items-center justify-center px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${
-            !isOn ? "text-black" : "text-black/45"
-          }`}
-        >
-          {offLabel}
-        </button>
-        <button
-          type="button"
-          aria-pressed={isOn}
-          onClick={() => setValue(onValue)}
-          className={`relative z-10 flex items-center justify-center px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${
-            isOn ? "text-black" : "text-black/45"
-          }`}
-        >
-          {onLabel}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 const UNSET_SELECT = "__unset__";
 
@@ -68,258 +17,19 @@ const INITIAL_FORM = {
   name: "",
   sku: "",
   description: "",
-  itemType: UNSET_SELECT,
   makeOrBuy: false,
   unitOfMeasure: UNSET_SELECT,
   defaultCost: "",
   active: true,
-  vendor: "",
+  vendor: UNSET_SELECT,
   bomLines: [],
 };
 
-function catalogItemLabel(catalogItems, itemId) {
-  const item = catalogItems.find((row) => String(row.id) === itemId);
-  return item ? `${item.name} (${item.sku})` : "";
-}
-
-function catalogItemDisplay(catalogItems, itemId) {
-  const item = catalogItems.find((row) => String(row.id) === itemId);
-  if (!item) return null;
-  return (
-    <>
-      <span className="font-black">{item.name}</span>
-      <span className="font-normal text-nv-ink/70"> ({item.sku})</span>
-    </>
-  );
-}
-
-function formatBomSummary(catalogItems, bomLines) {
-  return bomLines
-    .map((line) => {
-      const label = catalogItemLabel(catalogItems, line.itemId);
-      const unit = catalogItemUnit(catalogItems, line.itemId);
-      const qty = unit ? `${line.quantity} ${unit}` : line.quantity;
-      return `${qty}× ${label}`;
-    })
-    .join(", ");
-}
-
-function catalogItemUnit(catalogItems, itemId) {
-  const item = catalogItems.find((row) => String(row.id) === itemId);
-  return item?.unit_of_measure ?? "";
-}
-
-function QuantityStepper({ value, onChange }) {
-  const adjust = (delta) => {
-    const current = parseFloat(value) || 0;
-    const next = Math.max(0, current + delta);
-    onChange(String(next));
-  };
-
-  return (
-    <div className="inline-flex shrink-0 items-stretch overflow-hidden border-brutal border-black">
-      <button
-        type="button"
-        onClick={() => adjust(-1)}
-        aria-label="Decrease quantity"
-        className="border-r-brutal border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
-      >
-        −
-      </button>
-      <input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-9 border-0 bg-nv-paper px-0.5 py-0.5 text-center text-[10px] font-semibold outline-none"
-      />
-      <button
-        type="button"
-        onClick={() => adjust(1)}
-        aria-label="Increase quantity"
-        className="border-l-brutal border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
-      >
-        +
-      </button>
-    </div>
-  );
-}
-
-function MultiSelectDropdown({
-  title,
-  options,
-  selectedValues,
-  onChange,
-  className = "",
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
-  const toggleOption = (value) => {
-    if (selectedValues.includes(value)) {
-      onChange(selectedValues.filter((entry) => entry !== value));
-      return;
-    }
-    onChange([...selectedValues, value]);
-  };
-
-  const triggerLabel =
-    selectedValues.length === 0
-      ? `Select ${title.toLowerCase()}`
-      : selectedValues.length === 1
-        ? (options.find((option) => option.value === selectedValues[0])?.label ??
-          "1 selected")
-        : `${selectedValues.length} selected`;
-
-  return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      <label className="block space-y-1">
-        <span className={labelClass}>{title}</span>
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          aria-expanded={open}
-          aria-haspopup="listbox"
-          className={`${inputClass} flex w-full cursor-pointer items-center justify-between text-left`}
-        >
-          <span className={selectedValues.length === 0 ? "text-black/40" : ""}>
-            {triggerLabel}
-          </span>
-          <span aria-hidden className="ml-2 shrink-0 text-[10px] font-black">
-            {open ? "▲" : "▼"}
-          </span>
-        </button>
-      </label>
-      {open ? (
-        <ul
-          className={`absolute z-20 mt-1 max-h-40 w-full overflow-y-auto ${brutalBorder} bg-nv-paper`}
-          role="listbox"
-          aria-multiselectable="true"
-        >
-          {options.map((option) => {
-            const checked = selectedValues.includes(option.value);
-            return (
-              <li key={option.value}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={checked}
-                  onClick={() => toggleOption(option.value)}
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/30 ${
-                    checked ? "bg-nv-cyan/20" : ""
-                  }`}
-                >
-                  <span
-                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center border-brutal border-black text-[9px] font-black ${
-                      checked ? "bg-nv-cyan" : "bg-nv-paper"
-                    }`}
-                  >
-                    {checked ? "✓" : ""}
-                  </span>
-                  {option.label}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function BomRecipeEditor({
-  catalogItems,
-  bomLines,
-  selectedItemIds,
-  onSelectedItemIdsChange,
-  onAddSelected,
-  onRemoveLine,
-  onUpdateLineQuantity,
-}) {
-  const bomOptions = catalogItems.map((item) => ({
-    value: String(item.id),
-    label: `${item.name} (${item.sku})`,
-  }));
-
-  return (
-    <div className={`w-full space-y-2 ${brutalBorder} bg-nv-paper p-2`}>
-      <p className={labelClass}>Recipe (BOM)</p>
-
-      <div className="space-y-2">
-        <MultiSelectDropdown
-          title="Components"
-          options={bomOptions}
-          selectedValues={selectedItemIds}
-          onChange={onSelectedItemIdsChange}
-          className="w-full"
-        />
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onAddSelected}
-            className="border-brutal border-black bg-nv-cyan px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1"
-          >
-            Add
-          </button>
-        </div>
-      </div>
-
-      {bomLines.length > 0 ? (
-        <ul className="space-y-2 border-t-brutal border-black pt-2">
-          {bomLines.map((line) => {
-            const lineUnit = catalogItemUnit(catalogItems, line.itemId);
-            const quantityLabel = lineUnit ? `${lineUnit} per item` : "Unit per item";
-            return (
-              <li
-                key={line.id}
-                className={`space-y-1.5 ${brutalBorder} bg-nv-cyan/15 p-2`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 flex-1 text-[10px] leading-snug">
-                    {catalogItemDisplay(catalogItems, line.itemId)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveLine(line.id)}
-                    className="shrink-0 text-[10px] font-black uppercase tracking-wide text-red-600 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <span className="text-[10px] font-normal normal-case tracking-normal text-nv-ink/70">
-                    {quantityLabel}
-                  </span>
-                  <QuantityStepper
-                    value={line.quantity}
-                    onChange={(quantity) => onUpdateLineQuantity(line.id, quantity)}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="text-[10px] font-medium text-nv-ink/50">
-          Select components above, then add them to set quantities.
-        </p>
-      )}
-    </div>
-  );
-}
+/* Placeholder vendor ids — swap for a vendors table lookup later */
+const VENDOR_ID_OPTIONS = Array.from({ length: 10 }, (_, index) => ({
+  value: String(index + 1),
+  label: `Vendor ${index + 1}`,
+}));
 
 function FreeInput({
   title,
@@ -382,13 +92,6 @@ function DropdownInput({ title, value, setValue, options, className = "" }) {
   );
 }
 
-const ITEM_TYPE_OPTIONS = [
-  { value: "raw_material", label: "Raw material" },
-  { value: "component", label: "Component" },
-  { value: "subassembly", label: "Subassembly" },
-  { value: "finished_good", label: "Finished good" },
-];
-
 const UNIT_OF_MEASURE_OPTIONS = [
   { value: "ea", label: "Each (ea)" },
   { value: "kg", label: "Kilogram (kg)" },
@@ -399,37 +102,29 @@ const UNIT_OF_MEASURE_OPTIONS = [
   { value: "gal", label: "Gallon (gal)" },
 ];
 
-function formToItem(form, id, catalogItems) {
-  const bomLines = form.makeOrBuy
-    ? form.bomLines.map((line) => {
-        const item = catalogItems.find((row) => String(row.id) === line.itemId);
-        return {
-          item_id: line.itemId,
-          name: item?.name ?? "",
-          sku: item?.sku ?? "",
-          quantity_per_unit: line.quantity,
-        };
-      })
-    : [];
-
+function formToItem(form, id) {
+  const isMake = form.makeOrBuy === true;
   return {
     id,
     name: form.name,
     sku: form.sku,
     description: form.description,
-    item_type: form.itemType === UNSET_SELECT ? "" : form.itemType,
-    make_or_buy: form.makeOrBuy ? "make" : "buy",
+    make_or_buy: isMake ? "make" : "buy",
     unit_of_measure: form.unitOfMeasure === UNSET_SELECT ? "" : form.unitOfMeasure,
     default_cost: form.defaultCost,
     active: form.active,
-    vendor: form.vendor,
-    bom: form.makeOrBuy ? formatBomSummary(catalogItems, form.bomLines) : "",
-    bom_lines: bomLines,
+    vendor: isMake || form.vendor === UNSET_SELECT ? null : Number(form.vendor),
+    bom_items: isMake
+      ? form.bomLines.map((line) => ({
+          component_item_id: Number(line.itemId),
+          quantity: line.quantity,
+        }))
+      : [],
   };
 }
 
-function isBomValid(bomLines) {
-  if (bomLines.length === 0) return false;
+function areBomLinesValid(bomLines) {
+  if (bomLines.length === 0) return true;
   return bomLines.every(
     (line) =>
       line.itemId !== UNSET_SELECT &&
@@ -439,29 +134,48 @@ function isBomValid(bomLines) {
 }
 
 function isFormComplete(form) {
+  const isMake = form.makeOrBuy === true;
   const baseComplete =
     form.name.trim() !== "" &&
     form.sku.trim() !== "" &&
     form.description.trim() !== "" &&
-    form.itemType !== UNSET_SELECT &&
     form.unitOfMeasure !== UNSET_SELECT &&
-    form.defaultCost.trim() !== "" &&
-    form.vendor.trim() !== "";
+    form.defaultCost.trim() !== "";
 
   if (!baseComplete) return false;
-  if (form.makeOrBuy && !isBomValid(form.bomLines)) return false;
-  return true;
+  if (isMake) return areBomLinesValid(form.bomLines);
+  return form.vendor !== UNSET_SELECT;
 }
 
 export default function NewItem() {
   const nextIdRef = useRef(1);
   const bomLineIdRef = useRef(1);
-  const catalogItems = PLACEHOLDER_ITEMS;
+  const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogError, setCatalogError] = useState(false);
   const [items, setItems] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await GetAllItems();
+        if (!cancelled) {
+          setCatalogItems(Array.isArray(rows) ? rows.filter((row) => row.active) : []);
+          setCatalogError(false);
+        }
+      } catch {
+        if (!cancelled) setCatalogError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [name, setName] = useState(INITIAL_FORM.name);
   const [sku, setSku] = useState(INITIAL_FORM.sku);
   const [description, setDescription] = useState(INITIAL_FORM.description);
-  const [itemType, setItemType] = useState(INITIAL_FORM.itemType);
   const [makeOrBuy, setMakeOrBuy] = useState(INITIAL_FORM.makeOrBuy);
   const [unitOfMeasure, setUnitOfMeasure] = useState(INITIAL_FORM.unitOfMeasure);
   const [defaultCost, setDefaultCost] = useState(INITIAL_FORM.defaultCost);
@@ -473,7 +187,9 @@ export default function NewItem() {
 
   const handleMakeOrBuyChange = (value) => {
     setMakeOrBuy(value);
-    if (!value) {
+    if (value) {
+      setVendor(UNSET_SELECT);
+    } else {
       setBomLines([]);
       setBomSelectedIds([]);
     }
@@ -518,7 +234,6 @@ export default function NewItem() {
     name,
     sku,
     description,
-    itemType,
     makeOrBuy,
     unitOfMeasure,
     defaultCost,
@@ -534,7 +249,6 @@ export default function NewItem() {
     setName(INITIAL_FORM.name);
     setSku(INITIAL_FORM.sku);
     setDescription(INITIAL_FORM.description);
-    setItemType(INITIAL_FORM.itemType);
     setMakeOrBuy(INITIAL_FORM.makeOrBuy);
     setUnitOfMeasure(INITIAL_FORM.unitOfMeasure);
     setDefaultCost(INITIAL_FORM.defaultCost);
@@ -550,8 +264,8 @@ export default function NewItem() {
     if (!isFormComplete(form)) {
       setFormError(
         makeOrBuy
-          ? "Fill in all fields and add at least one recipe component with quantity."
-          : "Fill in all fields and select an option for each dropdown."
+          ? "Fill in all fields. Recipe lines must have a component and quantity."
+          : "Fill in all fields and select a vendor."
       );
       return;
     }
@@ -561,12 +275,33 @@ export default function NewItem() {
     const id = nextIdRef.current;
     nextIdRef.current += 1;
 
-    setItems((prev) => [...prev, formToItem(form, id, catalogItems)]);
+    setItems((prev) => [...prev, formToItem(form, id)]);
     resetForm();
   };
 
-  const handleSubmitAll = () => {
-    console.log("Submit items:", items);
+  const handleSubmitAll = async () => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const failed = [];
+      for (const queuedItem of items) {
+        // Strip the local queue id — the DB assigns its own
+        const { id: _localId, ...payload } = queuedItem;
+        try {
+          await CreateItem(payload);
+        } catch {
+          failed.push(queuedItem);
+        }
+      }
+      setItems(failed);
+      if (failed.length > 0) {
+        setSubmitError(
+          `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. They remain in the list below.`
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -594,12 +329,6 @@ export default function NewItem() {
               className="col-span-2"
             />
             <DropdownInput
-              title="Item type"
-              value={itemType}
-              setValue={setItemType}
-              options={ITEM_TYPE_OPTIONS}
-            />
-            <DropdownInput
               title="Unit of measure"
               value={unitOfMeasure}
               setValue={setUnitOfMeasure}
@@ -613,12 +342,14 @@ export default function NewItem() {
               setValue={setDefaultCost}
               placeholder="0.00"
             />
-            <FreeInput
-              title="Vendor"
-              value={vendor}
-              setValue={setVendor}
-              placeholder="Vendor name"
-            />
+            {!makeOrBuy && (
+              <DropdownInput
+                title="Vendor"
+                value={vendor}
+                setValue={setVendor}
+                options={VENDOR_ID_OPTIONS}
+              />
+            )}
             <div className="col-span-2 flex flex-col items-start gap-2">
               <BrutalSwitch
                 ariaLabel="Make or buy"
@@ -630,15 +361,22 @@ export default function NewItem() {
                 onLabel="Make"
               />
               {makeOrBuy && (
-                <BomRecipeEditor
-                  catalogItems={catalogItems}
-                  bomLines={bomLines}
-                  selectedItemIds={bomSelectedIds}
-                  onSelectedItemIdsChange={setBomSelectedIds}
-                  onAddSelected={addSelectedBomLines}
-                  onRemoveLine={removeBomLine}
-                  onUpdateLineQuantity={updateBomLineQuantity}
-                />
+                <>
+                  {catalogError && (
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                      Couldn&apos;t load components from the API.
+                    </p>
+                  )}
+                  <BomRecipeEditor
+                    catalogItems={catalogItems}
+                    bomLines={bomLines}
+                    selectedItemIds={bomSelectedIds}
+                    onSelectedItemIdsChange={setBomSelectedIds}
+                    onAddSelected={addSelectedBomLines}
+                    onRemoveLine={removeBomLine}
+                    onUpdateLineQuantity={updateBomLineQuantity}
+                  />
+                </>
               )}
               <BrutalSwitch
                 ariaLabel="Status"
@@ -681,13 +419,19 @@ export default function NewItem() {
               <div className="min-w-0 max-w-full overflow-hidden">
                 <NeobrutalDataTable rows={items} />
               </div>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-end gap-3">
+                {submitError && (
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                    {submitError}
+                  </p>
+                )}
                 <button
                   type="button"
-                  onClick={handleSubmitAll}
-                  className="border-brutal border-black bg-nv-violet px-6 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                  onClick={() => void handleSubmitAll()}
+                  disabled={submitting}
+                  className="border-brutal border-black bg-nv-violet px-6 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Submit
+                  {submitting ? "Submitting…" : "Submit"}
                 </button>
               </div>
             </>

@@ -26,26 +26,39 @@ export const CreateItem = async (item) => {
       'Content-Type': 'application/json',
     },
   });
-  return response.json();
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Create failed (${response.status})`);
+  }
+  return data;
 };
 
 export const UpdateItem = async (id, item) => {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${id}`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify(item),
     headers: {
       'Content-Type': 'application/json',
     },
   });
-  return response.json();
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Update failed (${response.status})`);
+  }
+  return data;
 };
 
 export const DeleteItem = async (id) => {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${id}`, {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!baseUrl) {
+    throw new Error("API URL is not configured (NEXT_PUBLIC_API_URL).");
+  }
+  const response = await fetch(`${baseUrl}/api/items/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
   });
-  return response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Delete failed (${response.status})`);
+  }
+  return true;
 };

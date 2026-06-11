@@ -28,7 +28,6 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
             { data: "name", title: "Part name" },
             { data: "sku", title: "Sku" },
             { data: "description", title: "Description", defaultContent: "" },
-            { data: "item_type", title: "Type", defaultContent: "" },
             { data: "make_or_buy", title: "Make or Buy", defaultContent: "" },
             { data: "unit_of_measure", title: "Units", defaultContent: "" },
             { data: "default_cost", title: "Cost", defaultContent: "" },
@@ -39,7 +38,15 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
               render: (value) => (value === true ? "Yes" : value === false ? "No" : ""),
             },
             { data: "vendor", title: "Vendor", defaultContent: "" },
-            { data: "bom", title: "BOM", defaultContent: "—" },
+            {
+              data: "bom_items",
+              title: "BOM",
+              defaultContent: "—",
+              render: (value) =>
+                Array.isArray(value) && value.length > 0
+                  ? `${value.length} component${value.length === 1 ? "" : "s"}`
+                  : "—",
+            },
           ],
           layout: {
             topStart: "pageLength",
