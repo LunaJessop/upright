@@ -2,31 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeleteItem, GetAllItems, GetItemById, UpdateItem } from "@/app/api/apiHandler";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import BomTreeView from "@/components/BomTreeView";
+import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
-const editInputClass =
-  "w-full max-w-[14rem] border-brutal border-black bg-nv-paper px-2 py-1 text-right text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
 
 /* Placeholder vendor ids — swap for a vendors table lookup later */
 const VENDOR_ID_OPTIONS = Array.from({ length: 10 }, (_, index) => ({
   value: String(index + 1),
   label: `Vendor ${index + 1}`,
 }));
-
-const UNIT_OF_MEASURE_OPTIONS = [
-  { value: "ea", label: "Each (ea)" },
-  { value: "kg", label: "Kilogram (kg)" },
-  { value: "lb", label: "Pound (lb)" },
-  { value: "ft", label: "Foot (ft)" },
-  { value: "m", label: "Meter (m)" },
-  { value: "L", label: "Liter (L)" },
-  { value: "gal", label: "Gallon (gal)" },
-];
 
 function formatCost(value) {
   const number = Number(value);
@@ -45,14 +35,30 @@ function formatDate(value) {
   });
 }
 
+const editInputClass =
+  "w-full border-brutal border-black bg-nv-paper px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+
 function FieldRow({ label, value, children }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5 last:border-b-0">
       <span className={`shrink-0 ${labelClass}`}>{label}</span>
       {children ?? (
-        <span className="min-w-0 text-right text-sm font-semibold">
+        <span className="min-w-0 flex-1 text-right text-sm font-semibold">
           {value === "" || value === null || value === undefined ? "—" : value}
         </span>
+      )}
+    </div>
+  );
+}
+
+function FieldBlock({ label, value, children }) {
+  return (
+    <div className="border-b border-black/10 py-3">
+      <span className={`mb-2 block ${labelClass}`}>{label}</span>
+      {children ?? (
+        <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-nv-ink">
+          {value === "" || value === null || value === undefined ? "—" : value}
+        </p>
       )}
     </div>
   );
@@ -74,6 +80,12 @@ function SectionCard({ title, accent = "bg-nv-cyan", action, children, className
   );
 }
 
+function formatSkuSource(source) {
+  if (source === "purchase") return "Purchase";
+  if (source === "production") return "Production";
+  return "—";
+}
+
 function itemToDraft(item) {
   const isMake =
     item.make_or_buy === "make" || item.make_or_buy === true || item.make_or_buy === "true";
@@ -83,7 +95,7 @@ function itemToDraft(item) {
     description: item.description == null ? "" : String(item.description),
     make_or_buy: isMake ? "make" : "buy",
     unit_of_measure: item.unit_of_measure ?? "",
-    default_cost: item.default_cost == null ? "" : String(item.default_cost),
+    default_unit_price: item.default_unit_price == null ? "" : String(item.default_unit_price),
     vendor: item.vendor == null ? "" : String(item.vendor),
     active: Boolean(item.active),
   };
@@ -170,11 +182,15 @@ export default function ItemDetailPage({ params }) {
   };
 
   const saveDraft = async () => {
-    if (!draft.name.trim() || !draft.sku.trim()) {
-      setSaveError("Name and SKU are required.");
+    if (!draft.name.trim()) {
+      setSaveError("Name is required.");
       return;
     }
     const isMakeDraft = draft.make_or_buy === "make";
+    if (!isMakeDraft && !draft.sku.trim()) {
+      setSaveError("Vendor part number is required for buy items.");
+      return;
+    }
     if (
       isMakeDraft &&
       bomLines.some((line) => !(Number(line.quantity) > 0))
@@ -189,9 +205,10 @@ export default function ItemDetailPage({ params }) {
         ...item,
         ...draft,
         name: draft.name.trim(),
-        sku: draft.sku.trim(),
+        sku: isMakeDraft ? null : draft.sku.trim(),
         description: draft.description.trim(),
-        default_cost: draft.default_cost.trim() === "" ? null : draft.default_cost.trim(),
+        default_unit_price:
+          draft.default_unit_price.trim() === "" ? null : draft.default_unit_price.trim(),
         vendor:
           isMakeDraft || draft.vendor === "" ? null : Number(draft.vendor),
         bom_items: isMakeDraft
@@ -269,6 +286,19 @@ export default function ItemDetailPage({ params }) {
 
   const isMake =
     item?.make_or_buy === "make" || item?.make_or_buy === true || item?.make_or_buy === "true";
+  const lotSkus = Array.isArray(item?.item_skus) ? item.item_skus : [];
+  const headerLabel = isMake
+    ? lotSkus[0]?.sku ?? "No lot SKUs yet"
+    : item?.sku || "No vendor part #";
+
+  const itemById = useMemo(() => {
+    const map = new Map();
+    if (item) map.set(String(item.id), item);
+    for (const entry of catalogItems) {
+      map.set(String(entry.id), entry);
+    }
+    return map;
+  }, [item, catalogItems]);
 
   return (
     <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
@@ -296,7 +326,7 @@ export default function ItemDetailPage({ params }) {
           <>
             <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
               <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
-                Item #{item.id} · {item.sku || "No SKU"}
+                {headerLabel}
               </p>
               <h1 className="text-3xl font-black uppercase leading-tight">
                 {item.name}
@@ -395,79 +425,58 @@ export default function ItemDetailPage({ params }) {
                 }
               >
                 {editing && draft ? (
-                  <>
-                    <FieldRow label="Name">
-                      <input
-                        type="text"
-                        value={draft.name}
-                        onChange={(e) => setDraftField("name", e.target.value)}
-                        className={editInputClass}
-                      />
-                    </FieldRow>
-                    <FieldRow label="SKU">
-                      <input
-                        type="text"
-                        value={draft.sku}
-                        onChange={(e) => setDraftField("sku", e.target.value)}
-                        className={editInputClass}
-                      />
-                    </FieldRow>
-                    <FieldRow label="Description">
-                      <input
-                        type="text"
+                  <div className="space-y-1">
+                    <div className="grid gap-x-6 sm:grid-cols-2">
+                      <FieldRow label="Name">
+                        <input
+                          type="text"
+                          value={draft.name}
+                          onChange={(e) => setDraftField("name", e.target.value)}
+                          className={editInputClass}
+                        />
+                      </FieldRow>
+                      {draft.make_or_buy === "buy" && (
+                        <FieldRow label="Vendor part #">
+                          <input
+                            type="text"
+                            value={draft.sku}
+                            onChange={(e) => setDraftField("sku", e.target.value)}
+                            className={editInputClass}
+                            placeholder="Supplier catalog number"
+                          />
+                        </FieldRow>
+                      )}
+                    </div>
+
+                    <FieldBlock label="Description">
+                      <textarea
+                        rows={4}
                         value={draft.description}
                         onChange={(e) => setDraftField("description", e.target.value)}
-                        className={editInputClass}
+                        className={`${editInputClass} min-h-[5.5rem] resize-y leading-relaxed`}
+                        placeholder="Optional notes about this item…"
                       />
-                    </FieldRow>
+                    </FieldBlock>
+
                     <FieldRow label="Make or buy">
                       <BrutalSwitch
                         ariaLabel="Make or buy"
                         value={draft.make_or_buy}
-                        setValue={(value) => setDraftField("make_or_buy", value)}
+                        setValue={(value) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            make_or_buy: value,
+                            sku: value === "make" ? "" : prev.sku,
+                            vendor: value === "make" ? "" : prev.vendor,
+                          }))
+                        }
                         offValue="buy"
                         onValue="make"
                         offLabel="Buy"
                         onLabel="Make"
                       />
                     </FieldRow>
-                    {draft.make_or_buy === "make" && (
-                      <div className="border-b border-black/10 py-2">
-                        <BomRecipeEditor
-                          catalogItems={catalogItems}
-                          bomLines={bomLines}
-                          selectedItemIds={bomSelectedIds}
-                          onSelectedItemIdsChange={setBomSelectedIds}
-                          onAddSelected={addSelectedBomLines}
-                          onRemoveLine={removeBomLine}
-                          onUpdateLineQuantity={updateBomLineQuantity}
-                        />
-                      </div>
-                    )}
-                    <FieldRow label="Unit of measure">
-                      <select
-                        value={draft.unit_of_measure}
-                        onChange={(e) => setDraftField("unit_of_measure", e.target.value)}
-                        className={`${editInputClass} cursor-pointer`}
-                      >
-                        <option value="">—</option>
-                        {UNIT_OF_MEASURE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </FieldRow>
-                    <FieldRow label="Default cost">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        value={draft.default_cost}
-                        onChange={(e) => setDraftField("default_cost", e.target.value)}
-                        className={editInputClass}
-                      />
-                    </FieldRow>
+
                     {draft.make_or_buy === "buy" && (
                       <FieldRow label="Vendor">
                         <select
@@ -484,37 +493,85 @@ export default function ItemDetailPage({ params }) {
                         </select>
                       </FieldRow>
                     )}
-                    <FieldRow label="Status">
-                      <select
-                        value={draft.active ? "active" : "inactive"}
-                        onChange={(e) => setDraftField("active", e.target.value === "active")}
-                        className={`${editInputClass} cursor-pointer`}
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </FieldRow>
-                    <FieldRow label="Created" value={formatDate(item.created_at)} />
-                    <FieldRow label="Updated" value={formatDate(item.updated_at)} />
-                  </>
+
+                    {draft.make_or_buy === "make" && (
+                      <div className="border-b border-black/10 py-3">
+                        <BomRecipeEditor
+                          catalogItems={catalogItems}
+                          bomLines={bomLines}
+                          selectedItemIds={bomSelectedIds}
+                          onSelectedItemIdsChange={setBomSelectedIds}
+                          onAddSelected={addSelectedBomLines}
+                          onRemoveLine={removeBomLine}
+                          onUpdateLineQuantity={updateBomLineQuantity}
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid gap-x-6 sm:grid-cols-2">
+                      <FieldRow label="Unit of measure">
+                        <UnitOfMeasureSelect
+                          value={draft.unit_of_measure}
+                          onChange={(e) => setDraftField("unit_of_measure", e.target.value)}
+                          className={`${editInputClass} cursor-pointer`}
+                        />
+                      </FieldRow>
+                      <FieldRow label="List price">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={draft.default_unit_price}
+                          onChange={(e) => setDraftField("default_unit_price", e.target.value)}
+                          className={editInputClass}
+                        />
+                      </FieldRow>
+                      <FieldRow label="Status">
+                        <select
+                          value={draft.active ? "active" : "inactive"}
+                          onChange={(e) => setDraftField("active", e.target.value === "active")}
+                          className={`${editInputClass} cursor-pointer`}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </FieldRow>
+                    </div>
+
+                    <div className="grid gap-x-6 border-t border-black/10 pt-1 sm:grid-cols-2">
+                      <FieldRow label="Created" value={formatDate(item.created_at)} />
+                      <FieldRow label="Updated" value={formatDate(item.updated_at)} />
+                    </div>
+                  </div>
                 ) : (
-                  <>
+                  <div className="space-y-1">
                     <FieldRow label="Name" value={item.name} />
-                    <FieldRow label="SKU" value={item.sku} />
-                    <FieldRow label="Description" value={item.description} />
+                    {!isMake && (
+                      <FieldRow label="Vendor part #" value={item.sku} />
+                    )}
+
+                    <FieldBlock label="Description" value={item.description} />
+
                     <FieldRow label="Make or buy" value={isMake ? "Make" : "Buy"} />
-                    <FieldRow label="Unit of measure" value={item.unit_of_measure} />
-                    <FieldRow label="Default cost" value={formatCost(item.default_cost)} />
+
                     {!isMake && (
                       <FieldRow
                         label="Vendor"
                         value={item.vendor == null ? "—" : `Vendor ${item.vendor}`}
                       />
                     )}
-                    <FieldRow label="Status" value={item.active ? "Active" : "Inactive"} />
-                    <FieldRow label="Created" value={formatDate(item.created_at)} />
-                    <FieldRow label="Updated" value={formatDate(item.updated_at)} />
-                  </>
+
+                    <div className="grid gap-x-6 sm:grid-cols-2">
+                      <FieldRow label="Unit of measure" value={item.unit_of_measure} />
+                      <FieldRow label="List price" value={formatCost(item.default_unit_price)} />
+                      <FieldRow label="Status" value={item.active ? "Active" : "Inactive"} />
+                    </div>
+
+                    <div className="grid gap-x-6 border-t border-black/10 pt-1 sm:grid-cols-2">
+                      <FieldRow label="Created" value={formatDate(item.created_at)} />
+                      <FieldRow label="Updated" value={formatDate(item.updated_at)} />
+                    </div>
+                  </div>
                 )}
               </SectionCard>
 
@@ -527,49 +584,48 @@ export default function ItemDetailPage({ params }) {
                 />
                 <FieldRow label="Source" value={isMake ? "Built from BOM" : "Purchased"} />
                 <p className="mt-4 text-[10px] font-medium text-nv-ink/50">
-                  Rolled-up BOM and labor costing will appear here once jobs and
+                  Rolled-up BOM and labor costing will appear here once batches and
                   BOMs are wired up.
                 </p>
               </SectionCard>
 
-              <SectionCard title="Associated jobs">
-                <p className="text-xs font-medium text-nv-ink/55">
-                  No jobs are linked to this item yet. Jobs that consume or
-                  produce this item will show up here.
-                </p>
+              <SectionCard title="SKUs" accent="bg-nv-lavender">
+                {lotSkus.length > 0 ? (
+                  <ul className="space-y-2">
+                    {lotSkus.map((row) => (
+                      <li
+                        key={row.id}
+                        className="flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2"
+                      >
+                        <span className="font-mono text-sm font-black">{row.sku}</span>
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
+                          <span>{formatSkuSource(row.source)}</span>
+                          {row.batch_id != null && (
+                            <span>Batch #{row.batch_id}</span>
+                          )}
+                          <span>{formatDate(row.created_at)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs font-medium text-nv-ink/55">
+                    No lot SKUs yet. Lot SKUs are created when buy stock is received
+                    or when a make batch is completed.
+                  </p>
+                )}
               </SectionCard>
 
               <SectionCard title="BOM" accent="bg-nv-teal">
                 {isMake ? (
                   Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
-                    <ul className="space-y-2">
-                      {item.bom_items.map((line, index) => {
-                        const component = catalogItems.find(
-                          (entry) => String(entry.id) === String(line.component_item_id)
-                        );
-                        const unit = component?.unit_of_measure ?? "";
-                        return (
-                          <li
-                            key={`${line.component_item_id}-${index}`}
-                            className="flex items-center justify-between gap-3 border-brutal border-black bg-nv-cyan/15 px-3 py-2"
-                          >
-                            <span className="min-w-0 flex-1 truncate text-xs">
-                              <span className="font-black">
-                                {component?.name || `Item #${line.component_item_id}`}
-                              </span>
-                              {component?.sku ? (
-                                <span className="font-normal text-nv-ink/70">
-                                  {" "}({component.sku})
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="shrink-0 text-xs font-semibold">
-                              {line.quantity ?? "—"}{unit ? ` ${unit}` : ""} per item
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <>
+                      <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
+                        Expand components with a recipe to see nested materials
+                        needed per finished item.
+                      </p>
+                      <BomTreeView lines={item.bom_items} itemById={itemById} />
+                    </>
                   ) : (
                     <p className="text-xs font-medium text-nv-ink/55">
                       No recipe defined yet. Use Edit in Item data to add

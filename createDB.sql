@@ -1,10 +1,11 @@
 -- MRP schema for upright (PostgreSQL)
--- Optional: for multi-tenant SKU uniqueness, prefer UNIQUE (organization_id, sku) instead of UNIQUE (sku) on items.
+-- Multi-tenant: each row belongs to a client (company using Upright).
+-- Prefer UNIQUE (client_id, sku) on items instead of UNIQUE (sku) alone.
 
 -- =========================================
--- ORGANIZATIONS
+-- CLIENTS (companies using Upright)
 -- =========================================
-CREATE TABLE organizations (
+CREATE TABLE clients (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     slug TEXT UNIQUE,
@@ -16,15 +17,15 @@ CREATE TABLE organizations (
 );
 
 -- =========================================
--- USERS
+-- USERS (login accounts; roles: founder > admin > user)
 -- =========================================
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'employee',
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('founder', 'admin', 'user')),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -35,45 +36,33 @@ CREATE TABLE users (
 -- =========================================
 CREATE TABLE items (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     name TEXT NOT NULL,
-    sku TEXT NOT NULL UNIQUE,
+    sku TEXT,
     description TEXT,
-    item_type TEXT NOT NULL,
     make_or_buy TEXT NOT NULL,
     unit_of_measure TEXT NOT NULL,
-    default_cost NUMERIC,
+    default_unit_price NUMERIC,
     active BOOLEAN DEFAULT TRUE,
+    vendor INTEGER,
     created_by INTEGER REFERENCES users(id),
     updated_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- =========================================
--- BOMs (Bill of Materials header)
--- =========================================
-CREATE TABLE boms (
-    id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
-    parent_item_id INTEGER NOT NULL REFERENCES items(id),
-    version INTEGER DEFAULT 1,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_by INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE UNIQUE INDEX items_client_vendor_sku ON items (client_id, sku)
+  WHERE sku IS NOT NULL AND sku <> '';
 
 -- =========================================
--- BOM ITEMS (components of each BOM)
+-- BOM ITEMS (recipe lines; parent_item_id owns the recipe)
 -- =========================================
 CREATE TABLE bom_items (
     id SERIAL PRIMARY KEY,
-    bom_id INTEGER NOT NULL REFERENCES boms(id),
+    parent_item_id INTEGER NOT NULL REFERENCES items(id),
     component_item_id INTEGER NOT NULL REFERENCES items(id),
-    quantity_required NUMERIC NOT NULL,
-    unit_of_measure TEXT,
-    scrap_factor NUMERIC DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    quantity NUMERIC NOT NULL,
+    UNIQUE (parent_item_id, component_item_id)
 );
 
 -- =========================================
@@ -81,7 +70,7 @@ CREATE TABLE bom_items (
 -- =========================================
 CREATE TABLE locations (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     name TEXT NOT NULL,
     type TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -92,7 +81,7 @@ CREATE TABLE locations (
 -- =========================================
 CREATE TABLE inventory (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
     location_id INTEGER REFERENCES locations(id),
     quantity NUMERIC NOT NULL DEFAULT 0,
@@ -104,7 +93,7 @@ CREATE TABLE inventory (
 -- =========================================
 CREATE TABLE inventory_transactions (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
     location_id INTEGER REFERENCES locations(id),
     quantity_change NUMERIC NOT NULL,
@@ -120,7 +109,7 @@ CREATE TABLE inventory_transactions (
 -- =========================================
 CREATE TABLE sales_orders (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     customer_name TEXT NOT NULL,
     customer_email TEXT,
     status TEXT DEFAULT 'pending',
@@ -146,13 +135,12 @@ CREATE TABLE sales_order_items (
 );
 
 -- =========================================
--- JOBS (production runs)
+-- BATCHES (production runs)
 -- =========================================
-CREATE TABLE jobs (
+CREATE TABLE batches (
     id SERIAL PRIMARY KEY,
-    organization_id INTEGER NOT NULL REFERENCES organizations(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
-    bom_id INTEGER REFERENCES boms(id),
     quantity NUMERIC NOT NULL,
     status TEXT DEFAULT 'planned',
     start_date TIMESTAMP,
@@ -164,26 +152,38 @@ CREATE TABLE jobs (
 );
 
 -- =========================================
--- JOB COMPONENTS (materials allocated to jobs)
+-- BATCH COMPONENTS (materials allocated to batches)
 -- =========================================
-CREATE TABLE job_components (
+CREATE TABLE batch_components (
     id SERIAL PRIMARY KEY,
-    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    batch_id INTEGER NOT NULL REFERENCES batches(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
     quantity_allocated NUMERIC,
     unit_of_measure TEXT
 );
 
+-- =========================================
+-- ITEM SKUS (lot / batch numbers per item)
+-- =========================================
+CREATE TABLE item_skus (
+    id SERIAL PRIMARY KEY,
+    client_id INTEGER NOT NULL REFERENCES clients(id),
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    sku TEXT NOT NULL,
+    batch_id INTEGER REFERENCES batches(id),
+    source TEXT CHECK (source IN ('purchase', 'production')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (client_id, sku)
+);
+
 -- Optional: indexes on foreign keys / filters (uncomment to apply)
--- CREATE INDEX idx_users_organization_id ON users (organization_id);
--- CREATE INDEX idx_items_organization_id ON items (organization_id);
--- CREATE INDEX idx_boms_organization_id ON boms (organization_id);
--- CREATE INDEX idx_bom_items_bom_id ON bom_items (bom_id);
--- CREATE INDEX idx_locations_organization_id ON locations (organization_id);
--- CREATE INDEX idx_inventory_organization_id ON inventory (organization_id);
+-- CREATE INDEX idx_users_client_id ON users (client_id);
+-- CREATE INDEX idx_items_client_id ON items (client_id);
+-- CREATE INDEX idx_locations_client_id ON locations (client_id);
+-- CREATE INDEX idx_inventory_client_id ON inventory (client_id);
 -- CREATE INDEX idx_inventory_item_id ON inventory (item_id);
--- CREATE INDEX idx_inventory_transactions_organization_id ON inventory_transactions (organization_id);
--- CREATE INDEX idx_sales_orders_organization_id ON sales_orders (organization_id);
+-- CREATE INDEX idx_inventory_transactions_client_id ON inventory_transactions (client_id);
+-- CREATE INDEX idx_sales_orders_client_id ON sales_orders (client_id);
 -- CREATE INDEX idx_sales_order_items_sales_order_id ON sales_order_items (sales_order_id);
--- CREATE INDEX idx_jobs_organization_id ON jobs (organization_id);
--- CREATE INDEX idx_job_components_job_id ON job_components (job_id);
+-- CREATE INDEX idx_item_skus_item_id ON item_skus (item_id);
+-- CREATE INDEX idx_item_skus_client_id ON item_skus (client_id);

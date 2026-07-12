@@ -15,11 +15,11 @@ export default function Home() {
           Welcome to Upright
         </h1>
         <p className="text-sm font-medium text-nv-ink/70">
-          Track your items, recipes, and jobs in one place. Use the navigation
+          Track your items, recipes, and batches in one place. Use the navigation
           on the left to get started — browse your catalog under{" "}
           <span className="font-black">Items</span>, or check on orders in{" "}
           <span className="font-black">Sales</span> and{" "}
-          <span className="font-black">Jobs</span>.
+          <span className="font-black">Batches</span>.
         </p>
       </div>
     </main>

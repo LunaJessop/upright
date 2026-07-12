@@ -1,1 +1,1 @@
-[{"id":1,"organization_id":1,"name":"test","sku":"test","description":"test","make_or_buy":"false","unit_of_measure":"ea","default_cost":"1000","active":true,"created_at":"2026-06-10 00:00:00","updated_at":"2026-06-10 00:00:00"}]
+[{"id":1,"client_id":1,"name":"test","sku":"test","description":"test","make_or_buy":"false","unit_of_measure":"ea","default_unit_price":"1000","active":true,"created_at":"2026-06-10 00:00:00","updated_at":"2026-06-10 00:00:00"}]

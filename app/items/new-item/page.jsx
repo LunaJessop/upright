@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import NeobrutalDataTable from "@/components/NeobrutalDataTable";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { CreateItem, GetAllItems } from "@/app/api/apiHandler";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -19,7 +20,7 @@ const INITIAL_FORM = {
   description: "",
   makeOrBuy: false,
   unitOfMeasure: UNSET_SELECT,
-  defaultCost: "",
+  defaultUnitPrice: "",
   active: true,
   vendor: UNSET_SELECT,
   bomLines: [],
@@ -92,26 +93,16 @@ function DropdownInput({ title, value, setValue, options, className = "" }) {
   );
 }
 
-const UNIT_OF_MEASURE_OPTIONS = [
-  { value: "ea", label: "Each (ea)" },
-  { value: "kg", label: "Kilogram (kg)" },
-  { value: "lb", label: "Pound (lb)" },
-  { value: "ft", label: "Foot (ft)" },
-  { value: "m", label: "Meter (m)" },
-  { value: "L", label: "Liter (L)" },
-  { value: "gal", label: "Gallon (gal)" },
-];
-
 function formToItem(form, id) {
   const isMake = form.makeOrBuy === true;
   return {
     id,
     name: form.name,
-    sku: form.sku,
+    sku: isMake ? null : form.sku.trim(),
     description: form.description,
     make_or_buy: isMake ? "make" : "buy",
     unit_of_measure: form.unitOfMeasure === UNSET_SELECT ? "" : form.unitOfMeasure,
-    default_cost: form.defaultCost,
+    default_unit_price: form.defaultUnitPrice,
     active: form.active,
     vendor: isMake || form.vendor === UNSET_SELECT ? null : Number(form.vendor),
     bom_items: isMake
@@ -137,10 +128,10 @@ function isFormComplete(form) {
   const isMake = form.makeOrBuy === true;
   const baseComplete =
     form.name.trim() !== "" &&
-    form.sku.trim() !== "" &&
     form.description.trim() !== "" &&
     form.unitOfMeasure !== UNSET_SELECT &&
-    form.defaultCost.trim() !== "";
+    form.defaultUnitPrice.trim() !== "" &&
+    (isMake || form.sku.trim() !== "");
 
   if (!baseComplete) return false;
   if (isMake) return areBomLinesValid(form.bomLines);
@@ -178,7 +169,7 @@ export default function NewItem() {
   const [description, setDescription] = useState(INITIAL_FORM.description);
   const [makeOrBuy, setMakeOrBuy] = useState(INITIAL_FORM.makeOrBuy);
   const [unitOfMeasure, setUnitOfMeasure] = useState(INITIAL_FORM.unitOfMeasure);
-  const [defaultCost, setDefaultCost] = useState(INITIAL_FORM.defaultCost);
+  const [defaultUnitPrice, setDefaultUnitPrice] = useState(INITIAL_FORM.defaultUnitPrice);
   const [active, setActive] = useState(INITIAL_FORM.active);
   const [vendor, setVendor] = useState(INITIAL_FORM.vendor);
   const [bomLines, setBomLines] = useState(INITIAL_FORM.bomLines);
@@ -189,6 +180,7 @@ export default function NewItem() {
     setMakeOrBuy(value);
     if (value) {
       setVendor(UNSET_SELECT);
+      setSku("");
     } else {
       setBomLines([]);
       setBomSelectedIds([]);
@@ -236,7 +228,7 @@ export default function NewItem() {
     description,
     makeOrBuy,
     unitOfMeasure,
-    defaultCost,
+    defaultUnitPrice,
     active,
     vendor,
     bomLines,
@@ -251,7 +243,7 @@ export default function NewItem() {
     setDescription(INITIAL_FORM.description);
     setMakeOrBuy(INITIAL_FORM.makeOrBuy);
     setUnitOfMeasure(INITIAL_FORM.unitOfMeasure);
-    setDefaultCost(INITIAL_FORM.defaultCost);
+    setDefaultUnitPrice(INITIAL_FORM.defaultUnitPrice);
     setActive(INITIAL_FORM.active);
     setVendor(INITIAL_FORM.vendor);
     setBomLines(INITIAL_FORM.bomLines);
@@ -321,35 +313,38 @@ export default function NewItem() {
             aria-label="New item form"
           >
             <FreeInput title="Item name" value={name} setValue={setName} />
-            <FreeInput title="SKU" value={sku} setValue={setSku} />
+            {!makeOrBuy && (
+              <FreeInput
+                title="Vendor part #"
+                value={sku}
+                setValue={setSku}
+                placeholder="Supplier catalog number"
+              />
+            )}
             <TextAreaInput
               title="Description"
               value={description}
               setValue={setDescription}
               className="col-span-2"
             />
-            <DropdownInput
-              title="Unit of measure"
-              value={unitOfMeasure}
-              setValue={setUnitOfMeasure}
-              options={UNIT_OF_MEASURE_OPTIONS}
-            />
+            <label className="block space-y-1">
+              <span className={labelClass}>Unit of measure</span>
+              <UnitOfMeasureSelect
+                value={unitOfMeasure}
+                onChange={(e) => setUnitOfMeasure(e.target.value)}
+                className={`${inputClass} cursor-pointer`}
+                emptyValue={UNSET_SELECT}
+                emptyLabel="Select unit of measure"
+              />
+            </label>
             <FreeInput
-              title="Default cost"
+              title="List price"
               type="text"
               inputMode="decimal"
-              value={defaultCost}
-              setValue={setDefaultCost}
+              value={defaultUnitPrice}
+              setValue={setDefaultUnitPrice}
               placeholder="0.00"
             />
-            {!makeOrBuy && (
-              <DropdownInput
-                title="Vendor"
-                value={vendor}
-                setValue={setVendor}
-                options={VENDOR_ID_OPTIONS}
-              />
-            )}
             <div className="col-span-2 flex flex-col items-start gap-2">
               <BrutalSwitch
                 ariaLabel="Make or buy"
@@ -360,6 +355,15 @@ export default function NewItem() {
                 offLabel="Buy"
                 onLabel="Make"
               />
+              {!makeOrBuy && (
+                <DropdownInput
+                  title="Vendor"
+                  value={vendor}
+                  setValue={setVendor}
+                  options={VENDOR_ID_OPTIONS}
+                  className="w-full"
+                />
+              )}
               {makeOrBuy && (
                 <>
                   {catalogError && (

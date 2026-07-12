@@ -26,11 +26,28 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
           autoWidth: false,
           columns: [
             { data: "name", title: "Part name" },
-            { data: "sku", title: "Sku" },
+            {
+              data: null,
+              title: "Vendor part / Lot SKU",
+              defaultContent: "—",
+              render: (_data, _type, row) => {
+                const isMake =
+                  row.make_or_buy === "make" ||
+                  row.make_or_buy === true ||
+                  row.make_or_buy === "true";
+                if (isMake) {
+                  const lotSkus = Array.isArray(row.item_skus) ? row.item_skus : [];
+                  if (lotSkus.length === 0) return "—";
+                  if (lotSkus.length === 1) return lotSkus[0].sku;
+                  return `${lotSkus.length} lot SKUs`;
+                }
+                return row.sku || "—";
+              },
+            },
             { data: "description", title: "Description", defaultContent: "" },
             { data: "make_or_buy", title: "Make or Buy", defaultContent: "" },
             { data: "unit_of_measure", title: "Units", defaultContent: "" },
-            { data: "default_cost", title: "Cost", defaultContent: "" },
+            { data: "default_unit_price", title: "List price", defaultContent: "" },
             {
               data: "active",
               title: "Active",

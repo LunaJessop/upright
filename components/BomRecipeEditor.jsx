@@ -9,7 +9,8 @@ const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 export function catalogItemLabel(catalogItems, itemId) {
   const item = catalogItems.find((row) => String(row.id) === itemId);
-  return item ? `${item.name} (${item.sku})` : "";
+  if (!item) return "";
+  return item.sku ? `${item.name} (${item.sku})` : item.name;
 }
 
 export function catalogItemUnit(catalogItems, itemId) {
@@ -34,7 +35,9 @@ function catalogItemDisplay(catalogItems, itemId) {
   return (
     <>
       <span className="font-black">{item.name}</span>
-      <span className="font-normal text-nv-ink/70"> ({item.sku})</span>
+      {item.sku ? (
+        <span className="font-normal text-nv-ink/70"> ({item.sku})</span>
+      ) : null}
     </>
   );
 }
@@ -181,7 +184,7 @@ export default function BomRecipeEditor({
 }) {
   const bomOptions = catalogItems.map((item) => ({
     value: String(item.id),
-    label: `${item.name} (${item.sku})`,
+    label: catalogItemLabel(catalogItems, String(item.id)),
   }));
 
   return (

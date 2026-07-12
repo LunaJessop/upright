@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
+import { useAuth } from "@/components/AuthProvider";
+import { ROLE_LABELS } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
 
@@ -20,9 +22,9 @@ const NAV_SECTIONS = [
     links: [{ href: "/items", label: "All items" }],
   },
   {
-    id: "jobs",
-    label: "Jobs",
-    links: [{ href: "/jobs", label: "Pending batches" }],
+    id: "batches",
+    label: "Batches",
+    links: [{ href: "/batches", label: "Pending batches" }],
   },
 ];
 
@@ -74,9 +76,16 @@ function NavDropdown({ section, pathname, isOpen, onToggle }) {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((s) => [s.id, true]))
   );
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
 
   const toggleSection = (id) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -109,26 +118,39 @@ export default function Navbar() {
         ))}
       </nav>
 
-      <Link
-        href="/user"
-        className={`mt-auto border-t-brutal border-black ${brutalChrome} flex items-center gap-3 bg-nv-paper p-3 transition-colors hover:bg-nv-cyan/20`}
-        aria-label="User profile"
-      >
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center border-brutal border-black bg-nv-violet text-xs font-black uppercase text-white shadow-brutal-sm"
-          aria-hidden
+      <div className={`mt-auto border-t-brutal border-black ${brutalChrome} bg-nv-paper p-3`}>
+        <div className="mb-2 flex items-center gap-3">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center border-brutal border-black bg-nv-violet text-xs font-black uppercase text-white shadow-brutal-sm"
+            aria-hidden
+          >
+            {(user?.name ?? "U")
+              .split(" ")
+              .map((part) => part[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[11px] font-black uppercase tracking-wide">
+              {user?.name ?? "User"}
+            </span>
+            <span className="block truncate text-[10px] font-medium text-nv-ink/60">
+              {user?.client_name ?? "Client"}
+            </span>
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-nv-violet">
+              {ROLE_LABELS[user?.role] ?? user?.role ?? "User"}
+            </span>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide transition-transform hover:-translate-y-0.5"
         >
-          AU
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[11px] font-black uppercase tracking-wide">
-            Account User
-          </span>
-          <span className="block truncate text-[10px] font-medium text-nv-ink/60">
-            user@upright.app
-          </span>
-        </span>
-      </Link>
+          Log out
+        </button>
+      </div>
     </aside>
   );
 }
