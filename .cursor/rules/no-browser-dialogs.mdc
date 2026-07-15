@@ -1,0 +1,10 @@
+---
+description: Prefer inline confirmation UI over browser alert/confirm dialogs
+alwaysApply: true
+---
+
+# No browser confirmation dialogs
+
+Never use `window.alert`, `window.confirm`, or `window.prompt` for user confirmations.
+
+Use an in-page confirmation pattern instead (e.g. replace a destructive action button with "Go back" and "Confirm", or an in-app modal that matches the existing UI).

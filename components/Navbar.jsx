@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
+import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { ROLE_LABELS } from "@/lib/auth";
 
@@ -12,19 +13,25 @@ const brutalChrome = "border-brutal border-black shadow-brutal-sm";
 
 const NAV_SECTIONS = [
   {
-    id: "sales",
-    label: "Sales",
-    links: [{ href: "/sales", label: "Money in & out" }],
-  },
-  {
     id: "items",
     label: "Items",
-    links: [{ href: "/items", label: "All items" }],
+    links: [
+      { href: "/items", label: "All items" },
+      { href: "/items/inventory", label: "Inventory" },
+    ],
   },
   {
     id: "batches",
-    label: "Batches",
-    links: [{ href: "/batches", label: "Pending batches" }],
+    label: "Production",
+    links: [{ href: "/batches", label: "Production" }],
+  },
+  {
+    id: "settings",
+    label: "Business Settings",
+    links: [
+      { href: "/settings/phases", label: "Phases" },
+      { href: "/settings/vendors", label: "Vendors" },
+    ],
   },
 ];
 
@@ -84,7 +91,16 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    router.replace("/login");
+    router.replace("/");
+  };
+
+  const handleBilling = async () => {
+    try {
+      const { portalUrl } = await createBillingPortal();
+      window.location.href = portalUrl;
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const toggleSection = (id) => {
@@ -94,7 +110,7 @@ export default function Navbar() {
   return (
     <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r-brutal border-black bg-nv-canvas">
       <Link
-        href="/"
+        href="/items"
         className="flex flex-col items-center gap-2 border-b-brutal border-black bg-nv-violet px-4 py-5 text-white"
       >
         <Image
@@ -119,7 +135,14 @@ export default function Navbar() {
       </nav>
 
       <div className={`mt-auto border-t-brutal border-black ${brutalChrome} bg-nv-paper p-3`}>
-        <div className="mb-2 flex items-center gap-3">
+        <Link
+          href="/profile"
+          className={`mb-2 flex items-center gap-3 rounded-none p-1 transition-colors ${
+            pathname === "/profile" || pathname === "/client"
+              ? "bg-nv-cyan/30"
+              : "hover:bg-nv-canvas"
+          }`}
+        >
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center border-brutal border-black bg-nv-violet text-xs font-black uppercase text-white shadow-brutal-sm"
             aria-hidden
@@ -131,7 +154,7 @@ export default function Navbar() {
               .slice(0, 2)
               .toUpperCase()}
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 text-left">
             <span className="block truncate text-[11px] font-black uppercase tracking-wide">
               {user?.name ?? "User"}
             </span>
@@ -142,7 +165,7 @@ export default function Navbar() {
               {ROLE_LABELS[user?.role] ?? user?.role ?? "User"}
             </span>
           </span>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={handleLogout}
@@ -150,6 +173,15 @@ export default function Navbar() {
         >
           Log out
         </button>
+        {user?.role === "founder" && (
+          <button
+            type="button"
+            onClick={() => void handleBilling()}
+            className="mt-2 w-full border-brutal border-black bg-nv-cyan/30 px-2 py-1 text-[10px] font-black uppercase tracking-wide transition-transform hover:-translate-y-0.5"
+          >
+            Billing
+          </button>
+        )}
       </div>
     </aside>
   );

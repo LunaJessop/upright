@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { getMe, loginUser } from "@/app/api/apiHandler";
+import { getMe, loginUser, registerUser } from "@/app/api/apiHandler";
 import { getStoredToken, setStoredToken } from "@/lib/auth";
 
 const AuthContext = createContext(null);
@@ -46,12 +46,24 @@ export function AuthProvider({ children }) {
     void refreshSession();
   }, [refreshSession]);
 
-  const login = useCallback(
-    async (email, password) => {
-      const session = await loginUser(email, password);
+  const login = useCallback(async (email, password) => {
+    const session = await loginUser(email, password);
+    setStoredToken(session.token);
+    setUser(session.user);
+    return session.user;
+  }, []);
+
+  const register = useCallback(
+    async ({ companyName, name, email, password }) => {
+      const session = await registerUser({
+        companyName,
+        name,
+        email,
+        password,
+      });
       setStoredToken(session.token);
       setUser(session.user);
-      return session.user;
+      return session;
     },
     []
   );
@@ -65,11 +77,23 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
+      register,
       logout,
       refreshSession,
       isAuthenticated: Boolean(user),
+      hasAppAccess: Boolean(user?.has_app_access),
+      hasReadAccess: Boolean(
+        user?.has_read_access ?? user?.has_app_access
+      ),
+      canWrite: Boolean(user?.can_write ?? user?.has_app_access),
+      isReadOnly: Boolean(
+        user?.read_only ??
+          (user?.has_read_access && !user?.has_app_access)
+      ),
+      subscriptionStatus: user?.subscription_status ?? null,
+      graceDaysRemaining: user?.grace_days_remaining ?? null,
     }),
-    [user, loading, login, logout, refreshSession]
+    [user, loading, login, register, logout, refreshSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

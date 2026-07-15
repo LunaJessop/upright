@@ -2,27 +2,60 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ServerStatusIndicator } from "@/components/ServerStatusIndicator";
 import Navbar from "@/components/Navbar";
+import BillingWall from "@/components/BillingWall";
+import PastDueBanner from "@/components/PastDueBanner";
+import ReadOnlyBanner from "@/components/ReadOnlyBanner";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/auth",
+  "/register",
+  "/register/plan",
+  "/register/success",
+  "/register/payment",
+]);
+
+const BILLING_FLOW_PATHS = new Set([
+  "/register/plan",
+  "/register/success",
+  "/register/payment",
+]);
 
 function AppShellInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, hasAppAccess, hasReadAccess } = useAuth();
   const isPublic = PUBLIC_PATHS.has(pathname);
+  const isBillingFlow = BILLING_FLOW_PATHS.has(pathname);
 
   useEffect(() => {
     if (loading) return;
     if (!user && !isPublic) {
-      router.replace("/login");
+      router.replace("/");
+      return;
     }
-    if (user && pathname === "/login") {
-      router.replace("/items");
+    if (
+      user &&
+      (pathname === "/login" || pathname === "/auth" || pathname === "/register")
+    ) {
+      if (hasReadAccess) {
+        router.replace("/items");
+      } else if (!isBillingFlow) {
+        router.replace("/register/plan");
+      }
     }
-  }, [user, loading, isPublic, pathname, router]);
+  }, [
+    user,
+    loading,
+    isPublic,
+    isBillingFlow,
+    hasReadAccess,
+    pathname,
+    router,
+  ]);
 
   if (loading) {
     return (
@@ -42,10 +75,22 @@ function AppShellInner({ children }) {
     return null;
   }
 
+  if (!hasReadAccess) {
+    return <BillingWall />;
+  }
+
   return (
-    <div className="flex min-h-full flex-1">
-      <Navbar />
-      <main className="min-w-0 flex-1">{children}</main>
+    <div className="flex min-h-full flex-1 flex-col">
+      <PastDueBanner />
+      <ReadOnlyBanner />
+      <div className="flex min-h-0 flex-1">
+        <Navbar />
+        <main
+          className={`min-w-0 flex-1 ${!hasAppAccess ? "upright-readonly" : ""}`}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
@@ -53,7 +98,6 @@ function AppShellInner({ children }) {
 export default function AppShell({ children }) {
   return (
     <AuthProvider>
-      <ServerStatusIndicator />
       <AppShellInner>{children}</AppShellInner>
     </AuthProvider>
   );

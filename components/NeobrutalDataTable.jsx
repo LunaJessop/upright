@@ -54,7 +54,13 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
               defaultContent: "",
               render: (value) => (value === true ? "Yes" : value === false ? "No" : ""),
             },
-            { data: "vendor", title: "Vendor", defaultContent: "" },
+            {
+              data: "vendor_name",
+              title: "Vendor",
+              defaultContent: "",
+              render: (_value, _type, row) =>
+                row.vendor_name || (row.vendor != null ? `Vendor #${row.vendor}` : ""),
+            },
             {
               data: "bom_items",
               title: "BOM",

@@ -3,20 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DeleteItem, GetAllItems, GetItemById, UpdateItem } from "@/app/api/apiHandler";
+import {
+  DeleteItem,
+  GetAllItems,
+  GetItemById,
+  GetItemInventory,
+  GetRouterPhaseTemplates,
+  GetVendors,
+  UpdateItem,
+  UpdateItemInventory,
+  UpdateItemInventoryGoal,
+  CreateBatch,
+} from "@/app/api/apiHandler";
+import { useAuth } from "@/components/AuthProvider";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import BomTreeView from "@/components/BomTreeView";
+import InventoryRangeBar from "@/components/InventoryRangeBar";
+import NestedProductionPhases from "@/components/NestedProductionPhases";
+import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
+import { ROLE_RANK } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
-
-/* Placeholder vendor ids — swap for a vendors table lookup later */
-const VENDOR_ID_OPTIONS = Array.from({ length: 10 }, (_, index) => ({
-  value: String(index + 1),
-  label: `Vendor ${index + 1}`,
-}));
 
 function formatCost(value) {
   const number = Number(value);
@@ -110,9 +120,64 @@ function itemToBomLines(item, startId) {
   }));
 }
 
+function itemToRouterPhases(item, startId) {
+  if (!Array.isArray(item.router_phases)) return [];
+  return item.router_phases.map((phase, index) => ({
+    id: startId + index,
+    sequence: phase.sequence ?? index + 1,
+    name: phase.name == null ? "" : String(phase.name),
+    description: phase.description == null ? "" : String(phase.description),
+    estimated_minutes:
+      phase.estimated_minutes == null ? "" : String(phase.estimated_minutes),
+  }));
+}
+
+function routerPhasesToPayload(phases) {
+  return phases.map((phase, index) => ({
+    sequence: index + 1,
+    name: phase.name.trim(),
+    description: phase.description.trim(),
+    estimated_minutes:
+      phase.estimated_minutes.trim() === "" ? null : phase.estimated_minutes.trim(),
+  }));
+}
+
+function formatQty(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return value ?? "—";
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function stockStatusLabel(status) {
+  if (status === "below") return "Below goal";
+  if (status === "above") return "Above goal";
+  if (status === "on_track") return "On track";
+  return null;
+}
+
+const STOCK_STATUS_STYLES = {
+  below: "bg-red-600 text-white",
+  above: "bg-nv-violet text-white",
+  on_track: "bg-nv-teal text-black",
+};
+
+function formatPlannedDelta(delta, unit) {
+  const n = Number(delta);
+  if (!Number.isFinite(n) || n === 0) return "No open batch effect";
+  const sign = n > 0 ? "+" : "−";
+  const abs = formatQty(Math.abs(n));
+  const unitSuffix = unit ? ` ${unit}` : "";
+  return `After open batches (${sign}${abs}${unitSuffix})`;
+}
+
 export default function ItemDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user, canWrite } = useAuth();
+  const canEditGoals =
+    canWrite && (ROLE_RANK[user?.role] ?? 0) >= ROLE_RANK.admin;
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,10 +187,26 @@ export default function ItemDetailPage({ params }) {
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [creatingBatch, setCreatingBatch] = useState(false);
+  const [batchQty, setBatchQty] = useState("1");
+  const [batchSku, setBatchSku] = useState("");
+  const [batchError, setBatchError] = useState("");
   const [catalogItems, setCatalogItems] = useState([]);
+  const [phaseTemplates, setPhaseTemplates] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [bomLines, setBomLines] = useState([]);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
+  const [routerPhases, setRouterPhases] = useState([]);
+  const [inventory, setInventory] = useState(null);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryEditing, setInventoryEditing] = useState(false);
+  const [inventoryDraftQty, setInventoryDraftQty] = useState("");
+  const [inventoryDraftGoalMin, setInventoryDraftGoalMin] = useState("");
+  const [inventoryDraftGoalMax, setInventoryDraftGoalMax] = useState("");
+  const [inventorySaving, setInventorySaving] = useState(false);
+  const [inventoryError, setInventoryError] = useState("");
   const bomLineIdRef = useRef(1);
+  const routerPhaseIdRef = useRef(1);
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -135,6 +216,8 @@ export default function ItemDetailPage({ params }) {
     setDraft(itemToDraft(item));
     setBomLines(itemToBomLines(item, bomLineIdRef.current));
     bomLineIdRef.current += (item.bom_items?.length ?? 0) + 1;
+    setRouterPhases(itemToRouterPhases(item, routerPhaseIdRef.current));
+    routerPhaseIdRef.current += (item.router_phases?.length ?? 0) + 1;
     setBomSelectedIds([]);
     setSaveError("");
     setEditing(true);
@@ -144,6 +227,7 @@ export default function ItemDetailPage({ params }) {
     setEditing(false);
     setDraft(null);
     setBomLines([]);
+    setRouterPhases([]);
     setBomSelectedIds([]);
     setSaveError("");
     setConfirmingDelete(false);
@@ -181,6 +265,42 @@ export default function ItemDetailPage({ params }) {
     );
   };
 
+  const addRouterPhaseFromTemplate = (template) => {
+    const id = routerPhaseIdRef.current;
+    routerPhaseIdRef.current += 1;
+    setRouterPhases((prev) => [
+      ...prev,
+      {
+        id,
+        sequence: prev.length + 1,
+        name: template.name ?? "",
+        description: template.description ?? "",
+        estimated_minutes:
+          template.estimated_minutes == null ? "" : String(template.estimated_minutes),
+      },
+    ]);
+  };
+
+  const removeRouterPhase = (phaseId) => {
+    setRouterPhases((prev) =>
+      prev
+        .filter((phase) => phase.id !== phaseId)
+        .map((phase, index) => ({ ...phase, sequence: index + 1 }))
+    );
+  };
+
+  const moveRouterPhase = (phaseId, direction) => {
+    setRouterPhases((prev) => {
+      const index = prev.findIndex((phase) => phase.id === phaseId);
+      if (index < 0) return prev;
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((phase, idx) => ({ ...phase, sequence: idx + 1 }));
+    });
+  };
+
   const saveDraft = async () => {
     if (!draft.name.trim()) {
       setSaveError("Name is required.");
@@ -196,6 +316,13 @@ export default function ItemDetailPage({ params }) {
       bomLines.some((line) => !(Number(line.quantity) > 0))
     ) {
       setSaveError("Every recipe component needs a quantity greater than zero.");
+      return;
+    }
+    if (
+      isMakeDraft &&
+      routerPhases.some((phase) => !phase.name.trim())
+    ) {
+      setSaveError("Every router phase needs a name.");
       return;
     }
     setSaving(true);
@@ -217,12 +344,16 @@ export default function ItemDetailPage({ params }) {
               quantity: line.quantity,
             }))
           : [],
+        router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
       };
       const updated = await UpdateItem(id, payload);
       setItem(updated && updated.id ? updated : payload);
+      const templates = await GetRouterPhaseTemplates().catch(() => []);
+      setPhaseTemplates(Array.isArray(templates) ? templates : []);
       setEditing(false);
       setDraft(null);
       setBomLines([]);
+      setRouterPhases([]);
       setBomSelectedIds([]);
     } catch (err) {
       setSaveError(err?.message || "Failed to save changes.");
@@ -248,6 +379,31 @@ export default function ItemDetailPage({ params }) {
     }
   };
 
+  const handleCreateBatch = async () => {
+    const qty = Number(batchQty);
+    if (!batchSku.trim()) {
+      setBatchError("SKU is required.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setBatchError("Enter a quantity greater than zero.");
+      return;
+    }
+    setCreatingBatch(true);
+    setBatchError("");
+    try {
+      const batch = await CreateBatch({
+        item_id: Number(id),
+        quantity: qty,
+        sku: batchSku.trim(),
+      });
+      await router.push(`/batches/${batch.id}`);
+    } catch (err) {
+      setBatchError(err?.message || "Failed to create batch.");
+      setCreatingBatch(false);
+    }
+  };
+
   const loadItem = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -262,6 +418,10 @@ export default function ItemDetailPage({ params }) {
       const rows = await GetAllItems().catch(() => []);
       const allItems = Array.isArray(rows) ? rows : [];
       setCatalogItems(allItems.filter((entry) => String(entry.id) !== String(id)));
+      const templates = await GetRouterPhaseTemplates().catch(() => []);
+      setPhaseTemplates(Array.isArray(templates) ? templates : []);
+      const vendorRows = await GetVendors().catch(() => []);
+      setVendors(Array.isArray(vendorRows) ? vendorRows : []);
       // Fallback while the server lacks GET /api/items/:id
       if (!row || row.error || !row.id) {
         row = allItems.find((entry) => String(entry.id) === String(id));
@@ -283,6 +443,92 @@ export default function ItemDetailPage({ params }) {
   useEffect(() => {
     void loadItem();
   }, [loadItem]);
+
+  const loadInventory = useCallback(async () => {
+    if (!id) return;
+    setInventoryLoading(true);
+    setInventoryError("");
+    try {
+      const row = await GetItemInventory(id);
+      setInventory(row);
+    } catch (err) {
+      setInventory(null);
+      setInventoryError(err?.message || "Failed to load inventory.");
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!item?.id) {
+      setInventory(null);
+      return;
+    }
+    void loadInventory();
+  }, [item?.id, loadInventory]);
+
+  const startInventoryEdit = () => {
+    setInventoryDraftQty(
+      inventory?.quantity == null ? "0" : String(inventory.quantity)
+    );
+    setInventoryDraftGoalMin(
+      inventory?.goal_min == null ? "" : String(inventory.goal_min)
+    );
+    setInventoryDraftGoalMax(
+      inventory?.goal_max == null ? "" : String(inventory.goal_max)
+    );
+    setInventoryError("");
+    setInventoryEditing(true);
+  };
+
+  const cancelInventoryEdit = () => {
+    setInventoryEditing(false);
+    setInventoryError("");
+  };
+
+  const saveInventoryEdit = async () => {
+    const qty = Number(inventoryDraftQty);
+    if (!Number.isFinite(qty) || qty < 0) {
+      setInventoryError("Current quantity must be a non-negative number.");
+      return;
+    }
+
+    setInventorySaving(true);
+    setInventoryError("");
+    try {
+      let next = await UpdateItemInventory(id, { quantity: qty });
+
+      if (canEditGoals) {
+        const minRaw = inventoryDraftGoalMin.trim();
+        const maxRaw = inventoryDraftGoalMax.trim();
+        if (minRaw !== "" || maxRaw !== "") {
+          const goalMin = Number(minRaw);
+          const goalMax = Number(maxRaw);
+          if (!Number.isFinite(goalMin) || goalMin < 0) {
+            setInventoryError("Goal min must be a non-negative number.");
+            setInventorySaving(false);
+            return;
+          }
+          if (!Number.isFinite(goalMax) || goalMax < goalMin) {
+            setInventoryError("Goal max must be ≥ goal min.");
+            setInventorySaving(false);
+            return;
+          }
+          next = await UpdateItemInventoryGoal(id, {
+            goal_min: goalMin,
+            goal_max: goalMax,
+          });
+        }
+      }
+
+      setInventory(next);
+      setInventoryEditing(false);
+    } catch (err) {
+      setInventoryError(err?.message || "Failed to save inventory.");
+    } finally {
+      setInventorySaving(false);
+    }
+  };
 
   const isMake =
     item?.make_or_buy === "make" || item?.make_or_buy === true || item?.make_or_buy === "true";
@@ -413,7 +659,7 @@ export default function ItemDetailPage({ params }) {
                         </p>
                       )}
                     </div>
-                  ) : (
+                  ) : canWrite ? (
                     <button
                       type="button"
                       onClick={startEditing}
@@ -421,7 +667,7 @@ export default function ItemDetailPage({ params }) {
                     >
                       Edit
                     </button>
-                  )
+                  ) : null
                 }
               >
                 {editing && draft ? (
@@ -462,14 +708,19 @@ export default function ItemDetailPage({ params }) {
                       <BrutalSwitch
                         ariaLabel="Make or buy"
                         value={draft.make_or_buy}
-                        setValue={(value) =>
+                        setValue={(value) => {
                           setDraft((prev) => ({
                             ...prev,
                             make_or_buy: value,
                             sku: value === "make" ? "" : prev.sku,
                             vendor: value === "make" ? "" : prev.vendor,
-                          }))
-                        }
+                          }));
+                          if (value === "buy") {
+                            setRouterPhases([]);
+                            setBomLines([]);
+                            setBomSelectedIds([]);
+                          }
+                        }}
                         offValue="buy"
                         onValue="make"
                         offLabel="Buy"
@@ -477,20 +728,53 @@ export default function ItemDetailPage({ params }) {
                       />
                     </FieldRow>
 
+                    {draft.make_or_buy === "make" && (
+                      <div className="border-b border-black/10 py-3">
+                        <RouterPhaseEditor
+                          phases={routerPhases}
+                          phaseTemplates={phaseTemplates}
+                          onAddFromTemplate={addRouterPhaseFromTemplate}
+                          onRemovePhase={removeRouterPhase}
+                          onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
+                          onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
+                          onReorderPhases={setRouterPhases}
+                        />
+                      </div>
+                    )}
+
                     {draft.make_or_buy === "buy" && (
                       <FieldRow label="Vendor">
-                        <select
-                          value={draft.vendor}
-                          onChange={(e) => setDraftField("vendor", e.target.value)}
-                          className={`${editInputClass} cursor-pointer`}
-                        >
-                          <option value="">—</option>
-                          {VENDOR_ID_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <select
+                              value={draft.vendor}
+                              onChange={(e) =>
+                                setDraftField("vendor", e.target.value)
+                              }
+                              className={`${editInputClass} cursor-pointer`}
+                            >
+                              <option value="">—</option>
+                              {vendors.map((vendor) => (
+                                <option key={vendor.id} value={String(vendor.id)}>
+                                  {vendor.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Link
+                              href="/settings/vendors"
+                              aria-label="Add vendor"
+                              title="Add vendor"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                            >
+                              +
+                            </Link>
+                          </div>
+                          {vendors.length === 0 && (
+                            <p className="text-right text-[10px] font-medium text-nv-ink/50">
+                              No vendors yet — use + to create one
+                            </p>
+                          )}
+                        </div>
                       </FieldRow>
                     )}
 
@@ -557,7 +841,10 @@ export default function ItemDetailPage({ params }) {
                     {!isMake && (
                       <FieldRow
                         label="Vendor"
-                        value={item.vendor == null ? "—" : `Vendor ${item.vendor}`}
+                        value={
+                          item.vendor_name ||
+                          (item.vendor == null ? "—" : `Vendor #${item.vendor}`)
+                        }
                       />
                     )}
 
@@ -575,54 +862,294 @@ export default function ItemDetailPage({ params }) {
                 )}
               </SectionCard>
 
-              <SectionCard title="Costing" accent="bg-nv-lavender">
-                <FieldRow
-                  label="Cost basis"
-                  value={
-                    item.unit_of_measure ? `per ${item.unit_of_measure}` : "per unit"
-                  }
-                />
-                <FieldRow label="Source" value={isMake ? "Built from BOM" : "Purchased"} />
-                <p className="mt-4 text-[10px] font-medium text-nv-ink/50">
-                  Rolled-up BOM and labor costing will appear here once batches and
-                  BOMs are wired up.
-                </p>
-              </SectionCard>
-
-              <SectionCard title="SKUs" accent="bg-nv-lavender">
-                {lotSkus.length > 0 ? (
-                  <ul className="space-y-2">
-                    {lotSkus.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2"
+              <SectionCard
+                title="Inventory"
+                accent="bg-nv-lavender"
+                action={
+                  inventoryEditing ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelInventoryEdit}
+                        disabled={inventorySaving}
+                        className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                       >
-                        <span className="font-mono text-sm font-black">{row.sku}</span>
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
-                          <span>{formatSkuSource(row.source)}</span>
-                          {row.batch_id != null && (
-                            <span>Batch #{row.batch_id}</span>
-                          )}
-                          <span>{formatDate(row.created_at)}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void saveInventoryEdit()}
+                        disabled={inventorySaving}
+                        className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                      >
+                        {inventorySaving ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  ) : canWrite ? (
+                    <button
+                      type="button"
+                      onClick={startInventoryEdit}
+                      disabled={inventoryLoading || !inventory}
+                      className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                    >
+                      Edit
+                    </button>
+                  ) : null
+                }
+              >
+                {inventoryLoading && (
                   <p className="text-xs font-medium text-nv-ink/55">
-                    No lot SKUs yet. Lot SKUs are created when buy stock is received
-                    or when a make batch is completed.
+                    Loading inventory…
                   </p>
+                )}
+
+                {!inventoryLoading && inventoryError && !inventoryEditing && (
+                  <p className="text-xs font-bold uppercase tracking-wide text-red-600">
+                    {inventoryError}
+                  </p>
+                )}
+
+                {!inventoryLoading && inventory && (
+                  <>
+                    {inventoryEditing ? (
+                      <div className="space-y-3">
+                        <label className="block space-y-1">
+                          <span className={labelClass}>Current QTY</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={inventoryDraftQty}
+                            onChange={(e) =>
+                              setInventoryDraftQty(e.target.value)
+                            }
+                            className={editInputClass}
+                          />
+                        </label>
+                        {canEditGoals ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="block space-y-1">
+                              <span className={labelClass}>Goal min</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={inventoryDraftGoalMin}
+                                onChange={(e) =>
+                                  setInventoryDraftGoalMin(e.target.value)
+                                }
+                                className={editInputClass}
+                                placeholder="Optional"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className={labelClass}>Goal max</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={inventoryDraftGoalMax}
+                                onChange={(e) =>
+                                  setInventoryDraftGoalMax(e.target.value)
+                                }
+                                className={editInputClass}
+                                placeholder="Optional"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] font-medium text-nv-ink/55">
+                            Goal range can be set by admins and founders.
+                          </p>
+                        )}
+                        {inventoryError && (
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                            {inventoryError}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
+                          <span className={`shrink-0 ${labelClass}`}>
+                            Current QTY
+                          </span>
+                          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                            <span className="text-sm font-semibold">
+                              {formatQty(inventory.quantity)}
+                              {inventory.unit_of_measure
+                                ? ` ${inventory.unit_of_measure}`
+                                : ""}
+                            </span>
+                            {stockStatusLabel(inventory.status) && (
+                              <span
+                                className={`border border-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                                  STOCK_STATUS_STYLES[inventory.status] ??
+                                  "bg-nv-paper"
+                                }`}
+                              >
+                                {stockStatusLabel(inventory.status)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="border-b border-black/10 py-2.5">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className={`shrink-0 ${labelClass}`}>
+                              Planned QTY
+                            </span>
+                            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                              <span className="text-sm font-semibold">
+                                {formatQty(inventory.planned_quantity)}
+                                {inventory.unit_of_measure
+                                  ? ` ${inventory.unit_of_measure}`
+                                  : ""}
+                              </span>
+                              {stockStatusLabel(inventory.planned_status) && (
+                                <span
+                                  className={`border border-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                                    STOCK_STATUS_STYLES[
+                                      inventory.planned_status
+                                    ] ?? "bg-nv-paper"
+                                  }`}
+                                >
+                                  {stockStatusLabel(inventory.planned_status)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="mt-1 text-right text-[10px] font-medium text-nv-ink/55">
+                            {formatPlannedDelta(
+                              inventory.planned_delta,
+                              inventory.unit_of_measure
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 py-2.5">
+                          <span className={labelClass}>Goal</span>
+                          <span className="text-sm font-semibold">
+                            {inventory.goal_min != null &&
+                            inventory.goal_max != null
+                              ? `${formatQty(inventory.goal_min)} – ${formatQty(inventory.goal_max)}${
+                                  inventory.unit_of_measure
+                                    ? ` ${inventory.unit_of_measure}`
+                                    : ""
+                                }`
+                              : "Not set"}
+                          </span>
+                        </div>
+                        <InventoryRangeBar
+                          quantity={inventory.quantity}
+                          plannedQuantity={inventory.planned_quantity}
+                          goalMin={inventory.goal_min}
+                          goalMax={inventory.goal_max}
+                          unit={inventory.unit_of_measure ?? ""}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </SectionCard>
 
-              <SectionCard title="BOM" accent="bg-nv-teal">
-                {isMake ? (
-                  Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
+              {isMake && (
+                <SectionCard title="Batches" accent="bg-nv-lavender">
+                  {!editing && canWrite && (
+                    <div className="mb-4 space-y-2 border-b border-black/10 pb-4">
+                      <p className="text-[10px] font-black uppercase tracking-wide">
+                        New batch
+                      </p>
+                      {batchError && (
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                          {batchError}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="min-w-32 flex-1 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            SKU
+                          </span>
+                          <input
+                            type="text"
+                            value={batchSku}
+                            onChange={(e) => setBatchSku(e.target.value)}
+                            placeholder="Lot / batch number"
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <label className="w-20 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            Qty
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={batchQty}
+                            onChange={(e) => setBatchQty(e.target.value)}
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void handleCreateBatch()}
+                          disabled={creatingBatch}
+                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        >
+                          {creatingBatch ? "Creating…" : "Create batch"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {lotSkus.length > 0 ? (
+                    <ul className="space-y-2">
+                      {lotSkus.map((row) => {
+                        const content = (
+                          <>
+                            <span className="font-mono text-sm font-black">{row.sku}</span>
+                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
+                              <span>{formatSkuSource(row.source)}</span>
+                              {row.batch_id != null && (
+                                <span>Batch #{row.batch_id}</span>
+                              )}
+                              <span>{formatDate(row.created_at)}</span>
+                            </div>
+                          </>
+                        );
+                        const rowClass =
+                          "flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2";
+
+                        if (row.batch_id != null) {
+                          return (
+                            <li key={row.id}>
+                              <Link
+                                href={`/batches/${row.batch_id}`}
+                                className={`${rowClass} transition-transform hover:-translate-y-0.5 hover:bg-nv-lavender/40`}
+                              >
+                                {content}
+                              </Link>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={row.id} className={rowClass}>
+                            {content}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-xs font-medium text-nv-ink/55">
+                      No batches yet.
+                    </p>
+                  )}
+                </SectionCard>
+              )}
+
+              {isMake && (
+                <SectionCard title="BOM" accent="bg-nv-teal">
+                  {Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
-                        Expand components with a recipe to see nested materials
-                        needed per finished item.
+                        Child items — expand make components to see nested
+                        materials and their phases.
                       </p>
                       <BomTreeView lines={item.bom_items} itemById={itemById} />
                     </>
@@ -631,14 +1158,20 @@ export default function ItemDetailPage({ params }) {
                       No recipe defined yet. Use Edit in Item data to add
                       components.
                     </p>
-                  )
-                ) : (
-                  <p className="text-xs font-medium text-nv-ink/55">
-                    This is a Buy item — it has no BOM. Switch it to Make in
-                    Item data to define a recipe.
-                  </p>
-                )}
-              </SectionCard>
+                  )}
+                </SectionCard>
+              )}
+
+              {isMake && (
+                <div className="lg:col-span-2">
+                  <SectionCard title="Production phases" accent="bg-nv-violet">
+                    <NestedProductionPhases
+                      rootItem={item}
+                      itemById={itemById}
+                    />
+                  </SectionCard>
+                </div>
+              )}
             </div>
           </>
         )}

@@ -1,4 +1,4 @@
-# Auth setup (run once per database)
+# Auth + billing setup (run once per database)
 
 From `upright-server/`:
 
@@ -9,12 +9,28 @@ node scripts/setup-auth-schema.js
 # 1b. Foreign key + unique SKU per client on items
 node scripts/enforce-item-client-scoping.js
 
-# 2. Add JWT_SECRET to .env (required for login tokens)
+# 1c. Stripe billing columns on clients
+node scripts/setup-billing-schema.js
+
+# 2. Add to .env (see .env.example):
 # JWT_SECRET=your-long-random-string
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...   # from `stripe listen` locally
+# STRIPE_PRICE_ID=price_...              # $25/mo monthly (or STRIPE_PRICE_ID_MONTHLY)
+# STRIPE_PRICE_ID_YEARLY=price_...       # $250/yr yearly
+# FRONTEND_URL=http://localhost:3000
+# BILLING_GRACE_DAYS=7
+#
+# Access model: active + in-grace past_due = full write.
+# canceled / unpaid / grace-expired past_due = read-only (browse + export).
+# incomplete (never paid) = billing wall until checkout.
 
-# 3. Restart the Express server after changing .env
+# 3. Local webhooks (keep running while testing payments):
+# stripe listen --forward-to localhost:3001/api/stripe/webhook
 
-# 4. Seed demo login
+# 4. Restart the Express server after changing .env
+
+# 5. Seed demo login (subscription_status forced active — no Checkout needed)
 node scripts/seed-dev-user.js
 ```
 

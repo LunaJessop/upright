@@ -4,12 +4,45 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import NeobrutalDataTable from "@/components/NeobrutalDataTable";
+import { useAuth } from "@/components/AuthProvider";
 import { GetAllItems } from "@/app/api/apiHandler";
+import { downloadCsv, rowsToCsv } from "@/lib/csv";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 
+const ITEM_CSV_HEADERS = [
+  "id",
+  "name",
+  "make_or_buy",
+  "unit_of_measure",
+  "vendor_name",
+  "vendor_part_number",
+  "default_unit_price",
+  "active",
+  "created_at",
+  "updated_at",
+];
+
+function exportItemsCsv(items) {
+  const csv = rowsToCsv(ITEM_CSV_HEADERS, items, (row, header) => {
+    if (header === "vendor_name") {
+      return row.vendor_name ?? row.vendor?.name ?? "";
+    }
+    if (header === "make_or_buy") {
+      const v = row.make_or_buy;
+      if (v === true || v === "true" || v === "make") return "make";
+      if (v === false || v === "false" || v === "buy") return "buy";
+      return v ?? "";
+    }
+    return row[header];
+  });
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadCsv(`upright-items-${stamp}.csv`, csv);
+}
+
 export default function ItemsPage() {
   const router = useRouter();
+  const { canWrite } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,12 +83,22 @@ export default function ItemsPage() {
               Item list ({items.length})
             </h2>
             <div className="flex items-center gap-2">
-              <Link
-                href="/items/new-item"
-                className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
+              <button
+                type="button"
+                onClick={() => exportItemsCsv(items)}
+                disabled={loading || items.length === 0}
+                className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm transition-transform hover:-translate-y-0.5 disabled:opacity-40"
               >
-                Add item
-              </Link>
+                Export CSV
+              </button>
+              {canWrite ? (
+                <Link
+                  href="/items/new-item"
+                  className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                >
+                  Add item
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -71,7 +114,8 @@ export default function ItemsPage() {
 
           {!loading && !error && items.length === 0 && (
             <p className="text-xs font-medium text-nv-ink/55">
-              No items yet. Use Add item to create entries.
+              No items yet.
+              {canWrite ? " Use Add item to create entries." : ""}
             </p>
           )}
 

@@ -2,8 +2,9 @@ import AppShell from "@/components/AppShell";
 import "./globals.css";
 
 export const metadata = {
-  title: "Upright",
-  description: "Upright app",
+  title: "Upright — Get your business up and to the right",
+  description:
+    "Operations software for small businesses — track items, recipes, and batches in one place.",
   icons: {
     icon: [{ url: "/icon.ico", type: "image/x-icon" }],
     shortcut: "/favicon.ico",
