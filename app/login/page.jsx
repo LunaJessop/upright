@@ -108,13 +108,10 @@ export default function LoginPage() {
           </Link>
           <Link
             href="/"
-            className="mb-2 block font-bold uppercase tracking-wide text-nv-ink/55 hover:underline"
+            className="block font-bold uppercase tracking-wide text-nv-ink/55 hover:underline"
           >
             ← Back to home
           </Link>
-          Dev seed:{" "}
-          <span className="font-mono">founder@demo.com</span> /{" "}
-          <span className="font-mono">password123</span>
         </p>
       </div>
     </div>
