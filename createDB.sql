@@ -127,6 +127,7 @@ CREATE TABLE bom_items (
     parent_item_id INTEGER NOT NULL REFERENCES items(id),
     component_item_id INTEGER NOT NULL REFERENCES items(id),
     quantity NUMERIC NOT NULL,
+    unit_of_measure TEXT,
     UNIQUE (parent_item_id, component_item_id)
 );
 
@@ -230,6 +231,7 @@ CREATE TABLE batches (
     quantity NUMERIC NOT NULL,
     sku TEXT,
     status TEXT DEFAULT 'planned',
+    inventory_posted BOOLEAN NOT NULL DEFAULT FALSE,
     start_date TIMESTAMP,
     end_date TIMESTAMP,
     created_by INTEGER REFERENCES users(id),

@@ -32,7 +32,8 @@ function BomTreeNode({
   const [expanded, setExpanded] = useState(false);
   const componentId = String(line.component_item_id);
   const component = itemById.get(componentId);
-  const unit = component?.unit_of_measure ?? "";
+  const unit =
+    line.unit_of_measure || component?.unit_of_measure || "";
   const lineQty = Number(line.quantity);
   const qtyPerParent = Number.isNaN(lineQty) ? line.quantity : lineQty;
   const effectiveQty = Number.isNaN(lineQty) ? line.quantity : lineQty * parentMultiplier;

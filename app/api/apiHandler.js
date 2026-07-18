@@ -398,6 +398,21 @@ export const CancelBatch = async (batchId) => {
   return data;
 };
 
+export const CompleteBatch = async (batchId) => {
+  const response = await fetch(
+    `${getBaseUrl()}/api/batches/${batchId}/complete`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Complete batch failed (${response.status})`);
+  }
+  return data;
+};
+
 export const UpdateBatchPhase = async (batchId, phaseId, status) => {
   const response = await fetch(
     `${getBaseUrl()}/api/batches/${batchId}/phases/${phaseId}`,

@@ -236,7 +236,9 @@ function InventoryCard({
               {canEditGoals ? (
                 <div className="grid max-w-md gap-3 sm:grid-cols-2">
                   <label className="block space-y-1">
-                    <span className={labelClass}>Goal min</span>
+                    <span className={labelClass}>
+                      Min{unit ? ` ${unit}` : ""}
+                    </span>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -247,7 +249,9 @@ function InventoryCard({
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className={labelClass}>Goal max</span>
+                    <span className={labelClass}>
+                      Max{unit ? ` ${unit}` : ""}
+                    </span>
                     <input
                       type="text"
                       inputMode="decimal"

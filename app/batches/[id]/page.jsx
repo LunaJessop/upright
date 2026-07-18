@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CancelBatch,
+  CompleteBatch,
   GetAllItems,
   GetBatchById,
   GetItemById,
@@ -64,6 +65,13 @@ function SectionCard({ title, accent = "bg-nv-cyan", children }) {
   );
 }
 
+function phasesReadyToComplete(phases) {
+  if (!Array.isArray(phases) || phases.length === 0) return true;
+  return phases.every(
+    (phase) => phase.status === "complete" || phase.status === "skipped"
+  );
+}
+
 export default function BatchDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
@@ -78,6 +86,9 @@ export default function BatchDetailPage({ params }) {
   const [cancelling, setCancelling] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [completing, setCompleting] = useState(false);
+  const [confirmingComplete, setConfirmingComplete] = useState(false);
+  const [completeError, setCompleteError] = useState("");
 
   const loadBatch = useCallback(async () => {
     setLoading(true);
@@ -136,14 +147,29 @@ export default function BatchDetailPage({ params }) {
     }
   };
 
+  const handleComplete = async () => {
+    setCompleting(true);
+    setCompleteError("");
+    try {
+      const updated = await CompleteBatch(id);
+      setBatch(updated);
+      setConfirmingComplete(false);
+    } catch (err) {
+      setCompleteError(err?.message || "Failed to complete batch.");
+      setConfirmingComplete(false);
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   const phases = Array.isArray(batch?.phases) ? batch.phases : [];
   const phaseLabel = currentPhaseLabel(phases);
   const bomLines = Array.isArray(batchItem?.bom_items) ? batchItem.bom_items : [];
-  const canCancel =
-    canWrite &&
-    batch &&
-    batch.status !== "complete" &&
-    batch.status !== "cancelled";
+  const batchLocked =
+    batch?.status === "complete" || batch?.status === "cancelled";
+  const canCancel = canWrite && batch && !batchLocked;
+  const canMasterComplete = canWrite && batch && !batchLocked;
+  const readyToComplete = phasesReadyToComplete(phases);
 
   const itemById = useMemo(() => {
     const map = new Map();
@@ -193,11 +219,20 @@ export default function BatchDetailPage({ params }) {
                 </span>
                 <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
                   Qty {batch.quantity}
-                  {batch.item_unit_of_measure ? ` ${batch.item_unit_of_measure}` : ""}
+                  {batch.item_unit_of_measure
+                    ? ` ${batch.item_unit_of_measure}`
+                    : ""}
                 </span>
+                {batch.status === "complete" && (
+                  <span className="border-brutal border-black bg-nv-teal px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                    Locked · inventory posted
+                  </span>
+                )}
               </div>
               {phaseLabel && (
-                <p className="mt-3 text-sm font-medium text-white/90">{phaseLabel}</p>
+                <p className="mt-3 text-sm font-medium text-white/90">
+                  {phaseLabel}
+                </p>
               )}
             </header>
 
@@ -219,6 +254,68 @@ export default function BatchDetailPage({ params }) {
                 <FieldRow label="Started" value={formatDate(batch.start_date)} />
                 <FieldRow label="Completed" value={formatDate(batch.end_date)} />
                 <FieldRow label="Created" value={formatDate(batch.created_at)} />
+
+                {canMasterComplete && (
+                  <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
+                    <p className="text-[10px] font-medium text-nv-ink/60">
+                      Master complete posts inventory (add finished qty, subtract
+                      buy materials) and locks this batch so phases cannot be
+                      reopened.
+                    </p>
+                    {!readyToComplete && (
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-nv-ink/55">
+                        Finish or cancel every phase first.
+                      </p>
+                    )}
+                    {completeError && (
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                        {completeError}
+                      </p>
+                    )}
+                    {confirmingComplete ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmingComplete(false);
+                            setCompleteError("");
+                          }}
+                          disabled={completing}
+                          className="flex-1 border-brutal border-black bg-nv-paper px-3 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                        >
+                          Go back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleComplete()}
+                          disabled={completing || updating || !readyToComplete}
+                          className="flex-1 border-brutal border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        >
+                          {completing ? "Completing…" : "Confirm"}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompleteError("");
+                          setConfirmingCancel(false);
+                          setConfirmingComplete(true);
+                        }}
+                        disabled={
+                          completing ||
+                          updating ||
+                          cancelling ||
+                          !readyToComplete
+                        }
+                        className="w-full border-brutal border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                      >
+                        Complete batch
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {canCancel && (
                   <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
                     {cancelError && (
@@ -242,7 +339,7 @@ export default function BatchDetailPage({ params }) {
                         <button
                           type="button"
                           onClick={() => void handleCancel()}
-                          disabled={cancelling || updating}
+                          disabled={cancelling || updating || completing}
                           className="flex-1 border-brutal border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {cancelling ? "Cancelling…" : "Confirm"}
@@ -253,9 +350,10 @@ export default function BatchDetailPage({ params }) {
                         type="button"
                         onClick={() => {
                           setCancelError("");
+                          setConfirmingComplete(false);
                           setConfirmingCancel(true);
                         }}
-                        disabled={cancelling || updating}
+                        disabled={cancelling || updating || completing}
                         className="w-full border-brutal border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                       >
                         Cancel batch
@@ -290,11 +388,16 @@ export default function BatchDetailPage({ params }) {
             <SectionCard title="Production phases" accent="bg-nv-teal">
               <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
                 Nested by item — make children first, then this item&apos;s own
-                steps.
+                steps. Use Complete batch above when floor work is done.
               </p>
               {batch.status === "cancelled" && (
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-red-600">
                   This batch was cancelled. Phases are read-only.
+                </p>
+              )}
+              {batch.status === "complete" && (
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-nv-ink/55">
+                  This batch is locked. Phases cannot be reopened.
                 </p>
               )}
               {phaseError && (
@@ -304,9 +407,7 @@ export default function BatchDetailPage({ params }) {
               )}
               <BatchPhaseTracker
                 phases={phases}
-                updating={
-                  updating || batch.status === "cancelled" || !canWrite
-                }
+                updating={updating || batchLocked || !canWrite}
                 onStatusChange={(phaseId, status) =>
                   void handlePhaseStatus(phaseId, status)
                 }

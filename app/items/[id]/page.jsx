@@ -117,6 +117,7 @@ function itemToBomLines(item, startId) {
     id: startId + index,
     itemId: String(line.component_item_id),
     quantity: String(line.quantity ?? "1"),
+    unitOfMeasure: line.unit_of_measure ?? "",
   }));
 }
 
@@ -248,7 +249,15 @@ export default function ItemDetailPage({ params }) {
     const newLines = newIds.map((itemId) => {
       const lineId = bomLineIdRef.current;
       bomLineIdRef.current += 1;
-      return { id: lineId, itemId, quantity: "1" };
+      const catalogItem = catalogItems.find(
+        (row) => String(row.id) === String(itemId)
+      );
+      return {
+        id: lineId,
+        itemId,
+        quantity: "1",
+        unitOfMeasure: catalogItem?.unit_of_measure ?? "",
+      };
     });
     setBomLines((prev) => [...prev, ...newLines]);
     setBomSelectedIds([]);
@@ -262,6 +271,14 @@ export default function ItemDetailPage({ params }) {
   const updateBomLineQuantity = (lineId, quantity) => {
     setBomLines((prev) =>
       prev.map((line) => (line.id === lineId ? { ...line, quantity } : line))
+    );
+  };
+
+  const updateBomLineUnit = (lineId, unitOfMeasure) => {
+    setBomLines((prev) =>
+      prev.map((line) =>
+        line.id === lineId ? { ...line, unitOfMeasure } : line
+      )
     );
   };
 
@@ -342,6 +359,7 @@ export default function ItemDetailPage({ params }) {
           ? bomLines.map((line) => ({
               component_item_id: Number(line.itemId),
               quantity: line.quantity,
+              unit_of_measure: line.unitOfMeasure || null,
             }))
           : [],
         router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
@@ -788,6 +806,8 @@ export default function ItemDetailPage({ params }) {
                           onAddSelected={addSelectedBomLines}
                           onRemoveLine={removeBomLine}
                           onUpdateLineQuantity={updateBomLineQuantity}
+                          onUpdateLineUnit={updateBomLineUnit}
+                          parentUnitOfMeasure={draft.unit_of_measure}
                         />
                       </div>
                     )}
@@ -928,7 +948,12 @@ export default function ItemDetailPage({ params }) {
                         {canEditGoals ? (
                           <div className="grid gap-3 sm:grid-cols-2">
                             <label className="block space-y-1">
-                              <span className={labelClass}>Goal min</span>
+                              <span className={labelClass}>
+                                Min
+                                {inventory.unit_of_measure
+                                  ? ` ${inventory.unit_of_measure}`
+                                  : ""}
+                              </span>
                               <input
                                 type="text"
                                 inputMode="decimal"
@@ -941,7 +966,12 @@ export default function ItemDetailPage({ params }) {
                               />
                             </label>
                             <label className="block space-y-1">
-                              <span className={labelClass}>Goal max</span>
+                              <span className={labelClass}>
+                                Max
+                                {inventory.unit_of_measure
+                                  ? ` ${inventory.unit_of_measure}`
+                                  : ""}
+                              </span>
                               <input
                                 type="text"
                                 inputMode="decimal"

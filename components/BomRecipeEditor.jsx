@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { UNIT_OF_MEASURE_OPTIONS } from "@/app/items/unitOfMeasureOptions";
+import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
 const brutalBorder = "border-brutal border-black";
 const inputClass =
@@ -22,7 +24,8 @@ export function formatBomSummary(catalogItems, bomLines) {
   return bomLines
     .map((line) => {
       const label = catalogItemLabel(catalogItems, line.itemId);
-      const unit = catalogItemUnit(catalogItems, line.itemId);
+      const stockUnit = catalogItemUnit(catalogItems, line.itemId);
+      const unit = normalizeUnit(line.unitOfMeasure) || stockUnit;
       const qty = unit ? `${line.quantity} ${unit}` : line.quantity;
       return `${qty}× ${label}`;
     })
@@ -181,11 +184,14 @@ export default function BomRecipeEditor({
   onAddSelected,
   onRemoveLine,
   onUpdateLineQuantity,
+  onUpdateLineUnit,
+  parentUnitOfMeasure = "",
 }) {
   const bomOptions = catalogItems.map((item) => ({
     value: String(item.id),
     label: catalogItemLabel(catalogItems, String(item.id)),
   }));
+  const parentUnit = normalizeUnit(parentUnitOfMeasure) || "item";
 
   return (
     <div className={`w-full space-y-2 ${brutalBorder} bg-nv-paper p-2`}>
@@ -213,8 +219,17 @@ export default function BomRecipeEditor({
       {bomLines.length > 0 ? (
         <ul className="space-y-2 border-t-brutal border-black pt-2">
           {bomLines.map((line) => {
-            const lineUnit = catalogItemUnit(catalogItems, line.itemId);
-            const quantityLabel = lineUnit ? `${lineUnit} per item` : "Unit per item";
+            const stockUnit = catalogItemUnit(catalogItems, line.itemId);
+            const lineUnit =
+              normalizeUnit(line.unitOfMeasure) || stockUnit || "";
+            const unitOptions = compatibleUnits(
+              stockUnit || lineUnit,
+              UNIT_OF_MEASURE_OPTIONS
+            );
+            const quantityLabel = lineUnit
+              ? `${lineUnit} per ${parentUnit}`
+              : `Unit per ${parentUnit}`;
+
             return (
               <li
                 key={line.id}
@@ -223,6 +238,11 @@ export default function BomRecipeEditor({
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0 flex-1 text-[10px] leading-snug">
                     {catalogItemDisplay(catalogItems, line.itemId)}
+                    {stockUnit ? (
+                      <span className="mt-0.5 block font-medium text-nv-ink/55">
+                        Stocked as {stockUnit}
+                      </span>
+                    ) : null}
                   </span>
                   <button
                     type="button"
@@ -232,14 +252,32 @@ export default function BomRecipeEditor({
                     Remove
                   </button>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <span className="text-[10px] font-normal normal-case tracking-normal text-nv-ink/70">
                     {quantityLabel}
                   </span>
                   <QuantityStepper
                     value={line.quantity}
-                    onChange={(quantity) => onUpdateLineQuantity(line.id, quantity)}
+                    onChange={(quantity) =>
+                      onUpdateLineQuantity(line.id, quantity)
+                    }
                   />
+                  {unitOptions.length > 0 ? (
+                    <select
+                      value={lineUnit}
+                      onChange={(e) =>
+                        onUpdateLineUnit?.(line.id, e.target.value)
+                      }
+                      aria-label="BOM unit of measure"
+                      className="max-w-[9rem] border-brutal border-black bg-nv-paper px-1.5 py-1 text-[10px] font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                    >
+                      {unitOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                 </div>
               </li>
             );

@@ -110,6 +110,7 @@ function formToItem(form, id, vendors = []) {
       ? form.bomLines.map((line) => ({
           component_item_id: Number(line.itemId),
           quantity: line.quantity,
+          unit_of_measure: line.unitOfMeasure || null,
         }))
       : [],
     router_phases: isMake
@@ -223,6 +224,7 @@ function queuedItemToFormFields(item, bomLineIdRef, routerPhaseIdRef) {
           id: lineId,
           itemId: String(line.component_item_id),
           quantity: String(line.quantity ?? "1"),
+          unitOfMeasure: line.unit_of_measure ?? "",
         };
       })
     : [];
@@ -373,7 +375,15 @@ export default function NewItem() {
     const newLines = newIds.map((itemId) => {
       const lineId = bomLineIdRef.current;
       bomLineIdRef.current += 1;
-      return { id: lineId, itemId, quantity: "1" };
+      const catalogItem = catalogItems.find(
+        (row) => String(row.id) === String(itemId)
+      );
+      return {
+        id: lineId,
+        itemId,
+        quantity: "1",
+        unitOfMeasure: catalogItem?.unit_of_measure ?? "",
+      };
     });
 
     setBomLines((prev) => [...prev, ...newLines]);
@@ -388,6 +398,14 @@ export default function NewItem() {
   const updateBomLineQuantity = (lineId, quantity) => {
     setBomLines((prev) =>
       prev.map((line) => (line.id === lineId ? { ...line, quantity } : line))
+    );
+  };
+
+  const updateBomLineUnit = (lineId, unitOfMeasure) => {
+    setBomLines((prev) =>
+      prev.map((line) =>
+        line.id === lineId ? { ...line, unitOfMeasure } : line
+      )
     );
   };
 
@@ -669,6 +687,10 @@ export default function NewItem() {
                     onAddSelected={addSelectedBomLines}
                     onRemoveLine={removeBomLine}
                     onUpdateLineQuantity={updateBomLineQuantity}
+                    onUpdateLineUnit={updateBomLineUnit}
+                    parentUnitOfMeasure={
+                      unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure
+                    }
                   />
                 </>
               )}
