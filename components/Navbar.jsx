@@ -84,7 +84,7 @@ function NavDropdown({ section, pathname, isOpen, onToggle }) {
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isPlatformAdmin } = useAuth();
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((s) => [s.id, true]))
   );
@@ -123,6 +123,18 @@ export default function Navbar() {
       </Link>
 
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" aria-label="Main">
+        {isPlatformAdmin && (
+          <Link
+            href="/admin"
+            className={`${brutalChrome} block px-3 py-2.5 text-xs font-black uppercase tracking-wide ${
+              pathname === "/admin" || pathname.startsWith("/admin/")
+                ? "bg-nv-violet text-white"
+                : "bg-nv-paper hover:bg-nv-cyan/20"
+            }`}
+          >
+            Admin · Clients
+          </Link>
+        )}
         {NAV_SECTIONS.map((section) => (
           <NavDropdown
             key={section.id}
@@ -132,6 +144,14 @@ export default function Navbar() {
             onToggle={() => toggleSection(section.id)}
           />
         ))}
+        <a
+          href="/help"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${brutalChrome} block px-3 py-2.5 text-xs font-black uppercase tracking-wide bg-nv-paper hover:bg-nv-cyan/20`}
+        >
+          Help
+        </a>
       </nav>
 
       <div className={`mt-auto border-t-brutal border-black ${brutalChrome} bg-nv-paper p-3`}>

@@ -7,6 +7,7 @@ import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
+import { formatMargin, formatMoney } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -275,7 +276,18 @@ export default function BatchesPage() {
 
                         <PhaseStrip phases={batch.phases} />
 
-                        <div className="mt-1 flex items-end justify-end">
+                        <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
+                          {batch.projected_profit != null ||
+                          batch.projected_margin != null ? (
+                            <span className="font-mono text-[10px] font-black text-nv-ink/70">
+                              {formatMoney(batch.projected_profit)}
+                              {batch.projected_margin != null
+                                ? ` · ${formatMargin(batch.projected_margin)}`
+                                : ""}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
                           <span className="font-mono text-[10px] font-black">
                             {batch.quantity}
                             {unit}

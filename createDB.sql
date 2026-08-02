@@ -49,6 +49,8 @@ CREATE TABLE items (
     make_or_buy TEXT NOT NULL,
     unit_of_measure TEXT NOT NULL,
     default_unit_price NUMERIC,
+    unit_cost NUMERIC,
+    unit_sell_price NUMERIC,
     active BOOLEAN DEFAULT TRUE,
     vendor INTEGER,
     created_by INTEGER REFERENCES users(id),
@@ -232,6 +234,12 @@ CREATE TABLE batches (
     sku TEXT,
     status TEXT DEFAULT 'planned',
     inventory_posted BOOLEAN NOT NULL DEFAULT FALSE,
+    projected_cost NUMERIC,
+    projected_revenue NUMERIC,
+    projected_profit NUMERIC,
+    projected_margin NUMERIC,
+    projected_unit_cost NUMERIC,
+    projected_unit_sell NUMERIC,
     start_date TIMESTAMP,
     end_date TIMESTAMP,
     created_by INTEGER REFERENCES users(id),
@@ -248,11 +256,13 @@ CREATE TABLE batch_components (
     batch_id INTEGER NOT NULL REFERENCES batches(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
     quantity_allocated NUMERIC,
-    unit_of_measure TEXT
+    unit_of_measure TEXT,
+    unit_cost_snapshot NUMERIC,
+    line_cost NUMERIC
 );
 
 -- =========================================
--- ITEM SKUS (lot / batch numbers per item)
+-- ITEM SKUS (production lot numbers linked to batches)
 -- =========================================
 CREATE TABLE item_skus (
     id SERIAL PRIMARY KEY,
@@ -264,6 +274,27 @@ CREATE TABLE item_skus (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (client_id, sku)
 );
+
+-- =========================================
+-- PURCHASE LOTS (vendor lot receives for buy items)
+-- Duplicate lot_number allowed (same vendor lot, multiple receives).
+-- =========================================
+CREATE TABLE purchase_lots (
+    id SERIAL PRIMARY KEY,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    lot_number TEXT NOT NULL,
+    quantity NUMERIC NOT NULL CHECK (quantity > 0),
+    total_cost NUMERIC NOT NULL CHECK (total_cost >= 0),
+    unit_cost NUMERIC NOT NULL CHECK (unit_cost >= 0),
+    arrival_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_purchase_lots_item_id ON purchase_lots (item_id);
+CREATE INDEX idx_purchase_lots_client_id ON purchase_lots (client_id);
 
 -- =========================================
 -- BATCH PHASES (snapshot of item router per production run)

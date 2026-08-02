@@ -24,7 +24,7 @@ export default function StylesPage() {
           className={`mb-12 ${brutalChrome} bg-nv-violet p-6 text-white sm:p-8`}
         >
           <p className="mb-2 font-mono text-sm font-bold uppercase tracking-widest text-white/85">
-            Upright · style lab
+            Upright · style lab (you weren&apos;t supposed to see this... enjoy the styles.)
           </p>
           <h1 className="text-4xl font-black uppercase leading-tight sm:text-5xl">
             Neobrutalism

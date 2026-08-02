@@ -104,6 +104,17 @@ export const getClient = async () => {
   return data;
 };
 
+export const getAdminClients = async () => {
+  const response = await fetch(`${getBaseUrl()}/api/admin/clients`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Failed to load clients (${response.status})`);
+  }
+  return data;
+};
+
 export const createClientUser = async ({ name, email, password, role }) => {
   const response = await fetch(`${getBaseUrl()}/api/client/users`, {
     method: "POST",
@@ -121,10 +132,18 @@ export const logoutUser = () => {
   setStoredToken(null);
 };
 
-export const GetAllItems = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/items`, {
-    headers: authHeaders(),
-  });
+export const GetAllItems = async ({ tagId } = {}) => {
+  const params = new URLSearchParams();
+  if (tagId != null && tagId !== "") {
+    params.set("tag_id", String(tagId));
+  }
+  const qs = params.toString();
+  const response = await fetch(
+    `${getBaseUrl()}/api/items${qs ? `?${qs}` : ""}`,
+    {
+      headers: authHeaders(),
+    }
+  );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to load items"));
   }
@@ -188,6 +207,51 @@ export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
     throw new Error(data?.error ?? `Update inventory goal failed (${response.status})`);
   }
   return data;
+};
+
+export const GetPurchaseLots = async (itemId) => {
+  const response = await fetch(
+    `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
+    { headers: authHeaders() }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to load purchase lots"));
+  }
+  return response.json();
+};
+
+export const CreatePurchaseLot = async (
+  itemId,
+  { lot_number, quantity, total_cost, arrival_date }
+) => {
+  const response = await fetch(
+    `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
+    {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ lot_number, quantity, total_cost, arrival_date }),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Receive lot failed (${response.status})`);
+  }
+  return data;
+};
+
+export const DeletePurchaseLot = async (itemId, lotId) => {
+  const response = await fetch(
+    `${getBaseUrl()}/api/items/${itemId}/purchase-lots/${lotId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    }
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Delete lot failed (${response.status})`);
+  }
+  return true;
 };
 
 export const GetItemProductionTree = async (id, quantity = 1) => {
@@ -330,6 +394,29 @@ export const GetVendors = async () => {
     throw new Error(await parseError(response, "Failed to load vendors"));
   }
   return response.json();
+};
+
+export const GetTags = async () => {
+  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to load tags"));
+  }
+  return response.json();
+};
+
+export const CreateTag = async (name) => {
+  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ name }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Create tag failed (${response.status})`);
+  }
+  return data;
 };
 
 export const CreateVendor = async ({ name, email, site_link, phone }) => {

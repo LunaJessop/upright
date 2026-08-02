@@ -14,6 +14,7 @@ import {
 import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import { useAuth } from "@/components/AuthProvider";
+import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -254,9 +255,83 @@ export default function BatchDetailPage({ params }) {
                 <FieldRow label="Started" value={formatDate(batch.start_date)} />
                 <FieldRow label="Completed" value={formatDate(batch.end_date)} />
                 <FieldRow label="Created" value={formatDate(batch.created_at)} />
+              </SectionCard>
 
+              <SectionCard title="Projected economics" accent="bg-nv-teal">
+                <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
+                  Snapshot from batch creation — buy material cost vs finished
+                  sell price. Catalog price changes later do not update this.
+                </p>
+                <FieldRow
+                  label="Material cost"
+                  value={formatMoney(batch.projected_cost)}
+                />
+                <FieldRow
+                  label="Projected revenue"
+                  value={formatMoney(batch.projected_revenue)}
+                />
+                <FieldRow
+                  label="Projected profit"
+                  value={formatMoney(batch.projected_profit)}
+                />
+                <FieldRow
+                  label="Margin"
+                  value={formatMargin(batch.projected_margin)}
+                />
+                <div className="mt-2 grid gap-x-4 border-t border-black/10 pt-1 sm:grid-cols-2">
+                  <FieldRow
+                    label="Unit cost"
+                    value={formatMoney(batch.projected_unit_cost)}
+                  />
+                  <FieldRow
+                    label="Unit sell"
+                    value={formatMoney(batch.projected_unit_sell)}
+                  />
+                </div>
+                {Array.isArray(batch.components) &&
+                  batch.components.some(
+                    (c) => c.line_cost != null && !isMakeItem(c.make_or_buy)
+                  ) && (
+                    <div className="mt-4 border-t border-black/10 pt-3">
+                      <p className={`${labelClass} mb-2`}>Buy materials</p>
+                      <ul className="space-y-1">
+                        {batch.components
+                          .filter(
+                            (c) =>
+                              !isMakeItem(c.make_or_buy) && c.line_cost != null
+                          )
+                          .map((c) => (
+                            <li
+                              key={c.id ?? c.item_id}
+                              className="flex items-center justify-between gap-2 text-xs font-semibold"
+                            >
+                              <span className="min-w-0 truncate">
+                                {c.name}
+                                <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
+                                  {c.quantity_allocated}
+                                  {c.unit_of_measure
+                                    ? ` ${c.unit_of_measure}`
+                                    : ""}
+                                  {c.unit_cost_snapshot != null
+                                    ? ` @ ${formatMoney(c.unit_cost_snapshot)}`
+                                    : ""}
+                                </span>
+                              </span>
+                              <span className="shrink-0 font-mono">
+                                {formatMoney(c.line_cost)}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+              </SectionCard>
+            </div>
+
+            <div className="mb-6 grid gap-6 lg:grid-cols-2">
+              <SectionCard title="Actions" accent="bg-nv-lavender">
                 {canMasterComplete && (
-                  <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
+                  <div className="space-y-2">
                     <p className="text-[10px] font-medium text-nv-ink/60">
                       Master complete posts inventory (add finished qty, subtract
                       buy materials) and locks this batch so phases cannot be
@@ -317,7 +392,9 @@ export default function BatchDetailPage({ params }) {
                 )}
 
                 {canCancel && (
-                  <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
+                  <div
+                    className={`space-y-2 ${canMasterComplete ? "mt-4 border-t border-black/10 pt-3" : ""}`}
+                  >
                     {cancelError && (
                       <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
                         {cancelError}
@@ -360,6 +437,12 @@ export default function BatchDetailPage({ params }) {
                       </button>
                     )}
                   </div>
+                )}
+
+                {!canMasterComplete && !canCancel && (
+                  <p className="text-xs font-medium text-nv-ink/55">
+                    No actions available for this batch.
+                  </p>
                 )}
               </SectionCard>
 

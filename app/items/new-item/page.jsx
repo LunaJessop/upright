@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
+import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
-import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetVendors } from "@/app/api/apiHandler";
+import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -18,15 +19,17 @@ const UNSET_SELECT = "__unset__";
 
 const INITIAL_FORM = {
   name: "",
-  sku: "",
   description: "",
   makeOrBuy: false,
   unitOfMeasure: UNSET_SELECT,
   defaultUnitPrice: "",
+  unitCost: "",
+  unitSellPrice: "",
   active: true,
   vendor: UNSET_SELECT,
   bomLines: [],
   routerPhases: [],
+  tags: [],
 };
 
 function FreeInput({
@@ -98,11 +101,15 @@ function formToItem(form, id, vendors = []) {
   return {
     id,
     name: form.name,
-    sku: isMake ? null : form.sku.trim(),
+    sku: null,
     description: form.description,
     make_or_buy: isMake ? "make" : "buy",
     unit_of_measure: form.unitOfMeasure === UNSET_SELECT ? "" : form.unitOfMeasure,
-    default_unit_price: form.defaultUnitPrice,
+    unit_cost: isMake ? null : form.unitCost.trim() || null,
+    unit_sell_price: isMake ? form.unitSellPrice.trim() || null : null,
+    default_unit_price: isMake
+      ? form.unitSellPrice.trim() || null
+      : form.unitCost.trim() || null,
     active: form.active,
     vendor: vendorId,
     vendor_name: vendorMatch?.name ?? null,
@@ -125,6 +132,11 @@ function formToItem(form, id, vendors = []) {
                 ? null
                 : phase.estimated_minutes.trim(),
           }))
+      : [],
+    tags: Array.isArray(form.tags)
+      ? form.tags.map((tag) =>
+          tag.id != null ? { id: Number(tag.id), name: tag.name } : { name: tag.name }
+        )
       : [],
   };
 }
@@ -176,14 +188,13 @@ function QueuedItemDetails({ item, isSelected, onSelect }) {
       <p className="mt-1 text-[10px] font-semibold text-nv-ink/70">
         {item.unit_of_measure || "No unit"}
         {" · "}
-        {formatQueuePrice(item.default_unit_price)}
+        {formatQueuePrice(
+          isMake
+            ? item.unit_sell_price ?? item.default_unit_price
+            : item.unit_cost ?? item.default_unit_price
+        )}
+        {isMake ? " sell" : " cost"}
       </p>
-
-      {!isMake && item.sku && (
-        <p className="mt-0.5 font-mono text-[10px] font-bold text-nv-ink/55">
-          Part # {item.sku}
-        </p>
-      )}
 
       {!isMake && item.vendor_name && (
         <p className="mt-0.5 text-[10px] font-medium text-nv-ink/55">
@@ -201,6 +212,12 @@ function QueuedItemDetails({ item, isSelected, onSelect }) {
           {bomCount} BOM component{bomCount === 1 ? "" : "s"}
           {" · "}
           {phaseCount} router phase{phaseCount === 1 ? "" : "s"}
+        </p>
+      )}
+
+      {Array.isArray(item.tags) && item.tags.length > 0 && (
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-nv-ink/55">
+          {item.tags.map((tag) => tag.name).filter(Boolean).join(" · ")}
         </p>
       )}
 
@@ -246,16 +263,33 @@ function queuedItemToFormFields(item, bomLineIdRef, routerPhaseIdRef) {
 
   return {
     name: item.name ?? "",
-    sku: item.sku ?? "",
     description: item.description ?? "",
     makeOrBuy: isMake,
     unitOfMeasure: item.unit_of_measure || UNSET_SELECT,
     defaultUnitPrice:
       item.default_unit_price == null ? "" : String(item.default_unit_price),
+    unitCost:
+      item.unit_cost != null
+        ? String(item.unit_cost)
+        : !isMake && item.default_unit_price != null
+          ? String(item.default_unit_price)
+          : "",
+    unitSellPrice:
+      item.unit_sell_price != null
+        ? String(item.unit_sell_price)
+        : isMake && item.default_unit_price != null
+          ? String(item.default_unit_price)
+          : "",
     active: item.active !== false,
     vendor: item.vendor == null ? UNSET_SELECT : String(item.vendor),
     bomLines,
     routerPhases,
+    tags: Array.isArray(item.tags)
+      ? item.tags.map((tag) => ({
+          ...(tag.id != null ? { id: Number(tag.id) } : {}),
+          name: String(tag.name ?? "").trim(),
+        }))
+      : [],
   };
 }
 
@@ -280,8 +314,9 @@ function isFormComplete(form) {
     form.name.trim() !== "" &&
     form.description.trim() !== "" &&
     form.unitOfMeasure !== UNSET_SELECT &&
-    form.defaultUnitPrice.trim() !== "" &&
-    (isMake || form.sku.trim() !== "");
+    (isMake
+      ? form.unitSellPrice.trim() !== ""
+      : form.unitCost.trim() !== "");
 
   if (!baseComplete) return false;
   if (isMake) {
@@ -299,6 +334,7 @@ export default function NewItem() {
   const [catalogItems, setCatalogItems] = useState([]);
   const [phaseTemplates, setPhaseTemplates] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [tagCatalog, setTagCatalog] = useState([]);
   const [catalogError, setCatalogError] = useState(false);
   const [items, setItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -318,10 +354,12 @@ export default function NewItem() {
         const rows = await GetAllItems();
         const templates = await GetRouterPhaseTemplates().catch(() => []);
         const vendorRows = await GetVendors().catch(() => []);
+        const tagRows = await GetTags().catch(() => []);
         if (!cancelled) {
           setCatalogItems(Array.isArray(rows) ? rows.filter((row) => row.active) : []);
           setPhaseTemplates(Array.isArray(templates) ? templates : []);
           setVendors(Array.isArray(vendorRows) ? vendorRows : []);
+          setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
           setCatalogError(false);
         }
       } catch {
@@ -333,15 +371,17 @@ export default function NewItem() {
     };
   }, []);
   const [name, setName] = useState(INITIAL_FORM.name);
-  const [sku, setSku] = useState(INITIAL_FORM.sku);
   const [description, setDescription] = useState(INITIAL_FORM.description);
   const [makeOrBuy, setMakeOrBuy] = useState(INITIAL_FORM.makeOrBuy);
   const [unitOfMeasure, setUnitOfMeasure] = useState(INITIAL_FORM.unitOfMeasure);
   const [defaultUnitPrice, setDefaultUnitPrice] = useState(INITIAL_FORM.defaultUnitPrice);
+  const [unitCost, setUnitCost] = useState(INITIAL_FORM.unitCost);
+  const [unitSellPrice, setUnitSellPrice] = useState(INITIAL_FORM.unitSellPrice);
   const [active, setActive] = useState(INITIAL_FORM.active);
   const [vendor, setVendor] = useState(INITIAL_FORM.vendor);
   const [bomLines, setBomLines] = useState(INITIAL_FORM.bomLines);
   const [routerPhases, setRouterPhases] = useState(INITIAL_FORM.routerPhases);
+  const [tags, setTags] = useState(INITIAL_FORM.tags);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [formError, setFormError] = useState("");
   const [editingQueueId, setEditingQueueId] = useState(null);
@@ -350,11 +390,14 @@ export default function NewItem() {
     setMakeOrBuy(value);
     if (value) {
       setVendor(UNSET_SELECT);
-      setSku("");
+      if (!unitSellPrice && unitCost) setUnitSellPrice(unitCost);
+      setUnitCost("");
     } else {
       setBomLines([]);
       setBomSelectedIds([]);
       setRouterPhases([]);
+      if (!unitCost && unitSellPrice) setUnitCost(unitSellPrice);
+      setUnitSellPrice("");
     }
   };
 
@@ -447,15 +490,17 @@ export default function NewItem() {
 
   const form = {
     name,
-    sku,
     description,
     makeOrBuy,
     unitOfMeasure,
     defaultUnitPrice,
+    unitCost,
+    unitSellPrice,
     active,
     vendor,
     bomLines,
     routerPhases,
+    tags,
   };
 
   const canAdd = isFormComplete(form);
@@ -463,15 +508,17 @@ export default function NewItem() {
 
   const applyFormFields = (fields) => {
     setName(fields.name);
-    setSku(fields.sku);
     setDescription(fields.description);
     setMakeOrBuy(fields.makeOrBuy);
     setUnitOfMeasure(fields.unitOfMeasure);
     setDefaultUnitPrice(fields.defaultUnitPrice);
+    setUnitCost(fields.unitCost ?? "");
+    setUnitSellPrice(fields.unitSellPrice ?? "");
     setActive(fields.active);
     setVendor(fields.vendor);
     setBomLines(fields.bomLines);
     setRouterPhases(fields.routerPhases);
+    setTags(fields.tags ?? []);
     setBomSelectedIds([]);
   };
 
@@ -479,15 +526,17 @@ export default function NewItem() {
     setFormError("");
     setEditingQueueId(null);
     setName(INITIAL_FORM.name);
-    setSku(INITIAL_FORM.sku);
     setDescription(INITIAL_FORM.description);
     setMakeOrBuy(INITIAL_FORM.makeOrBuy);
     setUnitOfMeasure(INITIAL_FORM.unitOfMeasure);
     setDefaultUnitPrice(INITIAL_FORM.defaultUnitPrice);
+    setUnitCost(INITIAL_FORM.unitCost);
+    setUnitSellPrice(INITIAL_FORM.unitSellPrice);
     setActive(INITIAL_FORM.active);
     setVendor(INITIAL_FORM.vendor);
     setBomLines(INITIAL_FORM.bomLines);
     setRouterPhases(INITIAL_FORM.routerPhases);
+    setTags(INITIAL_FORM.tags);
     setBomSelectedIds([]);
   };
 
@@ -592,14 +641,6 @@ export default function NewItem() {
             aria-label="New item form"
           >
             <FreeInput title="Item name" value={name} setValue={setName} />
-            {!makeOrBuy && (
-              <FreeInput
-                title="Vendor part #"
-                value={sku}
-                setValue={setSku}
-                placeholder="Supplier catalog number"
-              />
-            )}
             <TextAreaInput
               title="Description"
               value={description}
@@ -616,14 +657,42 @@ export default function NewItem() {
                 emptyLabel="Select unit of measure"
               />
             </label>
-            <FreeInput
-              title="List price"
-              type="text"
-              inputMode="decimal"
-              value={defaultUnitPrice}
-              setValue={setDefaultUnitPrice}
-              placeholder="0.00"
-            />
+            {makeOrBuy ? (
+              <FreeInput
+                title="Sell price"
+                type="text"
+                inputMode="decimal"
+                value={unitSellPrice}
+                setValue={setUnitSellPrice}
+                placeholder="0.00"
+              />
+            ) : (
+              <FreeInput
+                title="Unit cost"
+                type="text"
+                inputMode="decimal"
+                value={unitCost}
+                setValue={setUnitCost}
+                placeholder="0.00"
+              />
+            )}
+            <div className="col-span-2">
+              <TagPicker
+                value={tags}
+                onChange={setTags}
+                catalog={tagCatalog}
+                onCatalogAdd={(tag) => {
+                  setTagCatalog((prev) => {
+                    if (prev.some((row) => Number(row.id) === Number(tag.id))) {
+                      return prev;
+                    }
+                    return [...prev, tag].sort((a, b) =>
+                      String(a.name).localeCompare(String(b.name))
+                    );
+                  });
+                }}
+              />
+            </div>
             <div className="col-span-2 flex flex-col items-start gap-2">
               <BrutalSwitch
                 ariaLabel="Make or buy"

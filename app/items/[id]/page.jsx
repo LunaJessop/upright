@@ -8,7 +8,11 @@ import {
   GetAllItems,
   GetItemById,
   GetItemInventory,
+  GetPurchaseLots,
+  CreatePurchaseLot,
+  DeletePurchaseLot,
   GetRouterPhaseTemplates,
+  GetTags,
   GetVendors,
   UpdateItem,
   UpdateItemInventory,
@@ -22,22 +26,43 @@ import BomTreeView from "@/components/BomTreeView";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import NestedProductionPhases from "@/components/NestedProductionPhases";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
+import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
+import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
-function formatCost(value) {
-  const number = Number(value);
-  if (Number.isNaN(number)) return value ?? "—";
-  return number.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
-
 function formatDate(value) {
   if (!value) return "—";
+  // Date-only strings (YYYY-MM-DD) parse as UTC in JS — use local calendar day.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    const local = new Date(y, m - 1, d);
+    return local.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return String(value);
+  // Midnight UTC from Postgres DATE → format in UTC to avoid day shift.
+  const isUtcMidnight =
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0;
+  if (isUtcMidnight && typeof value !== "string") {
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -97,8 +122,7 @@ function formatSkuSource(source) {
 }
 
 function itemToDraft(item) {
-  const isMake =
-    item.make_or_buy === "make" || item.make_or_buy === true || item.make_or_buy === "true";
+  const isMake = isMakeFlag(item.make_or_buy);
   return {
     name: item.name == null ? "" : String(item.name),
     sku: item.sku == null ? "" : String(item.sku),
@@ -106,8 +130,26 @@ function itemToDraft(item) {
     make_or_buy: isMake ? "make" : "buy",
     unit_of_measure: item.unit_of_measure ?? "",
     default_unit_price: item.default_unit_price == null ? "" : String(item.default_unit_price),
+    unit_cost:
+      item.unit_cost != null
+        ? String(item.unit_cost)
+        : !isMake && item.default_unit_price != null
+          ? String(item.default_unit_price)
+          : "",
+    unit_sell_price:
+      item.unit_sell_price != null
+        ? String(item.unit_sell_price)
+        : isMake && item.default_unit_price != null
+          ? String(item.default_unit_price)
+          : "",
     vendor: item.vendor == null ? "" : String(item.vendor),
     active: Boolean(item.active),
+    tags: Array.isArray(item.tags)
+      ? item.tags.map((tag) => ({
+          ...(tag.id != null ? { id: Number(tag.id) } : {}),
+          name: String(tag.name ?? "").trim(),
+        }))
+      : [],
   };
 }
 
@@ -192,9 +234,23 @@ export default function ItemDetailPage({ params }) {
   const [batchQty, setBatchQty] = useState("1");
   const [batchSku, setBatchSku] = useState("");
   const [batchError, setBatchError] = useState("");
+  const [purchaseLots, setPurchaseLots] = useState([]);
+  const [purchaseLotsLoading, setPurchaseLotsLoading] = useState(false);
+  const [lotNumber, setLotNumber] = useState("");
+  const [lotQty, setLotQty] = useState("1");
+  const [lotTotalCost, setLotTotalCost] = useState("");
+  const [lotArrivalDate, setLotArrivalDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [lotError, setLotError] = useState("");
+  const [receivingLot, setReceivingLot] = useState(false);
+  const [deletingLotId, setDeletingLotId] = useState(null);
+  const [confirmingLotId, setConfirmingLotId] = useState(null);
   const [catalogItems, setCatalogItems] = useState([]);
   const [phaseTemplates, setPhaseTemplates] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [tagCatalog, setTagCatalog] = useState([]);
+  const [draftTags, setDraftTags] = useState([]);
   const [bomLines, setBomLines] = useState([]);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [routerPhases, setRouterPhases] = useState([]);
@@ -215,6 +271,14 @@ export default function ItemDetailPage({ params }) {
 
   const startEditing = () => {
     setDraft(itemToDraft(item));
+    setDraftTags(
+      Array.isArray(item.tags)
+        ? item.tags.map((tag) => ({
+            ...(tag.id != null ? { id: Number(tag.id) } : {}),
+            name: String(tag.name ?? "").trim(),
+          }))
+        : []
+    );
     setBomLines(itemToBomLines(item, bomLineIdRef.current));
     bomLineIdRef.current += (item.bom_items?.length ?? 0) + 1;
     setRouterPhases(itemToRouterPhases(item, routerPhaseIdRef.current));
@@ -227,6 +291,7 @@ export default function ItemDetailPage({ params }) {
   const cancelEditing = () => {
     setEditing(false);
     setDraft(null);
+    setDraftTags([]);
     setBomLines([]);
     setRouterPhases([]);
     setBomSelectedIds([]);
@@ -234,6 +299,17 @@ export default function ItemDetailPage({ params }) {
     setConfirmingDelete(false);
     setDeleting(false);
   };
+
+  useEffect(() => {
+    if (!editing) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !saving && !deleting) {
+        cancelEditing();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editing, saving, deleting]);
 
   const addSelectedBomLines = () => {
     if (bomSelectedIds.length === 0) {
@@ -324,10 +400,6 @@ export default function ItemDetailPage({ params }) {
       return;
     }
     const isMakeDraft = draft.make_or_buy === "make";
-    if (!isMakeDraft && !draft.sku.trim()) {
-      setSaveError("Vendor part number is required for buy items.");
-      return;
-    }
     if (
       isMakeDraft &&
       bomLines.some((line) => !(Number(line.quantity) > 0))
@@ -349,10 +421,25 @@ export default function ItemDetailPage({ params }) {
         ...item,
         ...draft,
         name: draft.name.trim(),
-        sku: isMakeDraft ? null : draft.sku.trim(),
+        sku: null,
         description: draft.description.trim(),
-        default_unit_price:
-          draft.default_unit_price.trim() === "" ? null : draft.default_unit_price.trim(),
+        default_unit_price: isMakeDraft
+          ? draft.unit_sell_price.trim() === ""
+            ? null
+            : draft.unit_sell_price.trim()
+          : draft.unit_cost.trim() === ""
+            ? null
+            : draft.unit_cost.trim(),
+        unit_cost: isMakeDraft
+          ? null
+          : draft.unit_cost.trim() === ""
+            ? null
+            : draft.unit_cost.trim(),
+        unit_sell_price: isMakeDraft
+          ? draft.unit_sell_price.trim() === ""
+            ? null
+            : draft.unit_sell_price.trim()
+          : null,
         vendor:
           isMakeDraft || draft.vendor === "" ? null : Number(draft.vendor),
         bom_items: isMakeDraft
@@ -363,13 +450,21 @@ export default function ItemDetailPage({ params }) {
             }))
           : [],
         router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
+        tags: draftTags.map((tag) =>
+          tag.id != null
+            ? { id: Number(tag.id), name: tag.name }
+            : { name: tag.name }
+        ),
       };
       const updated = await UpdateItem(id, payload);
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
+      const tagRows = await GetTags().catch(() => []);
+      setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
       setEditing(false);
       setDraft(null);
+      setDraftTags([]);
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
@@ -440,6 +535,8 @@ export default function ItemDetailPage({ params }) {
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
       const vendorRows = await GetVendors().catch(() => []);
       setVendors(Array.isArray(vendorRows) ? vendorRows : []);
+      const tagRows = await GetTags().catch(() => []);
+      setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
       // Fallback while the server lacks GET /api/items/:id
       if (!row || row.error || !row.id) {
         row = allItems.find((entry) => String(entry.id) === String(id));
@@ -470,7 +567,6 @@ export default function ItemDetailPage({ params }) {
       const row = await GetItemInventory(id);
       setInventory(row);
     } catch (err) {
-      setInventory(null);
       setInventoryError(err?.message || "Failed to load inventory.");
     } finally {
       setInventoryLoading(false);
@@ -482,8 +578,95 @@ export default function ItemDetailPage({ params }) {
       setInventory(null);
       return;
     }
+    setInventory(null);
     void loadInventory();
   }, [item?.id, loadInventory]);
+
+  const loadPurchaseLots = useCallback(async () => {
+    if (!id) {
+      setPurchaseLots([]);
+      return;
+    }
+    setPurchaseLotsLoading(true);
+    setLotError("");
+    try {
+      const rows = await GetPurchaseLots(id);
+      setPurchaseLots(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setPurchaseLots([]);
+      setLotError(err?.message || "Failed to load purchase lots.");
+    } finally {
+      setPurchaseLotsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!item?.id || isMakeFlag(item.make_or_buy)) {
+      setPurchaseLots([]);
+      return;
+    }
+    void loadPurchaseLots();
+  }, [item?.id, item?.make_or_buy, loadPurchaseLots]);
+
+  const handleReceiveLot = async () => {
+    const qty = Number(lotQty);
+    const total = Number(lotTotalCost);
+    if (!lotNumber.trim()) {
+      setLotError("Vendor lot # is required.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setLotError("Quantity must be a positive number.");
+      return;
+    }
+    if (!Number.isFinite(total) || total < 0) {
+      setLotError("Total cost must be a non-negative number.");
+      return;
+    }
+    setReceivingLot(true);
+    setLotError("");
+    try {
+      await CreatePurchaseLot(id, {
+        lot_number: lotNumber.trim(),
+        quantity: qty,
+        total_cost: total,
+        arrival_date: lotArrivalDate || undefined,
+      });
+      setLotNumber("");
+      setLotQty("1");
+      setLotTotalCost("");
+      setLotArrivalDate(new Date().toISOString().slice(0, 10));
+      const [updatedItem] = await Promise.all([
+        GetItemById(id),
+        loadInventory(),
+        loadPurchaseLots(),
+      ]);
+      if (updatedItem?.id) setItem(updatedItem);
+    } catch (err) {
+      setLotError(err?.message || "Failed to receive lot.");
+    } finally {
+      setReceivingLot(false);
+    }
+  };
+
+  const handleDeleteLot = async (purchaseLotId) => {
+    setDeletingLotId(purchaseLotId);
+    setLotError("");
+    try {
+      await DeletePurchaseLot(id, purchaseLotId);
+      setConfirmingLotId(null);
+      const [updatedItem] = await Promise.all([
+        GetItemById(id),
+        loadInventory(),
+        loadPurchaseLots(),
+      ]);
+      if (updatedItem?.id) setItem(updatedItem);
+    } catch (err) {
+      setLotError(err?.message || "Failed to delete lot.");
+    } finally {
+      setDeletingLotId(null);
+    }
+  };
 
   const startInventoryEdit = () => {
     setInventoryDraftQty(
@@ -548,12 +731,11 @@ export default function ItemDetailPage({ params }) {
     }
   };
 
-  const isMake =
-    item?.make_or_buy === "make" || item?.make_or_buy === true || item?.make_or_buy === "true";
+  const isMake = isMakeFlag(item?.make_or_buy);
   const lotSkus = Array.isArray(item?.item_skus) ? item.item_skus : [];
   const headerLabel = isMake
     ? lotSkus[0]?.sku ?? "No lot SKUs yet"
-    : item?.sku || "No vendor part #";
+    : item?.vendor_name || "Buy item";
 
   const itemById = useMemo(() => {
     const map = new Map();
@@ -588,300 +770,105 @@ export default function ItemDetailPage({ params }) {
 
         {!loading && !error && item && (
           <>
-            <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-              <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
-                {headerLabel}
-              </p>
-              <h1 className="text-3xl font-black uppercase leading-tight">
-                {item.name}
-              </h1>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
-                  {isMake ? "Make" : "Buy"}
-                </span>
-                <span
-                  className={`border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                    item.active ? "bg-nv-cyan text-black" : "bg-black/20 text-white"
-                  }`}
-                >
-                  {item.active ? "Active" : "Inactive"}
-                </span>
+            <header className={`mb-6 ${brutalChrome} overflow-hidden bg-nv-violet text-white`}>
+              <div className="flex flex-wrap items-start justify-between gap-3 p-6 pb-4">
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+                    {headerLabel}
+                  </p>
+                  <h1 className="text-3xl font-black uppercase leading-tight">
+                    {item.name}
+                  </h1>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                      {isMake ? "Make" : "Buy"}
+                    </span>
+                    <span
+                      className={`border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                        item.active
+                          ? "bg-nv-cyan text-black"
+                          : "bg-black/20 text-white"
+                      }`}
+                    >
+                      {item.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </div>
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="shrink-0 border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              <div className="border-t-brutal border-black bg-nv-paper p-4 text-nv-ink">
+                <div className="space-y-1">
+                  <FieldBlock label="Description" value={item.description} />
+                  {!isMake && (
+                    <FieldRow
+                      label="Vendor"
+                      value={
+                        item.vendor_name ||
+                        (item.vendor == null ? "—" : `Vendor #${item.vendor}`)
+                      }
+                    />
+                  )}
+                  <div className="border-b border-black/10 py-3">
+                    <p className={labelClass}>Tags</p>
+                    {Array.isArray(item.tags) && item.tags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {item.tags.map((tag) => (
+                          <span
+                            key={tag.id ?? tag.name}
+                            className="border-brutal border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs font-medium text-nv-ink/55">
+                        No tags
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <FieldRow
+                      label="Unit of measure"
+                      value={item.unit_of_measure}
+                    />
+                    <div className="border-b border-black/10 py-2.5">
+                      <p className={labelClass}>
+                        {isMake ? "Sell price" : "Unit cost"}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {formatMoney(itemDisplayPrice(item))}
+                      </p>
+                      {!isMake && (
+                        <p className="mt-1 text-[10px] font-medium leading-snug text-nv-ink/55">
+                          Receiving a vendor lot updates this from total paid ÷
+                          qty.
+                        </p>
+                      )}
+                    </div>
+                    <FieldRow
+                      label="Created"
+                      value={formatDate(item.created_at)}
+                    />
+                    <FieldRow
+                      label="Updated"
+                      value={formatDate(item.updated_at)}
+                    />
+                  </div>
+                </div>
               </div>
             </header>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <SectionCard
-                title="Item data"
-                action={
-                  editing ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {confirmingDelete ? (
-                        <>
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-black">
-                            Delete &quot;{item.name}&quot;?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfirmingDelete(false);
-                              setSaveError("");
-                            }}
-                            disabled={deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-                          >
-                            No
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete()}
-                            disabled={deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-                          >
-                            {deleting ? "Deleting…" : "Yes, delete"}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfirmingDelete(true);
-                              setSaveError("");
-                            }}
-                            disabled={saving || deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEditing}
-                            disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void saveDraft()}
-                            disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-                          >
-                            {saving ? "Saving…" : "Save"}
-                          </button>
-                        </>
-                      )}
-                      {saveError && (
-                        <p className="w-full text-right text-[10px] font-bold uppercase tracking-wide text-red-700">
-                          {saveError}
-                        </p>
-                      )}
-                    </div>
-                  ) : canWrite ? (
-                    <button
-                      type="button"
-                      onClick={startEditing}
-                      className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5"
-                    >
-                      Edit
-                    </button>
-                  ) : null
-                }
-              >
-                {editing && draft ? (
-                  <div className="space-y-1">
-                    <div className="grid gap-x-6 sm:grid-cols-2">
-                      <FieldRow label="Name">
-                        <input
-                          type="text"
-                          value={draft.name}
-                          onChange={(e) => setDraftField("name", e.target.value)}
-                          className={editInputClass}
-                        />
-                      </FieldRow>
-                      {draft.make_or_buy === "buy" && (
-                        <FieldRow label="Vendor part #">
-                          <input
-                            type="text"
-                            value={draft.sku}
-                            onChange={(e) => setDraftField("sku", e.target.value)}
-                            className={editInputClass}
-                            placeholder="Supplier catalog number"
-                          />
-                        </FieldRow>
-                      )}
-                    </div>
-
-                    <FieldBlock label="Description">
-                      <textarea
-                        rows={4}
-                        value={draft.description}
-                        onChange={(e) => setDraftField("description", e.target.value)}
-                        className={`${editInputClass} min-h-[5.5rem] resize-y leading-relaxed`}
-                        placeholder="Optional notes about this item…"
-                      />
-                    </FieldBlock>
-
-                    <FieldRow label="Make or buy">
-                      <BrutalSwitch
-                        ariaLabel="Make or buy"
-                        value={draft.make_or_buy}
-                        setValue={(value) => {
-                          setDraft((prev) => ({
-                            ...prev,
-                            make_or_buy: value,
-                            sku: value === "make" ? "" : prev.sku,
-                            vendor: value === "make" ? "" : prev.vendor,
-                          }));
-                          if (value === "buy") {
-                            setRouterPhases([]);
-                            setBomLines([]);
-                            setBomSelectedIds([]);
-                          }
-                        }}
-                        offValue="buy"
-                        onValue="make"
-                        offLabel="Buy"
-                        onLabel="Make"
-                      />
-                    </FieldRow>
-
-                    {draft.make_or_buy === "make" && (
-                      <div className="border-b border-black/10 py-3">
-                        <RouterPhaseEditor
-                          phases={routerPhases}
-                          phaseTemplates={phaseTemplates}
-                          onAddFromTemplate={addRouterPhaseFromTemplate}
-                          onRemovePhase={removeRouterPhase}
-                          onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
-                          onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
-                          onReorderPhases={setRouterPhases}
-                        />
-                      </div>
-                    )}
-
-                    {draft.make_or_buy === "buy" && (
-                      <FieldRow label="Vendor">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <select
-                              value={draft.vendor}
-                              onChange={(e) =>
-                                setDraftField("vendor", e.target.value)
-                              }
-                              className={`${editInputClass} cursor-pointer`}
-                            >
-                              <option value="">—</option>
-                              {vendors.map((vendor) => (
-                                <option key={vendor.id} value={String(vendor.id)}>
-                                  {vendor.name}
-                                </option>
-                              ))}
-                            </select>
-                            <Link
-                              href="/settings/vendors"
-                              aria-label="Add vendor"
-                              title="Add vendor"
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
-                            >
-                              +
-                            </Link>
-                          </div>
-                          {vendors.length === 0 && (
-                            <p className="text-right text-[10px] font-medium text-nv-ink/50">
-                              No vendors yet — use + to create one
-                            </p>
-                          )}
-                        </div>
-                      </FieldRow>
-                    )}
-
-                    {draft.make_or_buy === "make" && (
-                      <div className="border-b border-black/10 py-3">
-                        <BomRecipeEditor
-                          catalogItems={catalogItems}
-                          bomLines={bomLines}
-                          selectedItemIds={bomSelectedIds}
-                          onSelectedItemIdsChange={setBomSelectedIds}
-                          onAddSelected={addSelectedBomLines}
-                          onRemoveLine={removeBomLine}
-                          onUpdateLineQuantity={updateBomLineQuantity}
-                          onUpdateLineUnit={updateBomLineUnit}
-                          parentUnitOfMeasure={draft.unit_of_measure}
-                        />
-                      </div>
-                    )}
-
-                    <div className="grid gap-x-6 sm:grid-cols-2">
-                      <FieldRow label="Unit of measure">
-                        <UnitOfMeasureSelect
-                          value={draft.unit_of_measure}
-                          onChange={(e) => setDraftField("unit_of_measure", e.target.value)}
-                          className={`${editInputClass} cursor-pointer`}
-                        />
-                      </FieldRow>
-                      <FieldRow label="List price">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={draft.default_unit_price}
-                          onChange={(e) => setDraftField("default_unit_price", e.target.value)}
-                          className={editInputClass}
-                        />
-                      </FieldRow>
-                      <FieldRow label="Status">
-                        <select
-                          value={draft.active ? "active" : "inactive"}
-                          onChange={(e) => setDraftField("active", e.target.value === "active")}
-                          className={`${editInputClass} cursor-pointer`}
-                        >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                        </select>
-                      </FieldRow>
-                    </div>
-
-                    <div className="grid gap-x-6 border-t border-black/10 pt-1 sm:grid-cols-2">
-                      <FieldRow label="Created" value={formatDate(item.created_at)} />
-                      <FieldRow label="Updated" value={formatDate(item.updated_at)} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <FieldRow label="Name" value={item.name} />
-                    {!isMake && (
-                      <FieldRow label="Vendor part #" value={item.sku} />
-                    )}
-
-                    <FieldBlock label="Description" value={item.description} />
-
-                    <FieldRow label="Make or buy" value={isMake ? "Make" : "Buy"} />
-
-                    {!isMake && (
-                      <FieldRow
-                        label="Vendor"
-                        value={
-                          item.vendor_name ||
-                          (item.vendor == null ? "—" : `Vendor #${item.vendor}`)
-                        }
-                      />
-                    )}
-
-                    <div className="grid gap-x-6 sm:grid-cols-2">
-                      <FieldRow label="Unit of measure" value={item.unit_of_measure} />
-                      <FieldRow label="List price" value={formatCost(item.default_unit_price)} />
-                      <FieldRow label="Status" value={item.active ? "Active" : "Inactive"} />
-                    </div>
-
-                    <div className="grid gap-x-6 border-t border-black/10 pt-1 sm:grid-cols-2">
-                      <FieldRow label="Created" value={formatDate(item.created_at)} />
-                      <FieldRow label="Updated" value={formatDate(item.updated_at)} />
-                    </div>
-                  </div>
-                )}
-              </SectionCard>
-
               <SectionCard
                 title="Inventory"
                 accent="bg-nv-lavender"
@@ -909,7 +896,7 @@ export default function ItemDetailPage({ params }) {
                     <button
                       type="button"
                       onClick={startInventoryEdit}
-                      disabled={inventoryLoading || !inventory}
+                      disabled={!inventory}
                       className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                     >
                       Edit
@@ -917,19 +904,25 @@ export default function ItemDetailPage({ params }) {
                   ) : null
                 }
               >
-                {inventoryLoading && (
+                {inventoryLoading && !inventory && (
                   <p className="text-xs font-medium text-nv-ink/55">
                     Loading inventory…
                   </p>
                 )}
 
-                {!inventoryLoading && inventoryError && !inventoryEditing && (
+                {inventoryError && !inventoryEditing && !inventory && (
                   <p className="text-xs font-bold uppercase tracking-wide text-red-600">
                     {inventoryError}
                   </p>
                 )}
 
-                {!inventoryLoading && inventory && (
+                {inventoryError && !inventoryEditing && inventory && (
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-red-600">
+                    {inventoryError}
+                  </p>
+                )}
+
+                {inventory && (
                   <>
                     {inventoryEditing ? (
                       <div className="space-y-3">
@@ -996,14 +989,21 @@ export default function ItemDetailPage({ params }) {
                         )}
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div
+                        className={`space-y-3 transition-opacity duration-200 ${
+                          inventoryLoading ? "opacity-70" : "opacity-100"
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
                           <span className={`shrink-0 ${labelClass}`}>
                             Current QTY
                           </span>
                           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                            <span className="text-sm font-semibold">
-                              {formatQty(inventory.quantity)}
+                            <span className="text-sm font-semibold tabular-nums">
+                              <AnimatedNumber
+                                value={inventory.quantity}
+                                format={formatQty}
+                              />
                               {inventory.unit_of_measure
                                 ? ` ${inventory.unit_of_measure}`
                                 : ""}
@@ -1026,8 +1026,11 @@ export default function ItemDetailPage({ params }) {
                               Planned QTY
                             </span>
                             <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                              <span className="text-sm font-semibold">
-                                {formatQty(inventory.planned_quantity)}
+                              <span className="text-sm font-semibold tabular-nums">
+                                <AnimatedNumber
+                                  value={inventory.planned_quantity}
+                                  format={formatQty}
+                                />
                                 {inventory.unit_of_measure
                                   ? ` ${inventory.unit_of_measure}`
                                   : ""}
@@ -1077,6 +1080,173 @@ export default function ItemDetailPage({ params }) {
                   </>
                 )}
               </SectionCard>
+
+              {!isMake && (
+                <SectionCard title="Vendor lots" accent="bg-nv-lavender">
+                  <p className="mb-3 text-[10px] font-medium leading-snug text-nv-ink/55">
+                    Enter the total amount paid for this receive — we divide by
+                    qty to set unit cost. Same lot # can be received more than
+                    once. Deleting a receive reverses its quantity.
+                  </p>
+                  {lotError && (
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-red-600">
+                      {lotError}
+                    </p>
+                  )}
+                  {!editing && canWrite && (
+                    <div className="mb-4 space-y-2 border-b border-black/10 pb-4">
+                      <p className="text-[10px] font-black uppercase tracking-wide">
+                        Receive lot
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="min-w-32 flex-1 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            Vendor lot #
+                          </span>
+                          <input
+                            type="text"
+                            value={lotNumber}
+                            onChange={(e) => setLotNumber(e.target.value)}
+                            placeholder="Supplier batch / lot"
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <label className="w-20 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            Qty
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={lotQty}
+                            onChange={(e) => setLotQty(e.target.value)}
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <label className="w-24 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            Total cost
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={lotTotalCost}
+                            onChange={(e) => setLotTotalCost(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <label className="w-36 space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                            Arrival date
+                          </span>
+                          <input
+                            type="date"
+                            value={lotArrivalDate}
+                            onChange={(e) => setLotArrivalDate(e.target.value)}
+                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void handleReceiveLot()}
+                          disabled={receivingLot}
+                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        >
+                          {receivingLot ? "Receiving…" : "Receive"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {purchaseLotsLoading && (
+                    <p className="text-xs font-medium text-nv-ink/55">
+                      Loading lots…
+                    </p>
+                  )}
+
+                  {!purchaseLotsLoading && purchaseLots.length > 0 ? (
+                    <ul className="space-y-2">
+                      {purchaseLots.map((row) => (
+                        <li
+                          key={row.id}
+                          className="flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2"
+                        >
+                          <div>
+                            <span className="font-mono text-sm font-black">
+                              {row.lot_number}
+                            </span>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
+                              <span>
+                                {formatQty(row.quantity)}
+                                {item.unit_of_measure
+                                  ? ` ${item.unit_of_measure}`
+                                  : ""}
+                              </span>
+                              <span>
+                                {formatMoney(
+                                  row.total_cost ??
+                                    Number(row.quantity) * Number(row.unit_cost)
+                                )}{" "}
+                                total
+                              </span>
+                              <span>
+                                {formatMoney(row.unit_cost)} / ea
+                              </span>
+                              <span>
+                                Arrived{" "}
+                                {formatDate(row.arrival_date ?? row.received_at)}
+                              </span>
+                            </div>
+                          </div>
+                          {canWrite && (
+                            confirmingLotId === row.id ? (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[9px] font-bold uppercase tracking-wide text-nv-ink/70">
+                                  Reverse qty?
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingLotId(null)}
+                                  disabled={deletingLotId === row.id}
+                                  className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                                >
+                                  No
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteLot(row.id)}
+                                  disabled={deletingLotId === row.id}
+                                  className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                                >
+                                  {deletingLotId === row.id
+                                    ? "Deleting…"
+                                    : "Yes, delete"}
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingLotId(row.id)}
+                                disabled={deletingLotId != null}
+                                className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 disabled:opacity-40"
+                              >
+                                Delete
+                              </button>
+                            )
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    !purchaseLotsLoading && (
+                      <p className="text-xs font-medium text-nv-ink/55">
+                        No vendor lots received yet.
+                      </p>
+                    )
+                  )}
+                </SectionCard>
+              )}
 
               {isMake && (
                 <SectionCard title="Batches" accent="bg-nv-lavender">
@@ -1185,12 +1355,37 @@ export default function ItemDetailPage({ params }) {
                     </>
                   ) : (
                     <p className="text-xs font-medium text-nv-ink/55">
-                      No recipe defined yet. Use Edit in Item data to add
-                      components.
+                      No recipe defined yet. Use Edit to add components.
                     </p>
                   )}
                 </SectionCard>
               )}
+
+              <SectionCard title="Used In" accent="bg-nv-lavender">
+                {Array.isArray(item.used_in) && item.used_in.length > 0 ? (
+                  <ul className="divide-y divide-black/10 border-brutal border-black">
+                    {item.used_in.map((parent) => (
+                      <li key={parent.id}>
+                        <Link
+                          href={`/items/${parent.id}`}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-cyan/20"
+                        >
+                          <span className="min-w-0 truncate">{parent.name}</span>
+                          {parent.sku ? (
+                            <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wide text-nv-ink/45">
+                              {parent.sku}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs font-medium text-nv-ink/55">
+                    Not used in any other item’s BOM.
+                  </p>
+                )}
+              </SectionCard>
 
               {isMake && (
                 <div className="lg:col-span-2">
@@ -1203,6 +1398,323 @@ export default function ItemDetailPage({ params }) {
                 </div>
               )}
             </div>
+
+            {editing && draft && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close edit item"
+                  className="fixed inset-0 z-40 bg-black/40"
+                  onClick={() => {
+                    if (!saving && !deleting) cancelEditing();
+                  }}
+                />
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="edit-item-title"
+                  className={`fixed inset-x-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-full max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:inset-x-6`}
+                >
+                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-cyan px-4 py-2">
+                    <h2
+                      id="edit-item-title"
+                      className="text-sm font-black uppercase tracking-wide text-black"
+                    >
+                      Edit item
+                    </h2>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {confirmingDelete ? (
+                        <>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-black">
+                            Delete &quot;{item.name}&quot;?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmingDelete(false);
+                              setSaveError("");
+                            }}
+                            disabled={deleting}
+                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          >
+                            No
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete()}
+                            disabled={deleting}
+                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          >
+                            {deleting ? "Deleting…" : "Yes, delete"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmingDelete(true);
+                              setSaveError("");
+                            }}
+                            disabled={saving || deleting}
+                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditing}
+                            disabled={saving || deleting}
+                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void saveDraft()}
+                            disabled={saving || deleting}
+                            className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          >
+                            {saving ? "Saving…" : "Save"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </header>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                    {saveError && (
+                      <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                        {saveError}
+                      </p>
+                    )}
+                    <div className="space-y-1">
+                      <div className="grid gap-x-6 sm:grid-cols-2">
+                        <FieldRow label="Name">
+                          <input
+                            type="text"
+                            value={draft.name}
+                            onChange={(e) =>
+                              setDraftField("name", e.target.value)
+                            }
+                            className={editInputClass}
+                          />
+                        </FieldRow>
+                      </div>
+
+                      <FieldBlock label="Description">
+                        <textarea
+                          rows={4}
+                          value={draft.description}
+                          onChange={(e) =>
+                            setDraftField("description", e.target.value)
+                          }
+                          className={`${editInputClass} min-h-[5.5rem] resize-y leading-relaxed`}
+                          placeholder="Optional notes about this item…"
+                        />
+                      </FieldBlock>
+
+                      <div className="border-b border-black/10 py-3">
+                        <TagPicker
+                          value={draftTags}
+                          onChange={setDraftTags}
+                          catalog={tagCatalog}
+                          onCatalogAdd={(tag) => {
+                            setTagCatalog((prev) => {
+                              if (
+                                prev.some(
+                                  (row) => Number(row.id) === Number(tag.id)
+                                )
+                              ) {
+                                return prev;
+                              }
+                              return [...prev, tag].sort((a, b) =>
+                                String(a.name).localeCompare(String(b.name))
+                              );
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <FieldRow label="Make or buy">
+                        <BrutalSwitch
+                          ariaLabel="Make or buy"
+                          value={draft.make_or_buy}
+                          setValue={(value) => {
+                            setDraft((prev) => ({
+                              ...prev,
+                              make_or_buy: value,
+                              sku: "",
+                              vendor: value === "make" ? "" : prev.vendor,
+                              unit_cost:
+                                value === "buy"
+                                  ? prev.unit_cost || prev.unit_sell_price
+                                  : "",
+                              unit_sell_price:
+                                value === "make"
+                                  ? prev.unit_sell_price || prev.unit_cost
+                                  : "",
+                            }));
+                            if (value === "buy") {
+                              setRouterPhases([]);
+                              setBomLines([]);
+                              setBomSelectedIds([]);
+                            }
+                          }}
+                          offValue="buy"
+                          onValue="make"
+                          offLabel="Buy"
+                          onLabel="Make"
+                        />
+                      </FieldRow>
+
+                      {draft.make_or_buy === "make" && (
+                        <div className="border-b border-black/10 py-3">
+                          <RouterPhaseEditor
+                            phases={routerPhases}
+                            phaseTemplates={phaseTemplates}
+                            onAddFromTemplate={addRouterPhaseFromTemplate}
+                            onRemovePhase={removeRouterPhase}
+                            onMoveUp={(phaseId) =>
+                              moveRouterPhase(phaseId, "up")
+                            }
+                            onMoveDown={(phaseId) =>
+                              moveRouterPhase(phaseId, "down")
+                            }
+                            onReorderPhases={setRouterPhases}
+                          />
+                        </div>
+                      )}
+
+                      {draft.make_or_buy === "buy" && (
+                        <FieldRow label="Vendor">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <select
+                                value={draft.vendor}
+                                onChange={(e) =>
+                                  setDraftField("vendor", e.target.value)
+                                }
+                                className={`${editInputClass} cursor-pointer`}
+                              >
+                                <option value="">—</option>
+                                {vendors.map((vendor) => (
+                                  <option
+                                    key={vendor.id}
+                                    value={String(vendor.id)}
+                                  >
+                                    {vendor.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <Link
+                                href="/settings/vendors"
+                                aria-label="Add vendor"
+                                title="Add vendor"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                              >
+                                +
+                              </Link>
+                            </div>
+                            {vendors.length === 0 && (
+                              <p className="text-right text-[10px] font-medium text-nv-ink/50">
+                                No vendors yet — use + to create one
+                              </p>
+                            )}
+                          </div>
+                        </FieldRow>
+                      )}
+
+                      {draft.make_or_buy === "make" && (
+                        <div className="border-b border-black/10 py-3">
+                          <BomRecipeEditor
+                            catalogItems={catalogItems}
+                            bomLines={bomLines}
+                            selectedItemIds={bomSelectedIds}
+                            onSelectedItemIdsChange={setBomSelectedIds}
+                            onAddSelected={addSelectedBomLines}
+                            onRemoveLine={removeBomLine}
+                            onUpdateLineQuantity={updateBomLineQuantity}
+                            onUpdateLineUnit={updateBomLineUnit}
+                            parentUnitOfMeasure={draft.unit_of_measure}
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid gap-x-6 sm:grid-cols-2">
+                        <FieldRow label="Unit of measure">
+                          <UnitOfMeasureSelect
+                            value={draft.unit_of_measure}
+                            onChange={(e) =>
+                              setDraftField("unit_of_measure", e.target.value)
+                            }
+                            className={`${editInputClass} cursor-pointer`}
+                          />
+                        </FieldRow>
+                        {draft.make_or_buy === "make" ? (
+                          <FieldRow label="Sell price">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={draft.unit_sell_price}
+                              onChange={(e) =>
+                                setDraftField("unit_sell_price", e.target.value)
+                              }
+                              className={editInputClass}
+                            />
+                          </FieldRow>
+                        ) : (
+                          <div className="border-b border-black/10 py-2.5">
+                            <p className={labelClass}>Unit cost</p>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={draft.unit_cost}
+                              onChange={(e) =>
+                                setDraftField("unit_cost", e.target.value)
+                              }
+                              className={editInputClass}
+                            />
+                            <p className="mt-1 text-[10px] font-medium leading-snug text-nv-ink/55">
+                              Receiving a vendor lot overwrites this with total
+                              paid ÷ qty.
+                            </p>
+                          </div>
+                        )}
+                        <FieldRow label="Status">
+                          <select
+                            value={draft.active ? "active" : "inactive"}
+                            onChange={(e) =>
+                              setDraftField(
+                                "active",
+                                e.target.value === "active"
+                              )
+                            }
+                            className={`${editInputClass} cursor-pointer`}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </FieldRow>
+                      </div>
+
+                      <div className="grid gap-x-6 border-t border-black/10 pt-1 sm:grid-cols-2">
+                        <FieldRow
+                          label="Created"
+                          value={formatDate(item.created_at)}
+                        />
+                        <FieldRow
+                          label="Updated"
+                          value={formatDate(item.updated_at)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

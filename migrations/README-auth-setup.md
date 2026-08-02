@@ -12,6 +12,20 @@ node scripts/enforce-item-client-scoping.js
 # 1c. Stripe billing columns on clients
 node scripts/setup-billing-schema.js
 
+# 1d. Item tags (tags + item_tags)
+node scripts/setup-tags.js
+
+# 1e. Item cost/sell + batch economics snapshots
+node scripts/setup-item-pricing-and-batch-economics.js
+
+# 1f. Purchase lots (vendor lot receives for buy items)
+node scripts/setup-purchase-lots.js
+
+# Optional: remove test clients with no Stripe subscription
+# node scripts/purge-clients-without-subscription.js          # dry-run
+# node scripts/purge-clients-without-subscription.js --execute
+# node scripts/purge-clients-without-subscription.js --execute --keep-ids=1
+
 # 2. Add to .env (see .env.example):
 # JWT_SECRET=your-long-random-string
 # STRIPE_SECRET_KEY=sk_test_...

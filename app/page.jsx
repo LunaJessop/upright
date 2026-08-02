@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import uprightLogo from "@/app/assets/upright-logo.png";
+import PublicSiteHeader from "@/components/PublicSiteHeader";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function LandingPage() {
@@ -11,45 +12,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-root min-h-full bg-nv-canvas text-nv-ink">
-      <header className="sticky top-0 z-20 border-b-brutal border-black bg-nv-paper/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <a href="#top" className="flex items-center gap-3">
-            <Image
-              src={uprightLogo}
-              alt="Upright"
-              className="h-auto w-10"
-              priority
-            />
-            <span className="text-sm font-black lowercase tracking-wide">
-              upright
-            </span>
-          </a>
-
-          <nav className="flex items-center gap-2 sm:gap-3" aria-label="Landing">
-            <a
-              href="#about"
-              className="hidden px-3 py-2 text-[11px] font-black uppercase tracking-wide text-nv-ink/70 transition-colors hover:text-nv-ink sm:inline"
-            >
-              About
-            </a>
-            {!loading && isAuthed ? (
-              <Link
-                href="/items"
-                className="border-brutal border-black bg-nv-violet px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white shadow-brutal-btn transition-transform hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-              >
-                Open app
-              </Link>
-            ) : (
-              <Link
-                href="/auth"
-                className="border-brutal border-black bg-nv-violet px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white shadow-brutal-btn transition-transform hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-              >
-                Log in / Register
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
+      <PublicSiteHeader />
 
       <section
         id="top"
@@ -154,12 +117,20 @@ export default function LandingPage() {
           <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
             Get your business up and to the right
           </p>
-          <Link
-            href="/auth"
-            className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn transition-transform hover:-translate-y-0.5"
-          >
-            Log in / Register
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/help"
+              className="border-brutal border-black bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+            >
+              Help
+            </Link>
+            <Link
+              href="/auth"
+              className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn transition-transform hover:-translate-y-0.5"
+            >
+              Log in / Register
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

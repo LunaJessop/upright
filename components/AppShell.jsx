@@ -16,6 +16,7 @@ const PUBLIC_PATHS = new Set([
   "/register/plan",
   "/register/success",
   "/register/payment",
+  "/help",
 ]);
 
 const BILLING_FLOW_PATHS = new Set([
@@ -24,12 +25,27 @@ const BILLING_FLOW_PATHS = new Set([
   "/register/payment",
 ]);
 
+function isPublicPath(pathname) {
+  return (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname === "/help" ||
+    pathname.startsWith("/help/")
+  );
+}
+
+function isHelpPath(pathname) {
+  return pathname === "/help" || pathname.startsWith("/help/");
+}
+
 function AppShellInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, hasAppAccess, hasReadAccess } = useAuth();
-  const isPublic = PUBLIC_PATHS.has(pathname);
+  const { user, loading, hasAppAccess, hasReadAccess, isPlatformAdmin } =
+    useAuth();
+  const isPublic = isPublicPath(pathname);
+  const helpPath = isHelpPath(pathname);
   const isBillingFlow = BILLING_FLOW_PATHS.has(pathname);
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
     if (loading) return;
@@ -47,11 +63,16 @@ function AppShellInner({ children }) {
         router.replace("/register/plan");
       }
     }
+    if (user && isAdminPath && !isPlatformAdmin) {
+      router.replace(hasReadAccess ? "/items" : "/register/plan");
+    }
   }, [
     user,
     loading,
     isPublic,
     isBillingFlow,
+    isAdminPath,
+    isPlatformAdmin,
     hasReadAccess,
     pathname,
     router,
@@ -67,12 +88,32 @@ function AppShellInner({ children }) {
     );
   }
 
+  // Help is always a public docs surface (own top nav) — never app chrome.
+  if (helpPath) {
+    return <main className="min-h-full flex-1">{children}</main>;
+  }
+
   if (isPublic) {
     return <main className="min-h-full flex-1">{children}</main>;
   }
 
   if (!user) {
     return null;
+  }
+
+  // Platform admins can open /admin even if their own tenant is unpaid.
+  if (isAdminPath) {
+    if (!isPlatformAdmin) {
+      return null;
+    }
+    return (
+      <div className="flex min-h-full flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <Navbar />
+          <main className="min-w-0 flex-1">{children}</main>
+        </div>
+      </div>
+    );
   }
 
   if (!hasReadAccess) {

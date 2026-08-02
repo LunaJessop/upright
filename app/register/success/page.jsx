@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -12,8 +11,8 @@ const MAX_ATTEMPTS = 40;
 export default function RegisterSuccessPage() {
   const router = useRouter();
   const { user, loading, refreshSession, hasAppAccess } = useAuth();
-  const [attempts, setAttempts] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
+  const attemptsRef = useRef(0);
 
   useEffect(() => {
     if (loading) return;
@@ -32,13 +31,10 @@ export default function RegisterSuccessPage() {
     const id = setInterval(() => {
       void (async () => {
         const next = await refreshSession();
-        setAttempts((n) => {
-          const nextN = n + 1;
-          if (nextN >= MAX_ATTEMPTS && !next?.has_app_access) {
-            setTimedOut(true);
-          }
-          return nextN;
-        });
+        attemptsRef.current += 1;
+        if (attemptsRef.current >= MAX_ATTEMPTS && !next?.has_app_access) {
+          setTimedOut(true);
+        }
       })();
     }, POLL_MS);
 
@@ -52,38 +48,30 @@ export default function RegisterSuccessPage() {
           Payment received
         </p>
         <h1 className="mt-2 text-2xl font-black uppercase leading-tight">
-          {timedOut ? "Still activating…" : "Activating your account"}
+          Waiting for confirmation
         </h1>
         <p className="mt-3 text-sm font-medium text-nv-ink/70">
           {timedOut
-            ? "This is taking longer than expected. You can retry payment or refresh in a moment."
-            : "Confirming your subscription. This usually takes a few seconds."}
+            ? "This is taking longer than expected. You can check again in a moment, or contact support if it doesn’t clear."
+            : "We’re confirming your subscription with our payment provider. This usually takes a few seconds."}
         </p>
         {!timedOut && (
           <p className="mt-4 text-[10px] font-bold uppercase tracking-wide text-nv-ink/40">
-            Checking… ({attempts}/{MAX_ATTEMPTS})
+            Waiting…
           </p>
         )}
         {timedOut && (
-          <div className="mt-6 flex flex-col gap-2">
-            <Link
-              href="/register/plan"
-              className="border-brutal border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm"
-            >
-              Choose a plan
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setTimedOut(false);
-                setAttempts(0);
-                void refreshSession();
-              }}
-              className="border-brutal border-black bg-nv-paper px-4 py-2 text-xs font-black uppercase tracking-wide shadow-brutal-sm"
-            >
-              Check again
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setTimedOut(false);
+              attemptsRef.current = 0;
+              void refreshSession();
+            }}
+            className="mt-6 border-brutal border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm"
+          >
+            Check again
+          </button>
         )}
       </div>
     </div>

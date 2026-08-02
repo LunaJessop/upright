@@ -28,26 +28,38 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
             { data: "name", title: "Part name" },
             {
               data: null,
-              title: "Vendor part / Lot SKU",
+              title: "Lot SKU",
               defaultContent: "—",
               render: (_data, _type, row) => {
                 const isMake =
                   row.make_or_buy === "make" ||
                   row.make_or_buy === true ||
                   row.make_or_buy === "true";
-                if (isMake) {
-                  const lotSkus = Array.isArray(row.item_skus) ? row.item_skus : [];
-                  if (lotSkus.length === 0) return "—";
-                  if (lotSkus.length === 1) return lotSkus[0].sku;
-                  return `${lotSkus.length} lot SKUs`;
-                }
-                return row.sku || "—";
+                if (!isMake) return "—";
+                const lotSkus = Array.isArray(row.item_skus) ? row.item_skus : [];
+                if (lotSkus.length === 0) return "—";
+                if (lotSkus.length === 1) return lotSkus[0].sku;
+                return `${lotSkus.length} lot SKUs`;
               },
             },
             { data: "description", title: "Description", defaultContent: "" },
             { data: "make_or_buy", title: "Make or Buy", defaultContent: "" },
             { data: "unit_of_measure", title: "Units", defaultContent: "" },
-            { data: "default_unit_price", title: "List price", defaultContent: "" },
+            {
+              data: null,
+              title: "Price",
+              defaultContent: "",
+              render: (_value, _type, row) => {
+                const isMake =
+                  row.make_or_buy === "make" ||
+                  row.make_or_buy === true ||
+                  row.make_or_buy === "true";
+                const price = isMake
+                  ? row.unit_sell_price ?? row.default_unit_price
+                  : row.unit_cost ?? row.default_unit_price;
+                return price ?? "";
+              },
+            },
             {
               data: "active",
               title: "Active",
@@ -60,6 +72,15 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
               defaultContent: "",
               render: (_value, _type, row) =>
                 row.vendor_name || (row.vendor != null ? `Vendor #${row.vendor}` : ""),
+            },
+            {
+              data: "tags",
+              title: "Tags",
+              defaultContent: "—",
+              render: (value) =>
+                Array.isArray(value) && value.length > 0
+                  ? value.map((tag) => tag.name).filter(Boolean).join(", ")
+                  : "—",
             },
             {
               data: "bom_items",

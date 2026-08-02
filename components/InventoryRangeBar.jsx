@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import AnimatedNumber from "@/components/AnimatedNumber";
 
 const MIN_LABEL_GAP_PX = 16;
 /** Approximate glyph width for 9px mono tabular nums */
 const CHAR_WIDTH_PX = 5.5;
+const MARKER_TRANSITION =
+  "left 420ms cubic-bezier(0.22, 1, 0.36, 1), width 420ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 function formatTick(value) {
   if (!Number.isFinite(value)) return "—";
@@ -59,9 +62,9 @@ function spaceLabels(items, width) {
 }
 
 /**
- * Static stock range bar: green goal band + markers for current and planned,
+ * Stock range bar: green goal band + markers for current and planned,
  * with numeric tick labels so it reads as a number line.
- * Current/planned sit above the bar; scale ticks sit below.
+ * Markers/labels ease to new positions when quantities change.
  */
 export default function InventoryRangeBar({
   quantity,
@@ -97,6 +100,8 @@ export default function InventoryRangeBar({
   const planned = Number(plannedQuantity);
   const min = hasGoal ? Number(goalMin) : 0;
   const max = hasGoal ? Number(goalMax) : 0;
+  const samePoint =
+    Number.isFinite(current) && Number.isFinite(planned) && current === planned;
 
   const values = [current, planned];
   if (hasGoal) values.push(min, max);
@@ -122,34 +127,25 @@ export default function InventoryRangeBar({
         key: "current",
         value: current,
         leftPct: pct(current),
-        kind: "current",
+        kind: samePoint ? "both" : "current",
       });
     }
-    if (Number.isFinite(planned) && planned !== current) {
+    if (Number.isFinite(planned) && !samePoint) {
       items.push({
         key: "planned",
         value: planned,
         leftPct: pct(planned),
         kind: "planned",
       });
-    } else if (Number.isFinite(planned) && planned === current) {
-      // Same value: one label covers both
-      items[0] = {
-        key: "both",
-        value: current,
-        leftPct: pct(current),
-        kind: "both",
-      };
     }
     return spaceLabels(items, width);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, planned, scaleMax, width]);
+  }, [current, planned, samePoint, scaleMax, width]);
 
   const scaleTicks = useMemo(() => {
     const tickMap = new Map();
     const addTick = (value, kind) => {
       if (!Number.isFinite(value)) return;
-      // Skip values already shown above as current/planned
       if (value === current || value === planned) return;
       const key = String(value);
       const existing = tickMap.get(key);
@@ -195,6 +191,7 @@ export default function InventoryRangeBar({
             style={{
               left: `${tick.centerPx}px`,
               transform: "translateX(-50%)",
+              transition: MARKER_TRANSITION,
             }}
             title={
               tick.kind === "both"
@@ -204,7 +201,7 @@ export default function InventoryRangeBar({
                   : `Planned ${tick.label}${unitSuffix}`
             }
           >
-            {tick.label}
+            <AnimatedNumber value={tick.value} format={formatTick} />
           </span>
         ))}
       </div>
@@ -213,18 +210,28 @@ export default function InventoryRangeBar({
         {hasGoal && bandWidth > 0 && (
           <div
             className="absolute inset-y-0 bg-nv-teal/45"
-            style={{ left: `${bandLeft}%`, width: `${bandWidth}%` }}
+            style={{
+              left: `${bandLeft}%`,
+              width: `${bandWidth}%`,
+              transition: MARKER_TRANSITION,
+            }}
             title={`Goal ${formatTick(min)}–${formatTick(max)}${unitSuffix}`}
           />
         )}
         <div
           className="absolute inset-y-0 w-0.5 bg-nv-violet"
-          style={{ left: `calc(${currentLeft}% - 1px)` }}
+          style={{
+            left: `calc(${currentLeft}% - 1px)`,
+            transition: MARKER_TRANSITION,
+          }}
           title={`Current ${formatTick(current)}${unitSuffix}`}
         />
         <div
           className="absolute top-0 h-full w-0 border-l border-dashed border-black/70"
-          style={{ left: `${plannedLeft}%` }}
+          style={{
+            left: `${plannedLeft}%`,
+            transition: MARKER_TRANSITION,
+          }}
           title={`Planned ${formatTick(planned)}${unitSuffix}`}
         />
       </div>
@@ -237,6 +244,7 @@ export default function InventoryRangeBar({
             style={{
               left: `${tick.centerPx}px`,
               transform: "translateX(-50%)",
+              transition: MARKER_TRANSITION,
             }}
             title={`${tick.label}${unitSuffix}`}
           >
@@ -248,12 +256,14 @@ export default function InventoryRangeBar({
       <div className="flex flex-wrap gap-3 text-[9px] font-bold uppercase tracking-wide text-nv-ink/55">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-2.5 w-0.5 bg-nv-violet" />
-          Current {formatTick(current)}
+          Current{" "}
+          <AnimatedNumber value={current} format={formatTick} />
           {unitSuffix}
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-2.5 w-0 border-l border-dashed border-black/70" />
-          Planned {formatTick(planned)}
+          Planned{" "}
+          <AnimatedNumber value={planned} format={formatTick} />
           {unitSuffix}
         </span>
         {hasGoal ? (

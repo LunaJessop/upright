@@ -90,6 +90,7 @@ export function AuthProvider({ children }) {
         user?.read_only ??
           (user?.has_read_access && !user?.has_app_access)
       ),
+      isPlatformAdmin: Boolean(user?.is_platform_admin),
       subscriptionStatus: user?.subscription_status ?? null,
       graceDaysRemaining: user?.grace_days_remaining ?? null,
     }),
