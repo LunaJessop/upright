@@ -43,6 +43,8 @@ export const UNIT_OF_MEASURE_GROUPS = [
   {
     label: "Volume — Imperial",
     options: [
+      { value: "tsp", label: "Teaspoon (tsp)" },
+      { value: "tbsp", label: "Tablespoon (tbsp)" },
       { value: "fl_oz", label: "Fluid ounce (fl oz)" },
       { value: "cup", label: "Cup" },
       { value: "pt", label: "Pint (pt)" },
