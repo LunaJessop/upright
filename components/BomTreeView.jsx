@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import RouterPhaseBadges from "@/components/RouterPhaseBadges";
+import { componentStockMultiplier } from "@/lib/units";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -37,6 +38,19 @@ function BomTreeNode({
   const lineQty = Number(line.quantity);
   const qtyPerParent = Number.isNaN(lineQty) ? line.quantity : lineQty;
   const effectiveQty = Number.isNaN(lineQty) ? line.quantity : lineQty * parentMultiplier;
+  const convertedStock = componentStockMultiplier(
+    line.quantity,
+    line.unit_of_measure,
+    component?.unit_of_measure,
+    parentMultiplier
+  );
+  const parentScale = Number(parentMultiplier);
+  const nextParentMultiplier =
+    convertedStock != null
+      ? convertedStock
+      : Number.isFinite(lineQty)
+        ? lineQty * (Number.isFinite(parentScale) ? parentScale : 1)
+        : parentMultiplier;
   const childLines =
     component && isMakeItem(component) && Array.isArray(component.bom_items)
       ? component.bom_items
@@ -154,9 +168,7 @@ function BomTreeNode({
                   itemById={itemById}
                   depth={depth + 1}
                   visited={nextVisited}
-                  parentMultiplier={
-                    Number.isNaN(lineQty) ? parentMultiplier : lineQty * parentMultiplier
-                  }
+                  parentMultiplier={nextParentMultiplier}
                   scaleToBatch={scaleToBatch}
                 />
               ))}
