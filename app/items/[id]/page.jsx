@@ -1459,6 +1459,21 @@ export default function ItemDetailPage({ params }) {
                           {creatingBatch ? "Creating…" : "Create batch"}
                         </button>
                       </div>
+                      {Array.isArray(item.bom_items) &&
+                        item.bom_items.length > 0 &&
+                        Number(batchQty) > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-medium text-nv-ink/55">
+                              Batch preview — totals for this quantity.
+                            </p>
+                            <BomTreeView
+                              lines={item.bom_items}
+                              itemById={itemById}
+                              rootMultiplier={Number(batchQty) || 1}
+                              parentItem={item}
+                            />
+                          </div>
+                        )}
                     </div>
                   )}
 
@@ -1513,8 +1528,9 @@ export default function ItemDetailPage({ params }) {
                   {Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
-                        Child items — expand make components to see nested
-                        materials and their phases.
+                        For just one. Amounts use the unit they were entered
+                        in. Expand make components to see nested materials and
+                        their phases.
                       </p>
                       <BomTreeView
                         lines={item.bom_items}

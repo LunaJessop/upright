@@ -7,6 +7,7 @@ import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
+import BomTreeView from "@/components/BomTreeView";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMargin, formatMoney } from "@/lib/pricing";
 
@@ -98,6 +99,7 @@ export default function BatchesPage() {
   const { canWrite } = useAuth();
   const toast = useToast();
   const [batches, setBatches] = useState([]);
+  const [catalogItems, setCatalogItems] = useState([]);
   const [makeItems, setMakeItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -126,6 +128,7 @@ export default function BatchesPage() {
       ]);
       setBatches(Array.isArray(batchRows) ? batchRows : []);
       const items = Array.isArray(itemRows) ? itemRows : [];
+      setCatalogItems(items);
       setMakeItems(
         items.filter(
           (item) =>
@@ -144,6 +147,16 @@ export default function BatchesPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const itemById = useMemo(() => {
+    const map = new Map();
+    for (const entry of catalogItems) {
+      map.set(String(entry.id), entry);
+    }
+    return map;
+  }, [catalogItems]);
+
+  const selectedItem = itemById.get(String(selectedItemId)) ?? null;
 
   const closePanel = () => {
     setPanelOpen(false);
@@ -393,6 +406,22 @@ export default function BatchesPage() {
                   No make items yet. Create one under Items first.
                 </p>
               )}
+              {selectedItem &&
+                Array.isArray(selectedItem.bom_items) &&
+                selectedItem.bom_items.length > 0 &&
+                Number(quantity) > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-medium text-nv-ink/55">
+                      Batch preview — totals for this quantity.
+                    </p>
+                    <BomTreeView
+                      lines={selectedItem.bom_items}
+                      itemById={itemById}
+                      rootMultiplier={Number(quantity) || 1}
+                      parentItem={selectedItem}
+                    />
+                  </div>
+                )}
               <div className="mt-auto flex flex-wrap gap-2">
                 <button
                   type="button"
