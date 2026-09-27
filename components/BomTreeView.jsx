@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import RouterPhaseBadges from "@/components/RouterPhaseBadges";
+import { resolveBomTreeQuantity } from "@/lib/bomTreeQuantity";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -16,9 +17,46 @@ function isMakeItem(item) {
 function formatQty(value) {
   const number = Number(value);
   if (Number.isNaN(number)) return value ?? "—";
-  return Number.isInteger(number) ? String(number) : number.toLocaleString("en-US", {
-    maximumFractionDigits: 4,
-  });
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString("en-US", {
+        maximumFractionDigits: 4,
+      });
+}
+
+function formatQtyUnit(qty, unit) {
+  if (qty == null || qty === "") return "—";
+  const formatted = formatQty(qty);
+  return unit ? `${formatted} ${unit}` : String(formatted);
+}
+
+function lineDetails(qty, parentMultiplier, depth) {
+  const parentScale = Number(parentMultiplier);
+  const scaled =
+    parentMultiplier != null &&
+    Number.isFinite(parentScale) &&
+    parentScale !== 1;
+  const rightIsEntered = qty.rolledUp == null && qty.perParentStock == null;
+  const parts = [];
+
+  if (scaled && qty.perParentStock != null && qty.rolledUp != null) {
+    if (qty.unitsDiffer) {
+      parts.push(`${formatQtyUnit(qty.enteredQty, qty.enteredUnit)} entered`);
+    }
+    const perLabel = depth === 0 ? "per item" : "per parent";
+    parts.push(
+      `${formatQtyUnit(qty.perParentStock, qty.displayUnit)} ${perLabel}`
+    );
+  } else if (
+    !rightIsEntered &&
+    qty.unitsDiffer &&
+    qty.enteredQty != null &&
+    qty.enteredQty !== ""
+  ) {
+    parts.push(`${formatQtyUnit(qty.enteredQty, qty.enteredUnit)} entered`);
+  }
+
+  return parts;
 }
 
 function BomTreeNode({
@@ -32,11 +70,7 @@ function BomTreeNode({
   const [expanded, setExpanded] = useState(false);
   const componentId = String(line.component_item_id);
   const component = itemById.get(componentId);
-  const unit =
-    line.unit_of_measure || component?.unit_of_measure || "";
-  const lineQty = Number(line.quantity);
-  const qtyPerParent = Number.isNaN(lineQty) ? line.quantity : lineQty;
-  const effectiveQty = Number.isNaN(lineQty) ? line.quantity : lineQty * parentMultiplier;
+  const qty = resolveBomTreeQuantity(line, component, parentMultiplier);
   const childLines =
     component && isMakeItem(component) && Array.isArray(component.bom_items)
       ? component.bom_items
@@ -48,14 +82,30 @@ function BomTreeNode({
     ? component.router_phases
     : [];
 
-  const nextVisited = useMemo(() => new Set(visited).add(componentId), [visited, componentId]);
+  const nextVisited = useMemo(
+    () => new Set(visited).add(componentId),
+    [visited, componentId]
+  );
 
-  const rightQty = scaleToBatch || depth === 0 ? effectiveQty : qtyPerParent;
-  const rightLabel = scaleToBatch
-    ? "for batch"
-    : depth === 0
-      ? "per item"
-      : "per parent";
+  const rightQty =
+    qty.rolledUp != null
+      ? qty.rolledUp
+      : qty.perParentStock != null
+        ? qty.perParentStock
+        : qty.enteredQty;
+  const rightUnit =
+    qty.rolledUp != null || qty.perParentStock != null
+      ? qty.displayUnit
+      : qty.enteredUnit;
+  const rightLabel =
+    qty.rolledUp != null
+      ? scaleToBatch
+        ? "for batch"
+        : "per item"
+      : qty.perParentStock != null
+        ? "per parent"
+        : "entered per parent";
+  const details = lineDetails(qty, parentMultiplier, depth);
 
   return (
     <li className={depth > 0 ? "mt-1" : ""}>
@@ -105,19 +155,20 @@ function BomTreeNode({
               )}
             </div>
 
-            {depth > 0 && !scaleToBatch && (
+            {details.length > 0 && (
               <p className="mt-0.5 text-[10px] font-medium text-nv-ink/55">
-                {formatQty(effectiveQty)}
-                {unit ? ` ${unit}` : ""} per finished item
+                {details.join(" · ")}
               </p>
             )}
 
-            {depth > 0 && scaleToBatch && (
-              <p className="mt-0.5 text-[10px] font-medium text-nv-ink/55">
-                {formatQty(qtyPerParent)}
-                {unit ? ` ${unit}` : ""} per parent
+            {qty.flags.map((flag) => (
+              <p
+                key={flag}
+                className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600"
+              >
+                {flag}
               </p>
-            )}
+            ))}
 
             {isMake && (
               <div className="mt-2">
@@ -130,8 +181,7 @@ function BomTreeNode({
           </div>
 
           <span className="shrink-0 text-right text-xs font-semibold">
-            {formatQty(rightQty)}
-            {unit ? ` ${unit}` : ""}
+            {formatQtyUnit(rightQty, rightUnit)}
             <span className="block text-[10px] font-medium text-nv-ink/55">
               {rightLabel}
             </span>
@@ -154,9 +204,7 @@ function BomTreeNode({
                   itemById={itemById}
                   depth={depth + 1}
                   visited={nextVisited}
-                  parentMultiplier={
-                    Number.isNaN(lineQty) ? parentMultiplier : lineQty * parentMultiplier
-                  }
+                  parentMultiplier={qty.childMultiplier}
                   scaleToBatch={scaleToBatch}
                 />
               ))}
