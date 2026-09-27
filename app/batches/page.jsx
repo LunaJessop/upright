@@ -382,13 +382,23 @@ export default function BatchesPage() {
                   No make items yet. Create one under Items first.
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={creating || makeItems.length === 0}
-                className="mt-auto border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm disabled:opacity-40"
-              >
-                {creating ? "Creating…" : "Create batch"}
-              </button>
+              <div className="mt-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  disabled={creating}
+                  className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || makeItems.length === 0}
+                  className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm disabled:opacity-40"
+                >
+                  {creating ? "Creating…" : "Create batch"}
+                </button>
+              </div>
             </form>
           </aside>
         </>

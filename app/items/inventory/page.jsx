@@ -9,6 +9,9 @@ import {
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
+import QuantityChangeConfirm, {
+  quantityChanged,
+} from "@/components/QuantityChangeConfirm";
 import { ROLE_RANK } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -141,6 +144,7 @@ function InventoryCard({
   const [draftGoalMax, setDraftGoalMax] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirmingQty, setConfirmingQty] = useState(false);
 
   useEffect(() => {
     if (!editing) return;
@@ -148,44 +152,54 @@ function InventoryCard({
     setDraftGoalMin(row.goal_min == null ? "" : String(row.goal_min));
     setDraftGoalMax(row.goal_max == null ? "" : String(row.goal_max));
     setError("");
+    setConfirmingQty(false);
   }, [editing, row]);
 
   const unit = row.unit_of_measure ?? "";
   const unitSuffix = unit ? ` ${unit}` : "";
 
-  const handleSave = async () => {
+  const handleSave = async (confirmed = false) => {
     const qty = Number(draftQty);
     if (!Number.isFinite(qty) || qty < 0) {
       setError("Current quantity must be a non-negative number.");
+      setConfirmingQty(false);
+      return;
+    }
+    let goalUpdate = null;
+    if (canEditGoals) {
+      const minRaw = draftGoalMin.trim();
+      const maxRaw = draftGoalMax.trim();
+      if (minRaw !== "" || maxRaw !== "") {
+        const goalMin = Number(minRaw);
+        const goalMax = Number(maxRaw);
+        if (!Number.isFinite(goalMin) || goalMin < 0) {
+          setError("Goal min must be a non-negative number.");
+          setConfirmingQty(false);
+          return;
+        }
+        if (!Number.isFinite(goalMax) || goalMax < goalMin) {
+          setError("Goal max must be ≥ goal min.");
+          setConfirmingQty(false);
+          return;
+        }
+        goalUpdate = { goal_min: goalMin, goal_max: goalMax };
+      }
+    }
+
+    if (!confirmed && quantityChanged(row.quantity, qty)) {
+      setConfirmingQty(true);
+      setError("");
       return;
     }
 
+    setConfirmingQty(false);
     setSaving(true);
     setError("");
     try {
       let next = await UpdateItemInventory(row.item_id, { quantity: qty });
 
-      if (canEditGoals) {
-        const minRaw = draftGoalMin.trim();
-        const maxRaw = draftGoalMax.trim();
-        if (minRaw !== "" || maxRaw !== "") {
-          const goalMin = Number(minRaw);
-          const goalMax = Number(maxRaw);
-          if (!Number.isFinite(goalMin) || goalMin < 0) {
-            setError("Goal min must be a non-negative number.");
-            setSaving(false);
-            return;
-          }
-          if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-            setError("Goal max must be ≥ goal min.");
-            setSaving(false);
-            return;
-          }
-          next = await UpdateItemInventoryGoal(row.item_id, {
-            goal_min: goalMin,
-            goal_max: goalMax,
-          });
-        }
+      if (goalUpdate) {
+        next = await UpdateItemInventoryGoal(row.item_id, goalUpdate);
       }
 
       onSaved({
@@ -229,7 +243,10 @@ function InventoryCard({
                   type="text"
                   inputMode="decimal"
                   value={draftQty}
-                  onChange={(e) => setDraftQty(e.target.value)}
+                  onChange={(e) => {
+                    setDraftQty(e.target.value);
+                    setConfirmingQty(false);
+                  }}
                   className={editInputClass}
                 />
               </label>
@@ -272,24 +289,35 @@ function InventoryCard({
                   {error}
                 </p>
               )}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={onCancelEdit}
-                  disabled={saving}
-                  className="border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
-                >
-                  Go back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSave()}
-                  disabled={saving}
-                  className="border-brutal border-black bg-nv-violet px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
-                >
-                  {saving ? "Saving…" : "Save"}
-                </button>
-              </div>
+              {confirmingQty ? (
+                <QuantityChangeConfirm
+                  oldQuantity={row.quantity}
+                  newQuantity={draftQty}
+                  unit={unit}
+                  saving={saving}
+                  onCancel={() => setConfirmingQty(false)}
+                  onConfirm={() => void handleSave(true)}
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onCancelEdit}
+                    disabled={saving}
+                    className="border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSave(false)}
+                    disabled={saving}
+                    className="border-brutal border-black bg-nv-violet px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                  >
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>

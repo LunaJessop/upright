@@ -24,6 +24,9 @@ import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import BomTreeView from "@/components/BomTreeView";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
+import QuantityChangeConfirm, {
+  quantityChanged,
+} from "@/components/QuantityChangeConfirm";
 import NestedProductionPhases from "@/components/NestedProductionPhases";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import TagPicker from "@/components/TagPicker";
@@ -262,6 +265,7 @@ export default function ItemDetailPage({ params }) {
   const [inventoryDraftGoalMax, setInventoryDraftGoalMax] = useState("");
   const [inventorySaving, setInventorySaving] = useState(false);
   const [inventoryError, setInventoryError] = useState("");
+  const [confirmingInventoryQty, setConfirmingInventoryQty] = useState(false);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
 
@@ -679,47 +683,72 @@ export default function ItemDetailPage({ params }) {
       inventory?.goal_max == null ? "" : String(inventory.goal_max)
     );
     setInventoryError("");
+    setConfirmingInventoryQty(false);
     setInventoryEditing(true);
   };
 
   const cancelInventoryEdit = () => {
     setInventoryEditing(false);
     setInventoryError("");
+    setConfirmingInventoryQty(false);
   };
 
-  const saveInventoryEdit = async () => {
+  const cancelBatchDraft = () => {
+    setBatchSku("");
+    setBatchQty("1");
+    setBatchError("");
+  };
+
+  const cancelLotDraft = () => {
+    setLotNumber("");
+    setLotQty("1");
+    setLotTotalCost("");
+    setLotArrivalDate(new Date().toISOString().slice(0, 10));
+    setLotError("");
+  };
+
+  const saveInventoryEdit = async (confirmed = false) => {
     const qty = Number(inventoryDraftQty);
     if (!Number.isFinite(qty) || qty < 0) {
       setInventoryError("Current quantity must be a non-negative number.");
+      setConfirmingInventoryQty(false);
+      return;
+    }
+    let goalUpdate = null;
+    if (canEditGoals) {
+      const minRaw = inventoryDraftGoalMin.trim();
+      const maxRaw = inventoryDraftGoalMax.trim();
+      if (minRaw !== "" || maxRaw !== "") {
+        const goalMin = Number(minRaw);
+        const goalMax = Number(maxRaw);
+        if (!Number.isFinite(goalMin) || goalMin < 0) {
+          setInventoryError("Goal min must be a non-negative number.");
+          setConfirmingInventoryQty(false);
+          return;
+        }
+        if (!Number.isFinite(goalMax) || goalMax < goalMin) {
+          setInventoryError("Goal max must be ≥ goal min.");
+          setConfirmingInventoryQty(false);
+          return;
+        }
+        goalUpdate = { goal_min: goalMin, goal_max: goalMax };
+      }
+    }
+
+    if (!confirmed && quantityChanged(inventory?.quantity, qty)) {
+      setConfirmingInventoryQty(true);
+      setInventoryError("");
       return;
     }
 
+    setConfirmingInventoryQty(false);
     setInventorySaving(true);
     setInventoryError("");
     try {
       let next = await UpdateItemInventory(id, { quantity: qty });
 
-      if (canEditGoals) {
-        const minRaw = inventoryDraftGoalMin.trim();
-        const maxRaw = inventoryDraftGoalMax.trim();
-        if (minRaw !== "" || maxRaw !== "") {
-          const goalMin = Number(minRaw);
-          const goalMax = Number(maxRaw);
-          if (!Number.isFinite(goalMin) || goalMin < 0) {
-            setInventoryError("Goal min must be a non-negative number.");
-            setInventorySaving(false);
-            return;
-          }
-          if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-            setInventoryError("Goal max must be ≥ goal min.");
-            setInventorySaving(false);
-            return;
-          }
-          next = await UpdateItemInventoryGoal(id, {
-            goal_min: goalMin,
-            goal_max: goalMax,
-          });
-        }
+      if (goalUpdate) {
+        next = await UpdateItemInventoryGoal(id, goalUpdate);
       }
 
       setInventory(next);
@@ -874,6 +903,7 @@ export default function ItemDetailPage({ params }) {
                 accent="bg-nv-lavender"
                 action={
                   inventoryEditing ? (
+                    confirmingInventoryQty ? null : (
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
@@ -885,13 +915,14 @@ export default function ItemDetailPage({ params }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void saveInventoryEdit()}
+                        onClick={() => void saveInventoryEdit(false)}
                         disabled={inventorySaving}
                         className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                       >
                         {inventorySaving ? "Saving…" : "Save"}
                       </button>
                     </div>
+                    )
                   ) : canWrite ? (
                     <button
                       type="button"
@@ -932,9 +963,10 @@ export default function ItemDetailPage({ params }) {
                             type="text"
                             inputMode="decimal"
                             value={inventoryDraftQty}
-                            onChange={(e) =>
-                              setInventoryDraftQty(e.target.value)
-                            }
+                            onChange={(e) => {
+                              setInventoryDraftQty(e.target.value);
+                              setConfirmingInventoryQty(false);
+                            }}
                             className={editInputClass}
                           />
                         </label>
@@ -986,6 +1018,16 @@ export default function ItemDetailPage({ params }) {
                           <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
                             {inventoryError}
                           </p>
+                        )}
+                        {confirmingInventoryQty && (
+                          <QuantityChangeConfirm
+                            oldQuantity={inventory.quantity}
+                            newQuantity={inventoryDraftQty}
+                            unit={inventory.unit_of_measure ?? ""}
+                            saving={inventorySaving}
+                            onCancel={() => setConfirmingInventoryQty(false)}
+                            onConfirm={() => void saveInventoryEdit(true)}
+                          />
                         )}
                       </div>
                     ) : (
@@ -1149,6 +1191,14 @@ export default function ItemDetailPage({ params }) {
                         </label>
                         <button
                           type="button"
+                          onClick={cancelLotDraft}
+                          disabled={receivingLot}
+                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => void handleReceiveLot()}
                           disabled={receivingLot}
                           className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
@@ -1285,6 +1335,14 @@ export default function ItemDetailPage({ params }) {
                             className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
+                        <button
+                          type="button"
+                          onClick={cancelBatchDraft}
+                          disabled={creatingBatch}
+                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
                         <button
                           type="button"
                           onClick={() => void handleCreateBatch()}

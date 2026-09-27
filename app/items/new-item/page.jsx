@@ -781,15 +781,13 @@ export default function NewItem() {
                 </p>
               )}
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {isEditingQueue && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="border-brutal border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
-                  >
-                    Cancel edit
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="border-brutal border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={!canAdd}
