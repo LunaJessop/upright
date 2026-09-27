@@ -17,6 +17,8 @@ const PUBLIC_PATHS = new Set([
   "/register/success",
   "/register/payment",
   "/help",
+  "/terms",
+  "/privacy",
 ]);
 
 const BILLING_FLOW_PATHS = new Set([
