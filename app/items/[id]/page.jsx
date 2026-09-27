@@ -30,6 +30,8 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import { planItemUnitChange } from "@/lib/itemUnitChange";
+import { normalizeUnit } from "@/lib/units";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -414,9 +416,33 @@ export default function ItemDetailPage({ params }) {
       setSaveError("Every router phase needs a name.");
       return;
     }
+    const unitPlan = planItemUnitChange({
+      previousUnit: item.unit_of_measure,
+      nextUnit: draft.unit_of_measure,
+      quantity: inventory?.quantity,
+      plannedDelta: inventory?.planned_delta,
+      goalMin: inventory?.goal_min,
+      goalMax: inventory?.goal_max,
+      purchaseLotCount: purchaseLots.length,
+      productionSkuCount: Array.isArray(item.item_skus)
+        ? item.item_skus.length
+        : 0,
+      inventoryKnown: inventory != null,
+      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
+      canEditGoals,
+    });
+    if (!unitPlan.ok) {
+      setSaveError(unitPlan.error);
+      return;
+    }
     setSaving(true);
     setSaveError("");
+    let goalsConverted = false;
     try {
+      if (unitPlan.goalUpdate) {
+        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
+        goalsConverted = true;
+      }
       const payload = {
         ...item,
         ...draft,
@@ -457,6 +483,7 @@ export default function ItemDetailPage({ params }) {
         ),
       };
       const updated = await UpdateItem(id, payload);
+      goalsConverted = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -468,7 +495,23 @@ export default function ItemDetailPage({ params }) {
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
+      if (
+        normalizeUnit(item.unit_of_measure) !==
+        normalizeUnit(draft.unit_of_measure)
+      ) {
+        await loadInventory();
+      }
     } catch (err) {
+      if (goalsConverted && unitPlan.previousGoals) {
+        try {
+          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
+        } catch {
+          setSaveError(
+            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again."
+          );
+          return;
+        }
+      }
       setSaveError(err?.message || "Failed to save changes.");
     } finally {
       setSaving(false);
