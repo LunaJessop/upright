@@ -11,7 +11,7 @@ export class SessionExpiredError extends Error {
 }
 
 async function authFetch(url, options) {
-  const response = await authFetch(url, options);
+  const response = await fetch(url, options);
   if (handleUnauthorized(response)) {
     throw new SessionExpiredError();
   }
