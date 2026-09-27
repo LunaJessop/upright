@@ -14,6 +14,7 @@ import {
 import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -46,9 +47,11 @@ function formatDate(value) {
 
 function FieldRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5 last:border-b-0">
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 border-b border-black/10 py-2.5 last:border-b-0">
       <span className={`shrink-0 ${labelClass}`}>{label}</span>
-      <span className="min-w-0 flex-1 text-right text-sm font-semibold">{value}</span>
+      <span className="min-w-0 flex-1 break-words text-right text-sm font-semibold">
+        {value}
+      </span>
     </div>
   );
 }
@@ -77,6 +80,7 @@ export default function BatchDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [batch, setBatch] = useState(null);
   const [catalogItems, setCatalogItems] = useState([]);
   const [batchItem, setBatchItem] = useState(null);
@@ -124,11 +128,28 @@ export default function BatchDetailPage({ params }) {
   const handlePhaseStatus = async (phaseId, status) => {
     setUpdating(true);
     setPhaseError("");
+    const phaseName = (Array.isArray(batch?.phases) ? batch.phases : []).find(
+      (phase) => String(phase.id) === String(phaseId)
+    )?.name;
+    const name = phaseName ? `“${phaseName}”` : "Phase";
     try {
       const updated = await UpdateBatchPhase(id, phaseId, status);
       setBatch(updated);
+      const success =
+        status === "skipped"
+          ? `Cancelled ${name}.`
+          : status === "complete"
+            ? `Completed ${name}.`
+            : status === "in_progress"
+              ? `Started ${name}.`
+              : status === "pending"
+                ? `Reopened ${name}.`
+                : `Updated ${name}.`;
+      toast.success(success);
     } catch (err) {
-      setPhaseError(err?.message || "Failed to update phase.");
+      const message = err?.message || "Failed to update phase.";
+      setPhaseError(message);
+      toast.error(message);
     } finally {
       setUpdating(false);
     }
@@ -140,9 +161,12 @@ export default function BatchDetailPage({ params }) {
     try {
       const updated = await CancelBatch(id);
       setBatch(updated);
+      toast.success("Batch cancelled.");
       router.push("/batches");
     } catch (err) {
-      setCancelError(err?.message || "Failed to cancel batch.");
+      const message = err?.message || "Failed to cancel batch.";
+      setCancelError(message);
+      toast.error(message);
       setCancelling(false);
       setConfirmingCancel(false);
     }
@@ -155,8 +179,11 @@ export default function BatchDetailPage({ params }) {
       const updated = await CompleteBatch(id);
       setBatch(updated);
       setConfirmingComplete(false);
+      toast.success("Batch completed.");
     } catch (err) {
-      setCompleteError(err?.message || "Failed to complete batch.");
+      const message = err?.message || "Failed to complete batch.";
+      setCompleteError(message);
+      toast.error(message);
       setConfirmingComplete(false);
     } finally {
       setCompleting(false);
@@ -182,7 +209,7 @@ export default function BatchDetailPage({ params }) {
   }, [batchItem, catalogItems]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
         <Link
           href="/batches"
@@ -206,10 +233,10 @@ export default function BatchDetailPage({ params }) {
         {!loading && !error && batch && (
           <>
             <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-              <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+              <p className="break-all font-mono text-xs font-bold uppercase tracking-widest text-white/80">
                 {batch.sku || `Batch #${batch.id}`}
               </p>
-              <h1 className="text-3xl font-black uppercase leading-tight">
+              <h1 className="break-words text-3xl font-black uppercase leading-tight">
                 {batch.item_name}
               </h1>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -457,6 +484,7 @@ export default function BatchDetailPage({ params }) {
                       lines={bomLines}
                       itemById={itemById}
                       rootMultiplier={Number(batch.quantity) || 1}
+                      parentItem={batchItem}
                     />
                   </>
                 ) : (

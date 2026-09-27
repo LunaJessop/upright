@@ -8,6 +8,7 @@ import {
   UpdateItemInventoryGoal,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import { ROLE_RANK } from "@/lib/auth";
 import {
@@ -140,6 +141,7 @@ function InventoryCard({
   onCancelEdit,
   onSaved,
 }) {
+  const toast = useToast();
   const [draftQty, setDraftQty] = useState("");
   const [draftGoalMin, setDraftGoalMin] = useState("");
   const [draftGoalMax, setDraftGoalMax] = useState("");
@@ -166,6 +168,7 @@ function InventoryCard({
     });
     if (!parsed.ok) {
       setError(parsed.error);
+      toast.error(parsed.error);
       return;
     }
 
@@ -188,8 +191,11 @@ function InventoryCard({
         make_or_buy: row.make_or_buy,
         active: row.active,
       });
+      toast.success(`Inventory updated for ${row.item_name}.`);
     } catch (err) {
-      setError(err?.message || "Failed to save inventory.");
+      const message = err?.message || "Failed to save inventory.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -202,7 +208,7 @@ function InventoryCard({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/items/${row.item_id}`}
-              className="text-sm font-black uppercase tracking-wide text-nv-ink hover:text-nv-violet"
+              className="min-w-0 break-words text-sm font-black uppercase tracking-wide text-nv-ink hover:text-nv-violet"
             >
               {row.item_name}
             </Link>
@@ -362,13 +368,13 @@ export default function InventoryPage() {
   }, [loadInventory]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
           <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
             Items
           </p>
-          <h1 className="text-3xl font-black uppercase leading-tight">
+          <h1 className="break-words text-3xl font-black uppercase leading-tight">
             Inventory
           </h1>
           <p className="mt-2 text-sm font-medium text-white/90">

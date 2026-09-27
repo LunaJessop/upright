@@ -7,6 +7,7 @@ import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
 import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { ROLE_LABELS } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
@@ -35,7 +36,7 @@ const NAV_SECTIONS = [
   },
 ];
 
-function NavDropdown({ section, pathname, isOpen, onToggle }) {
+function NavDropdown({ section, pathname, isOpen, onToggle, onNavigate }) {
   const sectionActive = section.links.some((link) => pathname === link.href);
 
   return (
@@ -64,6 +65,7 @@ function NavDropdown({ section, pathname, isOpen, onToggle }) {
               <li key={link.href}>
                 <Link
                   href={link.href}
+                  onClick={onNavigate}
                   className={`block border-b border-black/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wide last:border-b-0 ${
                     active
                       ? "bg-nv-violet text-white"
@@ -81,15 +83,17 @@ function NavDropdown({ section, pathname, isOpen, onToggle }) {
   );
 }
 
-export default function Navbar() {
+export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isPlatformAdmin } = useAuth();
+  const toast = useToast();
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((s) => [s.id, true]))
   );
 
   const handleLogout = () => {
+    onNavigate?.();
     logout();
     router.replace("/");
   };
@@ -99,7 +103,7 @@ export default function Navbar() {
       const { portalUrl } = await createBillingPortal();
       window.location.href = portalUrl;
     } catch (err) {
-      console.error(err);
+      toast.error(err?.message || "Could not open billing portal.");
     }
   };
 
@@ -107,10 +111,31 @@ export default function Navbar() {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const shellClass = onClose
+    ? "flex h-dvh w-52 max-w-[85vw] shrink-0 flex-col border-r-brutal border-black bg-nv-canvas"
+    : "sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r-brutal border-black bg-nv-canvas";
+
   return (
-    <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r-brutal border-black bg-nv-canvas">
+    <aside className={shellClass}>
+      {onClose ? (
+        <div className="flex items-center justify-between border-b-brutal border-black bg-nv-paper px-3 py-2">
+          <span className="text-[10px] font-black uppercase tracking-wide">
+            Menu
+          </span>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-nv-violet"
+          >
+            Close
+          </button>
+        </div>
+      ) : null}
       <Link
         href="/items"
+        onClick={onNavigate}
         className="flex flex-col items-center gap-2 border-b-brutal border-black bg-nv-violet px-4 py-5 text-white"
       >
         <Image
@@ -126,6 +151,7 @@ export default function Navbar() {
         {isPlatformAdmin && (
           <Link
             href="/admin"
+            onClick={onNavigate}
             className={`${brutalChrome} block px-3 py-2.5 text-xs font-black uppercase tracking-wide ${
               pathname === "/admin" || pathname.startsWith("/admin/")
                 ? "bg-nv-violet text-white"
@@ -142,12 +168,14 @@ export default function Navbar() {
             pathname={pathname}
             isOpen={openSections[section.id]}
             onToggle={() => toggleSection(section.id)}
+            onNavigate={onNavigate}
           />
         ))}
         <a
           href="/help"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={onNavigate}
           className={`${brutalChrome} block px-3 py-2.5 text-xs font-black uppercase tracking-wide bg-nv-paper hover:bg-nv-cyan/20`}
         >
           Help
@@ -157,6 +185,7 @@ export default function Navbar() {
       <div className={`mt-auto border-t-brutal border-black ${brutalChrome} bg-nv-paper p-3`}>
         <Link
           href="/profile"
+          onClick={onNavigate}
           className={`mb-2 flex items-center gap-3 rounded-none p-1 transition-colors ${
             pathname === "/profile" || pathname === "/client"
               ? "bg-nv-cyan/30"

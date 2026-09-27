@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
 import { useAuth } from "@/components/AuthProvider";
+import PublicSiteHeader from "@/components/PublicSiteHeader";
 import PasswordInput from "@/components/PasswordInput";
 import { pathAfterLogin, safeNextPath } from "@/lib/auth";
 
@@ -39,7 +40,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-nv-canvas px-4 py-10">
+    <div className="flex min-h-full flex-col bg-nv-canvas">
+      <PublicSiteHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className={`w-full max-w-md ${brutalChrome} bg-nv-paper`}>
         <header className="border-b-brutal border-black bg-nv-violet px-6 py-5 text-center text-white">
           <Image
@@ -120,6 +123,7 @@ export default function LoginPage() {
             ← Back to home
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );
