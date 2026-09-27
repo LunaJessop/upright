@@ -8,6 +8,7 @@ import uprightLogo from "@/app/assets/upright-logo.png";
 import { useAuth } from "@/components/AuthProvider";
 import PublicSiteHeader from "@/components/PublicSiteHeader";
 import PasswordInput from "@/components/PasswordInput";
+import { pathAfterLogin, safeNextPath } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -27,11 +28,10 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const sessionUser = await login(email.trim(), password);
-      if (sessionUser?.has_read_access || sessionUser?.has_app_access) {
-        router.replace("/items");
-      } else {
-        router.replace("/register/plan");
-      }
+      const next = safeNextPath(
+        new URLSearchParams(window.location.search).get("next")
+      );
+      router.replace(pathAfterLogin(sessionUser, next));
     } catch (err) {
       setError(err?.message || "Login failed.");
     } finally {

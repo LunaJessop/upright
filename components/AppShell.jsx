@@ -7,7 +7,8 @@ import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
-import { clearLoginRedirect, shouldRedirectToLogin } from "@/lib/auth";
+import { ToastProvider } from "@/components/Toast";
+import { clearLoginRedirect, loginHref, safeNextPath } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set([
   "/",
@@ -241,7 +242,7 @@ function AppShellInner({ children }) {
     }
     if (loading) return;
     if (!user && protectedPath) {
-      router.replace(shouldRedirectToLogin() ? "/login" : "/");
+      router.replace(loginHref(`${pathname}${window.location.search || ""}`));
       return;
     }
     if (
@@ -249,7 +250,10 @@ function AppShellInner({ children }) {
       (pathname === "/login" || pathname === "/auth" || pathname === "/register")
     ) {
       if (hasReadAccess) {
-        router.replace("/items");
+        const next = safeNextPath(
+          new URLSearchParams(window.location.search).get("next")
+        );
+        router.replace(next || "/items");
       } else if (!isBillingFlow) {
         router.replace("/register/plan");
       }
@@ -332,7 +336,9 @@ function AppShellInner({ children }) {
 export default function AppShell({ children }) {
   return (
     <AuthProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <ToastProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </ToastProvider>
     </AuthProvider>
   );
 }

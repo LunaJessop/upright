@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClientUser, getClient } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import {
   PASSWORD_POLICY_HINT,
   ROLE_LABELS,
@@ -40,6 +41,7 @@ function Field({ label, value }) {
 
 export default function ClientPage() {
   const { user, canWrite } = useAuth();
+  const toast = useToast();
   const isFounder = user?.role === "founder";
 
   const [client, setClient] = useState(null);
@@ -80,6 +82,7 @@ export default function ClientPage() {
 
     if (!passwordMeetsPolicy(password)) {
       setFormError(PASSWORD_POLICY_HINT);
+      toast.error(PASSWORD_POLICY_HINT);
       return;
     }
 
@@ -96,9 +99,12 @@ export default function ClientPage() {
       setPassword("");
       setRole("user");
       setFormSuccess("User account created.");
+      toast.success("User account created.");
       await loadClient();
     } catch (err) {
-      setFormError(err?.message || "Could not create user.");
+      const message = err?.message || "Could not create user.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

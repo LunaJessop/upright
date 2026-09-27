@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMargin, formatMoney } from "@/lib/pricing";
@@ -95,6 +96,7 @@ function PhaseStrip({ phases }) {
 export default function BatchesPage() {
   const router = useRouter();
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [batches, setBatches] = useState([]);
   const [makeItems, setMakeItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,15 +158,21 @@ export default function BatchesPage() {
     const qty = Number(quantity);
     const itemId = Number(selectedItemId);
     if (!Number.isInteger(itemId) || itemId <= 0) {
-      setCreateError("Select a make item.");
+      const message = "Select a make item.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     if (!Number.isFinite(qty) || qty <= 0) {
-      setCreateError("Quantity must be greater than zero.");
+      const message = "Quantity must be greater than zero.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     if (!sku.trim()) {
-      setCreateError("SKU is required.");
+      const message = "SKU is required.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     setCreating(true);
@@ -175,9 +183,12 @@ export default function BatchesPage() {
         quantity: qty,
         sku: sku.trim(),
       });
+      toast.success("Batch created.");
       router.push(`/batches/${batch.id}`);
     } catch (err) {
-      setCreateError(err?.message || "Failed to create batch.");
+      const message = err?.message || "Failed to create batch.";
+      setCreateError(message);
+      toast.error(message);
       setCreating(false);
     }
   };
