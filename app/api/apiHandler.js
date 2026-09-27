@@ -1,6 +1,22 @@
 
 
-import { getStoredToken, setStoredToken } from "@/lib/auth";
+import { getStoredToken, handleUnauthorized, setStoredToken } from "@/lib/auth";
+
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("Session expired.");
+    this.name = "SessionExpiredError";
+    this.status = 401;
+  }
+}
+
+async function authFetch(url, options) {
+  const response = await authFetch(url, options);
+  if (handleUnauthorized(response)) {
+    throw new SessionExpiredError();
+  }
+  return response;
+}
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -58,7 +74,7 @@ export const registerUser = async ({ companyName, name, email, password }) => {
 };
 
 export const getMe = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/auth/me`, {
+  const response = await authFetch(`${getBaseUrl()}/api/auth/me`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -69,7 +85,7 @@ export const getMe = async () => {
 };
 
 export const createBillingCheckout = async (plan = "monthly") => {
-  const response = await fetch(`${getBaseUrl()}/api/billing/checkout`, {
+  const response = await authFetch(`${getBaseUrl()}/api/billing/checkout`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ plan }),
@@ -82,7 +98,7 @@ export const createBillingCheckout = async (plan = "monthly") => {
 };
 
 export const createBillingPortal = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/billing/portal`, {
+  const response = await authFetch(`${getBaseUrl()}/api/billing/portal`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
   });
@@ -94,7 +110,7 @@ export const createBillingPortal = async () => {
 };
 
 export const getClient = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/client`, {
+  const response = await authFetch(`${getBaseUrl()}/api/client`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -105,7 +121,7 @@ export const getClient = async () => {
 };
 
 export const getAdminClients = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/admin/clients`, {
+  const response = await authFetch(`${getBaseUrl()}/api/admin/clients`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -116,7 +132,7 @@ export const getAdminClients = async () => {
 };
 
 export const createClientUser = async ({ name, email, password, role }) => {
-  const response = await fetch(`${getBaseUrl()}/api/client/users`, {
+  const response = await authFetch(`${getBaseUrl()}/api/client/users`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, password, role }),
@@ -138,7 +154,7 @@ export const GetAllItems = async ({ tagId } = {}) => {
     params.set("tag_id", String(tagId));
   }
   const qs = params.toString();
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items${qs ? `?${qs}` : ""}`,
     {
       headers: authHeaders(),
@@ -151,7 +167,7 @@ export const GetAllItems = async ({ tagId } = {}) => {
 };
 
 export const GetItemById = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items/${id}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -161,7 +177,7 @@ export const GetItemById = async (id) => {
 };
 
 export const GetAllInventory = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/inventory`, {
+  const response = await authFetch(`${getBaseUrl()}/api/inventory`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -171,7 +187,7 @@ export const GetAllInventory = async () => {
 };
 
 export const GetItemInventory = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -181,7 +197,7 @@ export const GetItemInventory = async (id) => {
 };
 
 export const UpdateItemInventory = async (id, { quantity }) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
     method: "PUT",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ quantity }),
@@ -194,7 +210,7 @@ export const UpdateItemInventory = async (id, { quantity }) => {
 };
 
 export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items/${id}/inventory/goal`,
     {
       method: "PUT",
@@ -210,7 +226,7 @@ export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
 };
 
 export const GetPurchaseLots = async (itemId) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
     { headers: authHeaders() }
   );
@@ -224,7 +240,7 @@ export const CreatePurchaseLot = async (
   itemId,
   { lot_number, quantity, total_cost, arrival_date }
 ) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
     {
       method: "POST",
@@ -240,7 +256,7 @@ export const CreatePurchaseLot = async (
 };
 
 export const DeletePurchaseLot = async (itemId, lotId) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots/${lotId}`,
     {
       method: "DELETE",
@@ -255,7 +271,7 @@ export const DeletePurchaseLot = async (itemId, lotId) => {
 };
 
 export const GetItemProductionTree = async (id, quantity = 1) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/items/${id}/production-tree?quantity=${encodeURIComponent(quantity)}`,
     {
       headers: authHeaders(),
@@ -268,7 +284,7 @@ export const GetItemProductionTree = async (id, quantity = 1) => {
 };
 
 export const CreateItem = async (item) => {
-  const response = await fetch(`${getBaseUrl()}/api/items`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items`, {
     method: "POST",
     body: JSON.stringify(item),
     headers: authHeaders({ "Content-Type": "application/json" }),
@@ -281,7 +297,7 @@ export const CreateItem = async (item) => {
 };
 
 export const UpdateItem = async (id, item) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "PUT",
     body: JSON.stringify(item),
     headers: authHeaders({ "Content-Type": "application/json" }),
@@ -294,7 +310,7 @@ export const UpdateItem = async (id, item) => {
 };
 
 export const DeleteItem = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -306,7 +322,7 @@ export const DeleteItem = async (id) => {
 };
 
 export const GetAllBatches = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/batches`, {
+  const response = await authFetch(`${getBaseUrl()}/api/batches`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -316,7 +332,7 @@ export const GetAllBatches = async () => {
 };
 
 export const GetBatchById = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/batches/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/batches/${id}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -326,7 +342,7 @@ export const GetBatchById = async (id) => {
 };
 
 export const GetRouterPhaseTemplates = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/router-phase-templates`, {
+  const response = await authFetch(`${getBaseUrl()}/api/router-phase-templates`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -340,7 +356,7 @@ export const CreateRouterPhaseTemplate = async ({
   description,
   estimated_minutes,
 }) => {
-  const response = await fetch(`${getBaseUrl()}/api/router-phase-templates`, {
+  const response = await authFetch(`${getBaseUrl()}/api/router-phase-templates`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, description, estimated_minutes }),
@@ -356,7 +372,7 @@ export const UpdateRouterPhaseTemplate = async (
   id,
   { name, description, estimated_minutes }
 ) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/router-phase-templates/${id}`,
     {
       method: "PUT",
@@ -372,7 +388,7 @@ export const UpdateRouterPhaseTemplate = async (
 };
 
 export const DeleteRouterPhaseTemplate = async (id) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/router-phase-templates/${id}`,
     {
       method: "DELETE",
@@ -387,7 +403,7 @@ export const DeleteRouterPhaseTemplate = async (id) => {
 };
 
 export const GetVendors = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors`, {
+  const response = await authFetch(`${getBaseUrl()}/api/vendors`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -397,7 +413,7 @@ export const GetVendors = async () => {
 };
 
 export const GetTags = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+  const response = await authFetch(`${getBaseUrl()}/api/tags`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -407,7 +423,7 @@ export const GetTags = async () => {
 };
 
 export const CreateTag = async (name) => {
-  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+  const response = await authFetch(`${getBaseUrl()}/api/tags`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name }),
@@ -420,7 +436,7 @@ export const CreateTag = async (name) => {
 };
 
 export const CreateVendor = async ({ name, email, site_link, phone }) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors`, {
+  const response = await authFetch(`${getBaseUrl()}/api/vendors`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, site_link, phone }),
@@ -433,7 +449,7 @@ export const CreateVendor = async ({ name, email, site_link, phone }) => {
 };
 
 export const UpdateVendor = async (id, { name, email, site_link, phone }) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/vendors/${id}`, {
     method: "PUT",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, site_link, phone }),
@@ -446,7 +462,7 @@ export const UpdateVendor = async (id, { name, email, site_link, phone }) => {
 };
 
 export const DeleteVendor = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors/${id}`, {
+  const response = await authFetch(`${getBaseUrl()}/api/vendors/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -458,7 +474,7 @@ export const DeleteVendor = async (id) => {
 };
 
 export const CreateBatch = async ({ item_id, quantity, sku }) => {
-  const response = await fetch(`${getBaseUrl()}/api/batches`, {
+  const response = await authFetch(`${getBaseUrl()}/api/batches`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ item_id, quantity, sku }),
@@ -471,7 +487,7 @@ export const CreateBatch = async ({ item_id, quantity, sku }) => {
 };
 
 export const CancelBatch = async (batchId) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/batches/${batchId}/cancel`,
     {
       method: "POST",
@@ -486,7 +502,7 @@ export const CancelBatch = async (batchId) => {
 };
 
 export const CompleteBatch = async (batchId) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/batches/${batchId}/complete`,
     {
       method: "POST",
@@ -501,7 +517,7 @@ export const CompleteBatch = async (batchId) => {
 };
 
 export const UpdateBatchPhase = async (batchId, phaseId, status) => {
-  const response = await fetch(
+  const response = await authFetch(
     `${getBaseUrl()}/api/batches/${batchId}/phases/${phaseId}`,
     {
       method: "PATCH",

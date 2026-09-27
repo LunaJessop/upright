@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { getMe, loginUser, registerUser } from "@/app/api/apiHandler";
-import { getStoredToken, setStoredToken } from "@/lib/auth";
+import { getStoredToken, redirectToLogin, setStoredToken } from "@/lib/auth";
 
 const AuthContext = createContext(null);
 
@@ -34,8 +34,13 @@ export function AuthProvider({ children }) {
       const session = await getMe();
       setUser(session.user);
       return session.user;
-    } catch {
+    } catch (error) {
       clearSession();
+      // apiHandler also sends 401s to /login?next=. This covers the session
+      // check if that redirect has not already started. Logout stays separate.
+      if (error?.status === 401) {
+        redirectToLogin();
+      }
       return null;
     } finally {
       setLoading(false);
