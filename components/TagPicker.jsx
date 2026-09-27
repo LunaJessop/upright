@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { CreateTag } from "@/app/api/apiHandler";
+import { useToast } from "@/components/Toast";
+import { createdTag } from "@/lib/tagCreate";
 import {
   canCreateTag,
   filterTagSuggestions,
@@ -51,6 +54,9 @@ export default function TagPicker({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
+  const toast = useToast();
   const containerRef = useRef(null);
   const listRef = useRef(null);
   const listId = useId();
@@ -102,14 +108,27 @@ export default function TagPicker({
     setOpen(true);
   };
 
-  const createFromQuery = () => {
+  const createFromQuery = async () => {
     const name = query.trim();
-    if (!name) return;
+    if (!name || creatingRef.current) return;
     if (exactCatalogMatch) {
       addTag(exactCatalogMatch);
       return;
     }
-    addTag({ name });
+    creatingRef.current = true;
+    setCreating(true);
+    try {
+      const saved = createdTag(await CreateTag(name), name);
+      if (!saved) {
+        throw new Error("Could not create tag.");
+      }
+      addTag(saved);
+    } catch (err) {
+      toast.error(err?.message || "Could not create tag.");
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
   };
 
   const pickActive = () => {
@@ -234,11 +253,11 @@ export default function TagPicker({
             <button
               type="button"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={createFromQuery}
-              disabled={query.trim() === ""}
+              onClick={() => void createFromQuery()}
+              disabled={query.trim() === "" || creating}
               className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
             >
-              {canCreate ? "Add new" : "Add"}
+              {creating ? "Saving…" : canCreate ? "Add new" : "Add"}
             </button>
           </div>
 
@@ -279,12 +298,13 @@ export default function TagPicker({
                     aria-selected={activeIndex === suggestions.length}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setActiveIndex(suggestions.length)}
-                    onClick={createFromQuery}
-                    className={`block w-full border-t border-black/10 px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10 ${
+                    onClick={() => void createFromQuery()}
+                    disabled={creating}
+                    className={`block w-full border-t border-black/10 px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10 disabled:opacity-40 ${
                       activeIndex === suggestions.length ? "bg-nv-violet/10" : ""
                     }`}
                   >
-                    Create “{query.trim()}”
+                    {creating ? "Saving…" : `Create “${query.trim()}”`}
                   </button>
                 </li>
               )}
