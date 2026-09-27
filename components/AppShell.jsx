@@ -40,6 +40,25 @@ function isHelpPath(pathname) {
   return pathname === "/help" || pathname.startsWith("/help/");
 }
 
+// Real app routes. Anything else (for example /orders) is an unknown URL and
+// must render app/not-found instead of being treated as a protected page.
+const PROTECTED_PREFIXES = [
+  "/items",
+  "/batches",
+  "/admin",
+  "/settings",
+  "/profile",
+  "/client",
+  "/sales",
+  "/styles",
+];
+
+function isProtectedAppPath(pathname) {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 function focusableIn(root) {
   if (!root) return [];
   return [
@@ -212,6 +231,7 @@ function AppShellInner({ children }) {
     useAuth();
   const isPublic = isPublicPath(pathname);
   const helpPath = isHelpPath(pathname);
+  const protectedPath = isProtectedAppPath(pathname);
   const isBillingFlow = BILLING_FLOW_PATHS.has(pathname);
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
@@ -220,7 +240,7 @@ function AppShellInner({ children }) {
       clearLoginRedirect();
     }
     if (loading) return;
-    if (!user && !isPublic) {
+    if (!user && protectedPath) {
       router.replace(shouldRedirectToLogin() ? "/login" : "/");
       return;
     }
@@ -240,7 +260,7 @@ function AppShellInner({ children }) {
   }, [
     user,
     loading,
-    isPublic,
+    protectedPath,
     isBillingFlow,
     isAdminPath,
     isPlatformAdmin,
@@ -250,6 +270,12 @@ function AppShellInner({ children }) {
   ]);
 
   if (loading) {
+    // Unknown URLs should paint the not-found page without waiting on session.
+    if (!isPublic && !protectedPath) {
+      return (
+        <main className="min-h-full min-w-0 max-w-full flex-1">{children}</main>
+      );
+    }
     return (
       <div className="flex min-h-full flex-1 items-center justify-center bg-nv-canvas px-4">
         <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/55">
@@ -266,7 +292,7 @@ function AppShellInner({ children }) {
     );
   }
 
-  if (isPublic) {
+  if (isPublic || !protectedPath) {
     return (
       <main className="min-h-full min-w-0 max-w-full flex-1">{children}</main>
     );
