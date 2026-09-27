@@ -8,6 +8,7 @@ import {
   UpdateItemInventoryGoal,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import { ROLE_RANK } from "@/lib/auth";
 
@@ -136,6 +137,7 @@ function InventoryCard({
   onCancelEdit,
   onSaved,
 }) {
+  const toast = useToast();
   const [draftQty, setDraftQty] = useState("");
   const [draftGoalMin, setDraftGoalMin] = useState("");
   const [draftGoalMax, setDraftGoalMax] = useState("");
@@ -156,7 +158,9 @@ function InventoryCard({
   const handleSave = async () => {
     const qty = Number(draftQty);
     if (!Number.isFinite(qty) || qty < 0) {
-      setError("Current quantity must be a non-negative number.");
+      const message = "Current quantity must be a non-negative number.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -172,12 +176,16 @@ function InventoryCard({
           const goalMin = Number(minRaw);
           const goalMax = Number(maxRaw);
           if (!Number.isFinite(goalMin) || goalMin < 0) {
-            setError("Goal min must be a non-negative number.");
+            const message = "Goal min must be a non-negative number.";
+            setError(message);
+            toast.error(message);
             setSaving(false);
             return;
           }
           if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-            setError("Goal max must be ≥ goal min.");
+            const message = "Goal max must be ≥ goal min.";
+            setError(message);
+            toast.error(message);
             setSaving(false);
             return;
           }
@@ -196,8 +204,11 @@ function InventoryCard({
         make_or_buy: row.make_or_buy,
         active: row.active,
       });
+      toast.success(`Inventory updated for ${row.item_name}.`);
     } catch (err) {
-      setError(err?.message || "Failed to save inventory.");
+      const message = err?.message || "Failed to save inventory.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

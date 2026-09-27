@@ -14,6 +14,7 @@ import {
 import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -77,6 +78,7 @@ export default function BatchDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [batch, setBatch] = useState(null);
   const [catalogItems, setCatalogItems] = useState([]);
   const [batchItem, setBatchItem] = useState(null);
@@ -124,11 +126,28 @@ export default function BatchDetailPage({ params }) {
   const handlePhaseStatus = async (phaseId, status) => {
     setUpdating(true);
     setPhaseError("");
+    const phaseName = (Array.isArray(batch?.phases) ? batch.phases : []).find(
+      (phase) => String(phase.id) === String(phaseId)
+    )?.name;
+    const name = phaseName ? `“${phaseName}”` : "Phase";
     try {
       const updated = await UpdateBatchPhase(id, phaseId, status);
       setBatch(updated);
+      const success =
+        status === "skipped"
+          ? `Cancelled ${name}.`
+          : status === "complete"
+            ? `Completed ${name}.`
+            : status === "in_progress"
+              ? `Started ${name}.`
+              : status === "pending"
+                ? `Reopened ${name}.`
+                : `Updated ${name}.`;
+      toast.success(success);
     } catch (err) {
-      setPhaseError(err?.message || "Failed to update phase.");
+      const message = err?.message || "Failed to update phase.";
+      setPhaseError(message);
+      toast.error(message);
     } finally {
       setUpdating(false);
     }
@@ -140,9 +159,12 @@ export default function BatchDetailPage({ params }) {
     try {
       const updated = await CancelBatch(id);
       setBatch(updated);
+      toast.success("Batch cancelled.");
       router.push("/batches");
     } catch (err) {
-      setCancelError(err?.message || "Failed to cancel batch.");
+      const message = err?.message || "Failed to cancel batch.";
+      setCancelError(message);
+      toast.error(message);
       setCancelling(false);
       setConfirmingCancel(false);
     }
@@ -155,8 +177,11 @@ export default function BatchDetailPage({ params }) {
       const updated = await CompleteBatch(id);
       setBatch(updated);
       setConfirmingComplete(false);
+      toast.success("Batch completed.");
     } catch (err) {
-      setCompleteError(err?.message || "Failed to complete batch.");
+      const message = err?.message || "Failed to complete batch.";
+      setCompleteError(message);
+      toast.error(message);
       setConfirmingComplete(false);
     } finally {
       setCompleting(false);

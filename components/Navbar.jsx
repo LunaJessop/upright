@@ -7,6 +7,7 @@ import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
 import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { ROLE_LABELS } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
@@ -85,6 +86,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isPlatformAdmin } = useAuth();
+  const toast = useToast();
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((s) => [s.id, true]))
   );
@@ -99,7 +101,7 @@ export default function Navbar() {
       const { portalUrl } = await createBillingPortal();
       window.location.href = portalUrl;
     } catch (err) {
-      console.error(err);
+      toast.error(err?.message || "Could not open billing portal.");
     }
   };
 

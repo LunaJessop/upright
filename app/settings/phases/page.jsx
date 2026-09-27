@@ -8,6 +8,7 @@ import {
   UpdateRouterPhaseTemplate,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -18,6 +19,7 @@ const EMPTY_FORM = { name: "", description: "", estimated_minutes: "" };
 
 export default function SettingsPhasesPage() {
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [phases, setPhases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,7 +65,9 @@ export default function SettingsPhasesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setFormError("Phase name is required.");
+      const message = "Phase name is required.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -77,13 +81,17 @@ export default function SettingsPhasesPage() {
       };
       if (editingId) {
         await UpdateRouterPhaseTemplate(editingId, payload);
+        toast.success("Phase updated.");
       } else {
         await CreateRouterPhaseTemplate(payload);
+        toast.success("Phase added.");
       }
       cancelEdit();
       await loadPhases();
     } catch (err) {
-      setFormError(err?.message || "Could not save phase.");
+      const message = err?.message || "Could not save phase.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -95,8 +103,11 @@ export default function SettingsPhasesPage() {
       await DeleteRouterPhaseTemplate(id);
       if (editingId === id) cancelEdit();
       await loadPhases();
+      toast.success("Phase deleted.");
     } catch (err) {
-      setError(err?.message || "Could not delete phase.");
+      const message = err?.message || "Could not delete phase.";
+      setError(message);
+      toast.error(message);
     }
   };
 

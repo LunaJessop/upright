@@ -8,6 +8,7 @@ import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -328,6 +329,7 @@ function isFormComplete(form) {
 export default function NewItem() {
   const router = useRouter();
   const { canWrite, loading: authLoading } = useAuth();
+  const toast = useToast();
   const nextIdRef = useRef(1);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
@@ -567,10 +569,17 @@ export default function NewItem() {
       setItems(failed);
       if (failed.length === 0) {
         resetForm();
-      } else if (failed.length > 0) {
-        setSubmitError(
-          `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`
+        toast.success(
+          items.length === 1 ? "Item created." : `${items.length} items created.`
         );
+      } else {
+        const created = items.length - failed.length;
+        const message =
+          created > 0
+            ? `${created} item${created === 1 ? "" : "s"} created. ${failed.length} failed. ${firstError}`
+            : `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`;
+        setSubmitError(message);
+        toast.error(message);
       }
     } finally {
       setSubmitting(false);
@@ -581,11 +590,11 @@ export default function NewItem() {
     e.preventDefault();
 
     if (!isFormComplete(form)) {
-      setFormError(
-        makeOrBuy
-          ? "Fill in all fields. Recipe and router lines must be valid."
-          : "Fill in all fields and select a vendor."
-      );
+      const message = makeOrBuy
+        ? "Fill in all fields. Recipe and router lines must be valid."
+        : "Fill in all fields and select a vendor.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
