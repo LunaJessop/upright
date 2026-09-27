@@ -7,6 +7,7 @@ import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { clearLoginRedirect, shouldRedirectToLogin } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set([
   "/",
@@ -48,9 +49,12 @@ function AppShellInner({ children }) {
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
+    if (pathname === "/login") {
+      clearLoginRedirect();
+    }
     if (loading) return;
     if (!user && !isPublic) {
-      router.replace("/");
+      router.replace(shouldRedirectToLogin() ? "/login" : "/");
       return;
     }
     if (
