@@ -44,8 +44,15 @@ node scripts/setup-purchase-lots.js
 
 # 4. Restart the Express server after changing .env
 
-# 5. Seed demo login (subscription_status forced active — no Checkout needed)
+# 5. Seed a local-only dev login (subscription_status forced active — no Checkout needed).
+#    This public repo does not publish a login. Run the seed script in upright-server;
+#    it prints the email and password it created. Use those for local development only,
+#    and do not commit them.
+#
+#    Companion change (LunaJessop/upright-server): scripts/seed-dev-user.js reads the
+#    dev email and password from environment variables, or generates a random password
+#    when they are unset, and refuses to run when pointed at production.
 node scripts/seed-dev-user.js
 ```
 
-Demo credentials: `founder@demo.com` / `password123`
+Local dev credentials come from `upright-server/scripts/seed-dev-user.js`, not from this repository. After the script runs, sign in with the email and password it prints. The companion change in [LunaJessop/upright-server](https://github.com/LunaJessop/upright-server) makes that script read credentials from environment variables or generate a random password, and refuse to run on production.

@@ -393,9 +393,6 @@ export default function NewItem() {
       if (!unitSellPrice && unitCost) setUnitSellPrice(unitCost);
       setUnitCost("");
     } else {
-      setBomLines([]);
-      setBomSelectedIds([]);
-      setRouterPhases([]);
       if (!unitCost && unitSellPrice) setUnitCost(unitSellPrice);
       setUnitSellPrice("");
     }

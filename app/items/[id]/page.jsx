@@ -30,9 +30,13 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import {
+  mergeInventorySave,
+  validateInventoryEdit,
+} from "@/lib/inventoryEdit";
 import { planItemUnitChange } from "@/lib/itemUnitChange";
-import { normalizeUnit } from "@/lib/units";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
+import { normalizeUnit } from "@/lib/units";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -731,41 +735,28 @@ export default function ItemDetailPage({ params }) {
   };
 
   const saveInventoryEdit = async () => {
-    const qty = Number(inventoryDraftQty);
-    if (!Number.isFinite(qty) || qty < 0) {
-      setInventoryError("Current quantity must be a non-negative number.");
+    const parsed = validateInventoryEdit({
+      quantityRaw: inventoryDraftQty,
+      goalMinRaw: inventoryDraftGoalMin,
+      goalMaxRaw: inventoryDraftGoalMax,
+      editGoals: canEditGoals,
+    });
+    if (!parsed.ok) {
+      setInventoryError(parsed.error);
       return;
     }
 
     setInventorySaving(true);
     setInventoryError("");
     try {
-      let next = await UpdateItemInventory(id, { quantity: qty });
+      const quantityRow = await UpdateItemInventory(id, {
+        quantity: parsed.quantity,
+      });
+      const goalRow = parsed.goals
+        ? await UpdateItemInventoryGoal(id, parsed.goals)
+        : null;
 
-      if (canEditGoals) {
-        const minRaw = inventoryDraftGoalMin.trim();
-        const maxRaw = inventoryDraftGoalMax.trim();
-        if (minRaw !== "" || maxRaw !== "") {
-          const goalMin = Number(minRaw);
-          const goalMax = Number(maxRaw);
-          if (!Number.isFinite(goalMin) || goalMin < 0) {
-            setInventoryError("Goal min must be a non-negative number.");
-            setInventorySaving(false);
-            return;
-          }
-          if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-            setInventoryError("Goal max must be ≥ goal min.");
-            setInventorySaving(false);
-            return;
-          }
-          next = await UpdateItemInventoryGoal(id, {
-            goal_min: goalMin,
-            goal_max: goalMax,
-          });
-        }
-      }
-
-      setInventory(next);
+      setInventory(mergeInventorySave(quantityRow, goalRow));
       setInventoryEditing(false);
     } catch (err) {
       setInventoryError(err?.message || "Failed to save inventory.");
@@ -1598,11 +1589,6 @@ export default function ItemDetailPage({ params }) {
                                   ? prev.unit_sell_price || prev.unit_cost
                                   : "",
                             }));
-                            if (value === "buy") {
-                              setRouterPhases([]);
-                              setBomLines([]);
-                              setBomSelectedIds([]);
-                            }
                           }}
                           offValue="buy"
                           onValue="make"
