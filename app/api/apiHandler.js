@@ -482,6 +482,29 @@ export const CreateTag = async (name) => {
   return data;
 };
 
+export const UpdateTag = async (id, name) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/tags/${id}`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ name }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Could not rename tag (${response.status})`);
+  }
+  return data;
+};
+
+export const DeleteTag = async (id) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/tags/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (response.status === 204 || response.ok) return true;
+  const data = await response.json().catch(() => null);
+  throw new Error(data?.error ?? `Could not delete tag (${response.status})`);
+};
+
 export const CreateVendor = async ({ name, email, site_link, phone }) => {
   const response = await apiFetch(`${getBaseUrl()}/api/vendors`, {
     method: "POST",

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { CreateTag } from "@/app/api/apiHandler";
+import { CreateTag, DeleteTag, UpdateTag } from "@/app/api/apiHandler";
 import { useToast } from "@/components/Toast";
 import { createdTag } from "@/lib/tagCreate";
 import {
   canCreateTag,
-  filterTagSuggestions,
+  listTagsForPicker,
   moveTagHighlight,
 } from "@/lib/tagSuggestions";
 
@@ -48,6 +48,8 @@ export default function TagPicker({
   onChange,
   catalog = [],
   onCatalogAdd,
+  onTagRenamed,
+  onTagDeleted,
   disabled = false,
   className = "",
 }) {
@@ -55,7 +57,13 @@ export default function TagPicker({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const creatingRef = useRef(false);
+  const renameRef = useRef(false);
   const toast = useToast();
   const containerRef = useRef(null);
   const listRef = useRef(null);
@@ -67,8 +75,8 @@ export default function TagPicker({
   );
 
   const suggestions = useMemo(
-    () => filterTagSuggestions(catalog, selected, query),
-    [catalog, selected, query]
+    () => listTagsForPicker(catalog, query),
+    [catalog, query]
   );
 
   const exactCatalogMatch = useMemo(() => {
@@ -149,6 +157,59 @@ export default function TagPicker({
     onChange(selected.filter((entry) => tagKey(entry) !== key));
   };
 
+  const startRename = (tag) => {
+    setDeleteId(null);
+    setEditingId(Number(tag.id));
+    setEditName(String(tag.name ?? ""));
+    setOpen(true);
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditName("");
+  };
+
+  const saveRename = async (tag) => {
+    const name = editName.trim();
+    if (!name) {
+      toast.error("Tag name is required");
+      return;
+    }
+    if (name === String(tag.name ?? "")) {
+      cancelRename();
+      return;
+    }
+    if (renameRef.current) return;
+    renameRef.current = true;
+    setSavingRename(true);
+    try {
+      const saved = createdTag(await UpdateTag(tag.id, name), name);
+      if (!saved) throw new Error("Could not rename tag.");
+      onTagRenamed?.(saved);
+      cancelRename();
+    } catch (err) {
+      toast.error(err?.message || "Could not rename tag.");
+    } finally {
+      renameRef.current = false;
+      setSavingRename(false);
+    }
+  };
+
+  const confirmDelete = async (tag) => {
+    if (deletingId != null) return;
+    setDeletingId(Number(tag.id));
+    try {
+      await DeleteTag(tag.id);
+      onTagDeleted?.({ id: Number(tag.id), name: String(tag.name ?? "") });
+      setDeleteId(null);
+      if (editingId === Number(tag.id)) cancelRename();
+    } catch (err) {
+      toast.error(err?.message || "Could not delete tag.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   useEffect(() => {
     if (!open) return undefined;
     const handlePointerDown = (event) => {
@@ -186,7 +247,7 @@ export default function TagPicker({
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  aria-label={`Remove ${tag.name}`}
+                  aria-label={`Remove ${tag.name} from this item`}
                   className="font-black leading-none"
                 >
                   ×
@@ -269,25 +330,136 @@ export default function TagPicker({
               aria-label="Tags"
               className="max-h-[min(10rem,45dvh)] overflow-y-auto overscroll-contain border-brutal border-black bg-nv-paper"
             >
-              {suggestions.map((tag, index) => (
-                <li key={tag.id ?? tagKey(tag)}>
-                  <button
-                    type="button"
-                    id={`${listId}-opt-${index}`}
-                    data-index={index}
-                    role="option"
-                    aria-selected={activeIndex === index}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => addTag(tag)}
-                    className={`block w-full px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20 ${
-                      activeIndex === index ? "bg-nv-cyan/30" : ""
-                    }`}
+              {suggestions.map((tag, index) => {
+                const added = selectedKeys.has(tagKey(tag));
+                const isEditing = editingId != null && Number(tag.id) === editingId;
+                const isConfirmingDelete =
+                  deleteId != null && Number(tag.id) === deleteId;
+                return (
+                  <li
+                    key={tag.id ?? tagKey(tag)}
+                    className="border-b border-black/10 last:border-b-0"
                   >
-                    {tag.name}
-                  </button>
-                </li>
-              ))}
+                    {isEditing ? (
+                      <div className="flex items-center gap-1 p-1">
+                        <input
+                          type="text"
+                          value={editName}
+                          autoFocus
+                          aria-label={`New name for ${tag.name}`}
+                          onChange={(event) => setEditName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void saveRename(tag);
+                            }
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              cancelRename();
+                            }
+                          }}
+                          className="min-w-0 flex-1 border-brutal border-black bg-white px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                        />
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => void saveRename(tag)}
+                          disabled={savingRename}
+                          className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        >
+                          {savingRename ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={cancelRename}
+                          disabled={savingRename}
+                          className="shrink-0 border-brutal border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : isConfirmingDelete ? (
+                      <div className="space-y-1.5 px-2 py-2">
+                        <p className="text-xs font-semibold leading-snug">
+                          Remove “{tag.name}” from every item that has it?
+                        </p>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => setDeleteId(null)}
+                            disabled={deletingId != null}
+                            className="border-brutal border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                          >
+                            Go back
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => void confirmDelete(tag)}
+                            disabled={deletingId != null}
+                            className="border-brutal border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          >
+                            {deletingId === Number(tag.id) ? "Removing…" : "Remove tag"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-stretch">
+                        <button
+                          type="button"
+                          id={`${listId}-opt-${index}`}
+                          data-index={index}
+                          role="option"
+                          aria-selected={activeIndex === index}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() => addTag(tag)}
+                          className={`min-h-8 min-w-0 flex-1 truncate px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20 ${
+                            activeIndex === index ? "bg-nv-cyan/30" : ""
+                          }`}
+                        >
+                          {tag.name}
+                          {added ? (
+                            <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-nv-ink/45">
+                              Added
+                            </span>
+                          ) : null}
+                        </button>
+                        {tag.id != null && (
+                          <>
+                            <button
+                              type="button"
+                              aria-label={`Rename ${tag.name}`}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => startRename(tag)}
+                              className="min-h-8 shrink-0 border-l border-black/15 px-2 text-[10px] font-black uppercase tracking-wide text-nv-ink hover:bg-nv-cyan/20"
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${tag.name}`}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => {
+                                cancelRename();
+                                setDeleteId(Number(tag.id));
+                                setOpen(true);
+                              }}
+                              className="min-h-8 shrink-0 border-l border-black/15 px-2 text-[10px] font-black uppercase tracking-wide text-nv-ink hover:bg-nv-cyan/20"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
               {canCreate && (
                 <li>
                   <button
@@ -310,13 +482,7 @@ export default function TagPicker({
               )}
               {optionCount === 0 && (
                 <li className="px-2 py-1.5 text-xs font-medium text-nv-ink/55">
-                  {query.trim()
-                    ? "No matching tags"
-                    : (Array.isArray(catalog) ? catalog : []).some((tag) =>
-                          String(tag?.name ?? "").trim()
-                        )
-                      ? "All tags are already added"
-                      : "No tags yet. Type to create one."}
+                  {query.trim() ? "No matching tags" : "No tags yet. Type to create one."}
                 </li>
               )}
             </ul>
