@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import RouterPhaseBadges from "@/components/RouterPhaseBadges";
 import { bomTreeFlagActions, resolveBomTreeQuantity } from "@/lib/bomTreeQuantity";
+import {
+  formatQuantity,
+  formatReadableQuantity,
+  formatStockNote,
+} from "@/lib/formatQuantity";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -14,20 +19,52 @@ function isMakeItem(item) {
   );
 }
 
-function formatQty(value) {
-  const number = Number(value);
-  if (Number.isNaN(number)) return value ?? "—";
-  return Number.isInteger(number)
-    ? String(number)
-    : number.toLocaleString("en-US", {
-        maximumFractionDigits: 4,
-      });
-}
+function quantityReadout(qty, parentMultiplier, scaleToBatch, depth) {
+  const scale = Number(parentMultiplier);
+  const scaleKnown = Number.isFinite(scale);
+  const multiplied = scaleToBatch || (scaleKnown && scale !== 1);
+  const enteredNumber = Number(qty.enteredQty);
+  const enteredKnown = Number.isFinite(enteredNumber);
+  const enteredUnit = qty.enteredUnit || "";
+  const stockUnit = qty.stockUnit || qty.displayUnit || "";
+  const perLabel = depth === 0 ? "per item" : "per parent";
 
-function formatQtyUnit(qty, unit) {
-  if (qty == null || qty === "") return "—";
-  const formatted = formatQty(qty);
-  return unit ? `${formatted} ${unit}` : String(formatted);
+  if (!enteredKnown || qty.perParentStock == null) {
+    return {
+      primary: formatQuantity(qty.enteredQty, enteredUnit || stockUnit),
+      label:
+        qty.rolledUp != null
+          ? scaleToBatch
+            ? "for batch"
+            : "per item"
+          : "entered per parent",
+      note: "",
+      details: [],
+    };
+  }
+
+  const sourceUnit = enteredUnit || stockUnit;
+
+  if (!multiplied) {
+    return {
+      primary: formatQuantity(enteredNumber, sourceUnit),
+      label: perLabel,
+      note: qty.unitsDiffer
+        ? formatStockNote(qty.perParentStock, qty.stockUnit)
+        : "",
+      details: [],
+    };
+  }
+
+  const factor = scaleKnown ? scale : 1;
+  return {
+    primary: formatReadableQuantity(enteredNumber * factor, sourceUnit),
+    label: scaleToBatch ? "for batch" : "per item",
+    note: "",
+    details: scaleToBatch
+      ? [`${formatQuantity(enteredNumber, sourceUnit)} ${perLabel}`]
+      : [],
+  };
 }
 
 function WarningIcon() {
@@ -82,35 +119,6 @@ function LineWarning({ flag, parentItem, component, onEditItem }) {
   );
 }
 
-function lineDetails(qty, parentMultiplier, depth) {
-  const parentScale = Number(parentMultiplier);
-  const scaled =
-    parentMultiplier != null &&
-    Number.isFinite(parentScale) &&
-    parentScale !== 1;
-  const rightIsEntered = qty.rolledUp == null && qty.perParentStock == null;
-  const parts = [];
-
-  if (scaled && qty.perParentStock != null && qty.rolledUp != null) {
-    if (qty.unitsDiffer) {
-      parts.push(`${formatQtyUnit(qty.enteredQty, qty.enteredUnit)} entered`);
-    }
-    const perLabel = depth === 0 ? "per item" : "per parent";
-    parts.push(
-      `${formatQtyUnit(qty.perParentStock, qty.displayUnit)} ${perLabel}`
-    );
-  } else if (
-    !rightIsEntered &&
-    qty.unitsDiffer &&
-    qty.enteredQty != null &&
-    qty.enteredQty !== ""
-  ) {
-    parts.push(`${formatQtyUnit(qty.enteredQty, qty.enteredUnit)} entered`);
-  }
-
-  return parts;
-}
-
 function BomTreeNode({
   line,
   itemById,
@@ -141,25 +149,7 @@ function BomTreeNode({
     [visited, componentId]
   );
 
-  const rightQty =
-    qty.rolledUp != null
-      ? qty.rolledUp
-      : qty.perParentStock != null
-        ? qty.perParentStock
-        : qty.enteredQty;
-  const rightUnit =
-    qty.rolledUp != null || qty.perParentStock != null
-      ? qty.displayUnit
-      : qty.enteredUnit;
-  const rightLabel =
-    qty.rolledUp != null
-      ? scaleToBatch
-        ? "for batch"
-        : "per item"
-      : qty.perParentStock != null
-        ? "per parent"
-        : "entered per parent";
-  const details = lineDetails(qty, parentMultiplier, depth);
+  const readout = quantityReadout(qty, parentMultiplier, scaleToBatch, depth);
 
   return (
     <li className={depth > 0 ? "mt-1" : ""}>
@@ -209,9 +199,9 @@ function BomTreeNode({
               )}
             </div>
 
-            {details.length > 0 && (
+            {readout.details.length > 0 && (
               <p className="mt-0.5 text-[10px] font-medium text-nv-ink/55">
-                {details.join(" · ")}
+                {readout.details.join(" · ")}
               </p>
             )}
 
@@ -236,10 +226,15 @@ function BomTreeNode({
           </div>
 
           <span className="shrink-0 text-right text-xs font-semibold">
-            {formatQtyUnit(rightQty, rightUnit)}
+            {readout.primary}
             <span className="block text-[10px] font-medium text-nv-ink/55">
-              {rightLabel}
+              {readout.label}
             </span>
+            {readout.note ? (
+              <span className="mt-0.5 block max-w-36 text-[10px] font-medium normal-case text-nv-ink/45">
+                {readout.note}
+              </span>
+            ) : null}
           </span>
         </div>
       </div>

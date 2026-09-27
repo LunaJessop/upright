@@ -15,6 +15,7 @@ import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
+import { friendlyUnitLabel, formatReadableQuantity } from "@/lib/formatQuantity";
 import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
@@ -335,12 +336,16 @@ export default function BatchDetailPage({ params }) {
                               <span className="min-w-0 truncate">
                                 {c.name}
                                 <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
-                                  {c.quantity_allocated}
-                                  {c.unit_of_measure
-                                    ? ` ${c.unit_of_measure}`
-                                    : ""}
+                                  {formatReadableQuantity(
+                                    c.quantity_allocated,
+                                    c.unit_of_measure
+                                  )}
                                   {c.unit_cost_snapshot != null
-                                    ? ` @ ${formatMoney(c.unit_cost_snapshot)}`
+                                    ? ` @ ${formatMoney(c.unit_cost_snapshot)}${
+                                        c.unit_of_measure
+                                          ? ` per ${friendlyUnitLabel(c.unit_of_measure)}`
+                                          : ""
+                                      }`
                                     : ""}
                                 </span>
                               </span>
@@ -477,8 +482,9 @@ export default function BatchDetailPage({ params }) {
                 {bomLines.length > 0 ? (
                   <>
                     <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
-                      Expand make components to see nested materials. Quantities
-                      are scaled to this batch.
+                      Totals for this batch, in a readable unit from the same
+                      system as each line was entered. Expand make components
+                      to see nested materials.
                     </p>
                     <BomTreeView
                       lines={bomLines}
