@@ -13,6 +13,10 @@ import QuantityChangeConfirm, {
   quantityChanged,
 } from "@/components/QuantityChangeConfirm";
 import { ROLE_RANK } from "@/lib/auth";
+import {
+  mergeInventorySave,
+  validateInventoryEdit,
+} from "@/lib/inventoryEdit";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -159,34 +163,19 @@ function InventoryCard({
   const unitSuffix = unit ? ` ${unit}` : "";
 
   const handleSave = async (confirmed = false) => {
-    const qty = Number(draftQty);
-    if (!Number.isFinite(qty) || qty < 0) {
-      setError("Current quantity must be a non-negative number.");
+    const parsed = validateInventoryEdit({
+      quantityRaw: draftQty,
+      goalMinRaw: draftGoalMin,
+      goalMaxRaw: draftGoalMax,
+      editGoals: canEditGoals,
+    });
+    if (!parsed.ok) {
+      setError(parsed.error);
       setConfirmingQty(false);
       return;
     }
-    let goalUpdate = null;
-    if (canEditGoals) {
-      const minRaw = draftGoalMin.trim();
-      const maxRaw = draftGoalMax.trim();
-      if (minRaw !== "" || maxRaw !== "") {
-        const goalMin = Number(minRaw);
-        const goalMax = Number(maxRaw);
-        if (!Number.isFinite(goalMin) || goalMin < 0) {
-          setError("Goal min must be a non-negative number.");
-          setConfirmingQty(false);
-          return;
-        }
-        if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-          setError("Goal max must be ≥ goal min.");
-          setConfirmingQty(false);
-          return;
-        }
-        goalUpdate = { goal_min: goalMin, goal_max: goalMax };
-      }
-    }
 
-    if (!confirmed && quantityChanged(row.quantity, qty)) {
+    if (!confirmed && quantityChanged(row.quantity, parsed.quantity)) {
       setConfirmingQty(true);
       setError("");
       return;
@@ -196,11 +185,13 @@ function InventoryCard({
     setSaving(true);
     setError("");
     try {
-      let next = await UpdateItemInventory(row.item_id, { quantity: qty });
-
-      if (goalUpdate) {
-        next = await UpdateItemInventoryGoal(row.item_id, goalUpdate);
-      }
+      const quantityRow = await UpdateItemInventory(row.item_id, {
+        quantity: parsed.quantity,
+      });
+      const goalRow = parsed.goals
+        ? await UpdateItemInventoryGoal(row.item_id, parsed.goals)
+        : null;
+      const next = mergeInventorySave(quantityRow, goalRow);
 
       onSaved({
         ...row,
@@ -224,7 +215,7 @@ function InventoryCard({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/items/${row.item_id}`}
-              className="text-sm font-black uppercase tracking-wide text-nv-ink hover:text-nv-violet"
+              className="min-w-0 break-words text-sm font-black uppercase tracking-wide text-nv-ink hover:text-nv-violet"
             >
               {row.item_name}
             </Link>
@@ -398,13 +389,13 @@ export default function InventoryPage() {
   }, [loadInventory]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
           <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
             Items
           </p>
-          <h1 className="text-3xl font-black uppercase leading-tight">
+          <h1 className="break-words text-3xl font-black uppercase leading-tight">
             Inventory
           </h1>
           <p className="mt-2 text-sm font-medium text-white/90">

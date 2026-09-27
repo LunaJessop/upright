@@ -33,7 +33,13 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import {
+  mergeInventorySave,
+  validateInventoryEdit,
+} from "@/lib/inventoryEdit";
+import { planItemUnitChange } from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
+import { normalizeUnit } from "@/lib/units";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -78,10 +84,10 @@ const editInputClass =
 
 function FieldRow({ label, value, children }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5 last:border-b-0">
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 border-b border-black/10 py-2.5 last:border-b-0">
       <span className={`shrink-0 ${labelClass}`}>{label}</span>
       {children ?? (
-        <span className="min-w-0 flex-1 text-right text-sm font-semibold">
+        <span className="min-w-0 flex-1 break-words text-right text-sm font-semibold">
           {value === "" || value === null || value === undefined ? "—" : value}
         </span>
       )}
@@ -106,7 +112,7 @@ function SectionCard({ title, accent = "bg-nv-cyan", action, children, className
   return (
     <section className={`${brutalChrome} bg-nv-paper ${className}`}>
       <header
-        className={`flex items-center justify-between gap-2 border-b-brutal border-black ${accent} px-4 py-2`}
+        className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal border-black ${accent} px-4 py-2`}
       >
         <h2 className="text-sm font-black uppercase tracking-wide text-black">
           {title}
@@ -268,6 +274,7 @@ export default function ItemDetailPage({ params }) {
   const [confirmingInventoryQty, setConfirmingInventoryQty] = useState(false);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
+  const openedFromQuery = useRef(false);
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -418,9 +425,33 @@ export default function ItemDetailPage({ params }) {
       setSaveError("Every router phase needs a name.");
       return;
     }
+    const unitPlan = planItemUnitChange({
+      previousUnit: item.unit_of_measure,
+      nextUnit: draft.unit_of_measure,
+      quantity: inventory?.quantity,
+      plannedDelta: inventory?.planned_delta,
+      goalMin: inventory?.goal_min,
+      goalMax: inventory?.goal_max,
+      purchaseLotCount: purchaseLots.length,
+      productionSkuCount: Array.isArray(item.item_skus)
+        ? item.item_skus.length
+        : 0,
+      inventoryKnown: inventory != null,
+      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
+      canEditGoals,
+    });
+    if (!unitPlan.ok) {
+      setSaveError(unitPlan.error);
+      return;
+    }
     setSaving(true);
     setSaveError("");
+    let goalsConverted = false;
     try {
+      if (unitPlan.goalUpdate) {
+        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
+        goalsConverted = true;
+      }
       const payload = {
         ...item,
         ...draft,
@@ -461,6 +492,7 @@ export default function ItemDetailPage({ params }) {
         ),
       };
       const updated = await UpdateItem(id, payload);
+      goalsConverted = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -472,7 +504,23 @@ export default function ItemDetailPage({ params }) {
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
+      if (
+        normalizeUnit(item.unit_of_measure) !==
+        normalizeUnit(draft.unit_of_measure)
+      ) {
+        await loadInventory();
+      }
     } catch (err) {
+      if (goalsConverted && unitPlan.previousGoals) {
+        try {
+          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
+        } catch {
+          setSaveError(
+            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again."
+          );
+          return;
+        }
+      }
       setSaveError(err?.message || "Failed to save changes.");
     } finally {
       setSaving(false);
@@ -550,6 +598,30 @@ export default function ItemDetailPage({ params }) {
         setItem(null);
       } else {
         setItem(row);
+        if (
+          canWrite &&
+          !openedFromQuery.current &&
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("edit") === "1"
+        ) {
+          openedFromQuery.current = true;
+          setDraft(itemToDraft(row));
+          setDraftTags(
+            Array.isArray(row.tags)
+              ? row.tags.map((tag) => ({
+                  ...(tag.id != null ? { id: Number(tag.id) } : {}),
+                  name: String(tag.name ?? "").trim(),
+                }))
+              : []
+          );
+          setBomLines(itemToBomLines(row, bomLineIdRef.current));
+          bomLineIdRef.current += (row.bom_items?.length ?? 0) + 1;
+          setRouterPhases(itemToRouterPhases(row, routerPhaseIdRef.current));
+          routerPhaseIdRef.current += (row.router_phases?.length ?? 0) + 1;
+          setBomSelectedIds([]);
+          setSaveError("");
+          setEditing(true);
+        }
       }
     } catch {
       setError("Failed to load item.");
@@ -557,11 +629,22 @@ export default function ItemDetailPage({ params }) {
     } finally {
       setLoading(false);
     }
+  }, [id, canWrite]);
+
+  useEffect(() => {
+    openedFromQuery.current = false;
   }, [id]);
 
   useEffect(() => {
     void loadItem();
   }, [loadItem]);
+
+  useEffect(() => {
+    if (!editing || typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash !== "edit-bom" && hash !== "edit-stock-unit") return;
+    document.getElementById(hash)?.scrollIntoView({ block: "center" });
+  }, [editing]);
 
   const loadInventory = useCallback(async () => {
     if (!id) return;
@@ -708,34 +791,19 @@ export default function ItemDetailPage({ params }) {
   };
 
   const saveInventoryEdit = async (confirmed = false) => {
-    const qty = Number(inventoryDraftQty);
-    if (!Number.isFinite(qty) || qty < 0) {
-      setInventoryError("Current quantity must be a non-negative number.");
+    const parsed = validateInventoryEdit({
+      quantityRaw: inventoryDraftQty,
+      goalMinRaw: inventoryDraftGoalMin,
+      goalMaxRaw: inventoryDraftGoalMax,
+      editGoals: canEditGoals,
+    });
+    if (!parsed.ok) {
+      setInventoryError(parsed.error);
       setConfirmingInventoryQty(false);
       return;
     }
-    let goalUpdate = null;
-    if (canEditGoals) {
-      const minRaw = inventoryDraftGoalMin.trim();
-      const maxRaw = inventoryDraftGoalMax.trim();
-      if (minRaw !== "" || maxRaw !== "") {
-        const goalMin = Number(minRaw);
-        const goalMax = Number(maxRaw);
-        if (!Number.isFinite(goalMin) || goalMin < 0) {
-          setInventoryError("Goal min must be a non-negative number.");
-          setConfirmingInventoryQty(false);
-          return;
-        }
-        if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-          setInventoryError("Goal max must be ≥ goal min.");
-          setConfirmingInventoryQty(false);
-          return;
-        }
-        goalUpdate = { goal_min: goalMin, goal_max: goalMax };
-      }
-    }
 
-    if (!confirmed && quantityChanged(inventory?.quantity, qty)) {
+    if (!confirmed && quantityChanged(inventory?.quantity, parsed.quantity)) {
       setConfirmingInventoryQty(true);
       setInventoryError("");
       return;
@@ -745,13 +813,14 @@ export default function ItemDetailPage({ params }) {
     setInventorySaving(true);
     setInventoryError("");
     try {
-      let next = await UpdateItemInventory(id, { quantity: qty });
+      const quantityRow = await UpdateItemInventory(id, {
+        quantity: parsed.quantity,
+      });
+      const goalRow = parsed.goals
+        ? await UpdateItemInventoryGoal(id, parsed.goals)
+        : null;
 
-      if (goalUpdate) {
-        next = await UpdateItemInventoryGoal(id, goalUpdate);
-      }
-
-      setInventory(next);
+      setInventory(mergeInventorySave(quantityRow, goalRow));
       setInventoryEditing(false);
     } catch (err) {
       setInventoryError(err?.message || "Failed to save inventory.");
@@ -776,7 +845,7 @@ export default function ItemDetailPage({ params }) {
   }, [item, catalogItems]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-5xl">
         <Link
           href="/items"
@@ -802,10 +871,10 @@ export default function ItemDetailPage({ params }) {
             <header className={`mb-6 ${brutalChrome} overflow-hidden bg-nv-violet text-white`}>
               <div className="flex flex-wrap items-start justify-between gap-3 p-6 pb-4">
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+                  <p className="break-words font-mono text-xs font-bold uppercase tracking-widest text-white/80">
                     {headerLabel}
                   </p>
-                  <h1 className="text-3xl font-black uppercase leading-tight">
+                  <h1 className="break-words text-3xl font-black uppercase leading-tight">
                     {item.name}
                   </h1>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -1409,7 +1478,24 @@ export default function ItemDetailPage({ params }) {
                         Child items — expand make components to see nested
                         materials and their phases.
                       </p>
-                      <BomTreeView lines={item.bom_items} itemById={itemById} />
+                      <BomTreeView
+                        lines={item.bom_items}
+                        itemById={itemById}
+                        parentItem={item}
+                        onEditItem={
+                          canWrite
+                            ? (focusId) => {
+                                startEditing();
+                                window.setTimeout(() => {
+                                  if (!focusId) return;
+                                  document
+                                    .getElementById(focusId)
+                                    ?.scrollIntoView({ block: "center" });
+                                }, 50);
+                              }
+                            : undefined
+                        }
+                      />
                     </>
                   ) : (
                     <p className="text-xs font-medium text-nv-ink/55">
@@ -1428,9 +1514,9 @@ export default function ItemDetailPage({ params }) {
                           href={`/items/${parent.id}`}
                           className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-cyan/20"
                         >
-                          <span className="min-w-0 truncate">{parent.name}</span>
+                          <span className="min-w-0 break-words">{parent.name}</span>
                           {parent.sku ? (
-                            <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wide text-nv-ink/45">
+                            <span className="max-w-[50%] shrink-0 truncate font-mono text-[10px] font-bold uppercase tracking-wide text-nv-ink/45">
                               {parent.sku}
                             </span>
                           ) : null}
@@ -1471,7 +1557,7 @@ export default function ItemDetailPage({ params }) {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="edit-item-title"
-                  className={`fixed inset-x-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-full max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:inset-x-6`}
+                  className={`fixed left-3 right-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-auto max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
                 >
                   <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-cyan px-4 py-2">
                     <h2
@@ -1613,11 +1699,6 @@ export default function ItemDetailPage({ params }) {
                                   ? prev.unit_sell_price || prev.unit_cost
                                   : "",
                             }));
-                            if (value === "buy") {
-                              setRouterPhases([]);
-                              setBomLines([]);
-                              setBomSelectedIds([]);
-                            }
                           }}
                           offValue="buy"
                           onValue="make"
@@ -1684,7 +1765,7 @@ export default function ItemDetailPage({ params }) {
                       )}
 
                       {draft.make_or_buy === "make" && (
-                        <div className="border-b border-black/10 py-3">
+                        <div id="edit-bom" className="border-b border-black/10 py-3">
                           <BomRecipeEditor
                             catalogItems={catalogItems}
                             bomLines={bomLines}
@@ -1700,6 +1781,7 @@ export default function ItemDetailPage({ params }) {
                       )}
 
                       <div className="grid gap-x-6 sm:grid-cols-2">
+                        <div id="edit-stock-unit">
                         <FieldRow label="Unit of measure">
                           <UnitOfMeasureSelect
                             value={draft.unit_of_measure}
@@ -1709,6 +1791,7 @@ export default function ItemDetailPage({ params }) {
                             className={`${editInputClass} cursor-pointer`}
                           />
                         </FieldRow>
+                        </div>
                         {draft.make_or_buy === "make" ? (
                           <FieldRow label="Sell price">
                             <input

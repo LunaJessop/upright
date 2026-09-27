@@ -177,7 +177,7 @@ export default function InventoryRangeBar({
 
   return (
     <div className="space-y-1.5">
-      <div ref={labelRowRef} className="relative h-4 w-full">
+      <div ref={labelRowRef} className="relative h-4 w-full overflow-hidden">
         {markerLabels.map((tick) => (
           <span
             key={tick.key}
@@ -236,7 +236,7 @@ export default function InventoryRangeBar({
         />
       </div>
 
-      <div className="relative h-4 w-full">
+      <div className="relative h-4 w-full overflow-hidden">
         {scaleTicks.map((tick) => (
           <span
             key={tick.key}
