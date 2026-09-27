@@ -8,12 +8,24 @@ import {
   useMemo,
   useState,
 } from "react";
-import { getMe, loginUser, registerUser } from "@/app/api/apiHandler";
-import { getStoredToken, setStoredToken } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import {
+  getMe,
+  loginUser,
+  logoutUser,
+  registerUser,
+  setUnauthorizedHandler,
+} from "@/app/api/apiHandler";
+import {
+  clearLoginRedirect,
+  getStoredToken,
+  setStoredToken,
+} from "@/lib/auth";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,6 +33,14 @@ export function AuthProvider({ children }) {
     setStoredToken(null);
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearSession();
+      router.replace("/login");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [clearSession, router]);
 
   const refreshSession = useCallback(async () => {
     const token = getStoredToken();
@@ -48,6 +68,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const session = await loginUser(email, password);
+    clearLoginRedirect();
     setStoredToken(session.token);
     setUser(session.user);
     return session.user;
@@ -61,6 +82,7 @@ export function AuthProvider({ children }) {
         email,
         password,
       });
+      clearLoginRedirect();
       setStoredToken(session.token);
       setUser(session.user);
       return session;
@@ -69,6 +91,9 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    // logoutUser reads the bearer token synchronously before this clears it.
+    // Do not wait on the response: a slow or failed revoke must not block logout.
+    void logoutUser();
     clearSession();
   }, [clearSession]);
 
