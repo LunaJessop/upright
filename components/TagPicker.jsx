@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  canCreateTag,
+  filterTagSuggestions,
+  moveTagHighlight,
+} from "@/lib/tagSuggestions";
 
 const inputClass =
   "w-full border-brutal border-black bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
@@ -44,24 +49,21 @@ export default function TagPicker({
   className = "",
 }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const containerRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
   const selected = useMemo(() => normalizeSelected(value), [value]);
   const selectedKeys = useMemo(
     () => new Set(selected.map(tagKey)),
     [selected]
   );
 
-  const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (Array.isArray(catalog) ? catalog : [])
-      .filter((tag) => {
-        const name = String(tag.name ?? "").trim();
-        if (!name) return false;
-        if (selectedKeys.has(tagKey(tag))) return false;
-        if (!q) return true;
-        return name.toLowerCase().includes(q);
-      })
-      .slice(0, 8);
-  }, [catalog, query, selectedKeys]);
+  const suggestions = useMemo(
+    () => filterTagSuggestions(catalog, selected, query),
+    [catalog, selected, query]
+  );
 
   const exactCatalogMatch = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,10 +73,13 @@ export default function TagPicker({
     );
   }, [catalog, query]);
 
-  const canCreate =
-    query.trim() !== "" &&
-    !exactCatalogMatch &&
-    !selectedKeys.has(`name:${query.trim().toLowerCase()}`);
+  const canCreate = canCreateTag(catalog, selected, query);
+  const optionCount = suggestions.length + (canCreate ? 1 : 0);
+
+  const closeList = () => {
+    setOpen(false);
+    setActiveIndex(-1);
+  };
 
   const addTag = (tag) => {
     const name = String(tag?.name ?? "").trim();
@@ -85,6 +90,7 @@ export default function TagPicker({
     };
     if (selectedKeys.has(tagKey(entry))) {
       setQuery("");
+      setActiveIndex(-1);
       return;
     }
     onChange([...selected, entry]);
@@ -92,6 +98,8 @@ export default function TagPicker({
       onCatalogAdd?.(entry);
     }
     setQuery("");
+    setActiveIndex(-1);
+    setOpen(true);
   };
 
   const createFromQuery = () => {
@@ -104,14 +112,48 @@ export default function TagPicker({
     addTag({ name });
   };
 
+  const pickActive = () => {
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      addTag(suggestions[activeIndex]);
+      return;
+    }
+    if (canCreate && activeIndex === suggestions.length) {
+      createFromQuery();
+      return;
+    }
+    if (suggestions[0]) addTag(suggestions[0]);
+    else createFromQuery();
+  };
+
   const removeTag = (tag) => {
     const key = tagKey(tag);
     onChange(selected.filter((entry) => tagKey(entry) !== key));
   };
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        closeList();
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    const option = listRef.current?.querySelector(`[data-index="${activeIndex}"]`);
+    option?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex]);
+
+  const showList = open && (optionCount > 0 || query.trim() === "");
+
   return (
-    <div className={`space-y-2 ${className}`}>
-      <span className={labelClass}>Tags</span>
+    <div className={`space-y-2 ${className}`} ref={containerRef}>
+      <span className={labelClass} id={`${listId}-label`}>
+        Tags
+      </span>
 
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -142,12 +184,48 @@ export default function TagPicker({
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              role="combobox"
+              aria-expanded={open}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-labelledby={`${listId}-label`}
+              aria-activedescendant={
+                activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined
+              }
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActiveIndex(-1);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              onClick={() => setOpen(true)}
+              onBlur={(event) => {
+                const next = event.relatedTarget;
+                if (next && containerRef.current?.contains(next)) return;
+                closeList();
+              }}
               onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setOpen(true);
+                  setActiveIndex((current) => moveTagHighlight(current, 1, optionCount));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setOpen(true);
+                  setActiveIndex((current) => moveTagHighlight(current, -1, optionCount));
+                  return;
+                }
+                if (e.key === "Escape") {
+                  if (!open) return;
+                  e.preventDefault();
+                  closeList();
+                  return;
+                }
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  if (suggestions[0]) addTag(suggestions[0]);
-                  else createFromQuery();
+                  pickActive();
                 }
               }}
               placeholder="Search or create a tag"
@@ -155,6 +233,7 @@ export default function TagPicker({
             />
             <button
               type="button"
+              onMouseDown={(event) => event.preventDefault()}
               onClick={createFromQuery}
               disabled={query.trim() === ""}
               className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
@@ -163,14 +242,28 @@ export default function TagPicker({
             </button>
           </div>
 
-          {query.trim() !== "" && (suggestions.length > 0 || canCreate) && (
-            <ul className="max-h-40 overflow-y-auto border-brutal border-black bg-nv-paper">
-              {suggestions.map((tag) => (
-                <li key={tag.id}>
+          {showList && (
+            <ul
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              aria-label="Tags"
+              className="max-h-[min(10rem,45dvh)] overflow-y-auto overscroll-contain border-brutal border-black bg-nv-paper"
+            >
+              {suggestions.map((tag, index) => (
+                <li key={tag.id ?? tagKey(tag)}>
                   <button
                     type="button"
+                    id={`${listId}-opt-${index}`}
+                    data-index={index}
+                    role="option"
+                    aria-selected={activeIndex === index}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => addTag(tag)}
-                    className="block w-full px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20"
+                    className={`block w-full px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20 ${
+                      activeIndex === index ? "bg-nv-cyan/30" : ""
+                    }`}
                   >
                     {tag.name}
                   </button>
@@ -180,11 +273,30 @@ export default function TagPicker({
                 <li>
                   <button
                     type="button"
+                    id={`${listId}-opt-${suggestions.length}`}
+                    data-index={suggestions.length}
+                    role="option"
+                    aria-selected={activeIndex === suggestions.length}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(suggestions.length)}
                     onClick={createFromQuery}
-                    className="block w-full border-t border-black/10 px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10"
+                    className={`block w-full border-t border-black/10 px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10 ${
+                      activeIndex === suggestions.length ? "bg-nv-violet/10" : ""
+                    }`}
                   >
                     Create “{query.trim()}”
                   </button>
+                </li>
+              )}
+              {optionCount === 0 && (
+                <li className="px-2 py-1.5 text-xs font-medium text-nv-ink/55">
+                  {query.trim()
+                    ? "No matching tags"
+                    : (Array.isArray(catalog) ? catalog : []).some((tag) =>
+                          String(tag?.name ?? "").trim()
+                        )
+                      ? "All tags are already added"
+                      : "No tags yet. Type to create one."}
                 </li>
               )}
             </ul>
