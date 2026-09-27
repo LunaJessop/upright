@@ -278,13 +278,30 @@ export default function ClientPage() {
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-              >
-                {submitting ? "Creating…" : "Create user"}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setName("");
+                    setEmail("");
+                    setPassword("");
+                    setRole("user");
+                    setFormError("");
+                    setFormSuccess("");
+                  }}
+                  disabled={submitting}
+                  className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 disabled:opacity-40"
+                >
+                  {submitting ? "Creating…" : "Create user"}
+                </button>
+              </div>
             </form>
           </section>
         ) : (
