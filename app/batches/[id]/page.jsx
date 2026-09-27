@@ -459,6 +459,7 @@ export default function BatchDetailPage({ params }) {
                       lines={bomLines}
                       itemById={itemById}
                       rootMultiplier={Number(batch.quantity) || 1}
+                      parentItem={batchItem}
                     />
                   </>
                 ) : (

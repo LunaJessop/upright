@@ -76,7 +76,7 @@ export default function LandingPage() {
               About us
             </p>
             <h2 className="mt-3 text-3xl font-black uppercase leading-tight sm:text-4xl">
-              Built for small businesses who want clarity
+              Built for small businesses that want clarity
             </h2>
           </div>
           <div className="space-y-5 text-sm font-medium leading-relaxed text-nv-ink/75 sm:text-base">
@@ -104,32 +104,53 @@ export default function LandingPage() {
       </section>
 
       <footer className="bg-nv-violet text-white">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-5 py-8 sm:flex-row sm:items-center sm:px-8">
-          <div className="flex items-center gap-3">
-            <Image
-              src={uprightLogo}
-              alt=""
-              className="h-auto w-8 brightness-0 invert"
-              aria-hidden
-            />
-            <p className="text-xs font-black lowercase tracking-wide">upright</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <Image
+                src={uprightLogo}
+                alt="Upright"
+                className="h-auto w-8 brightness-0 invert"
+              />
+              <p className="text-xs font-black lowercase tracking-wide">upright</p>
+            </div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+              Get your business up and to the right
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/help"
+                className="border-brutal border-black bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+              >
+                Help
+              </Link>
+              <Link
+                href="/auth"
+                className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn transition-transform hover:-translate-y-0.5"
+              >
+                Log in / Register
+              </Link>
+            </div>
           </div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
-            Get your business up and to the right
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/help"
-              className="border-brutal border-black bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
-            >
-              Help
-            </Link>
-            <Link
-              href="/auth"
-              className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn transition-transform hover:-translate-y-0.5"
-            >
-              Log in / Register
-            </Link>
+          <div className="flex flex-col gap-3 border-t border-white/25 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+              © {new Date().getFullYear()} Upright
+            </p>
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Link
+                href="/terms"
+                className="text-[10px] font-black uppercase tracking-wide text-white/80 hover:text-white hover:underline"
+              >
+                Terms of Service
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-[10px] font-black uppercase tracking-wide text-white/80 hover:text-white hover:underline"
+              >
+                Privacy Policy
+              </Link>
+              {/* TODO: Add a support/contact link once a support email exists in the codebase or environment. None is defined today. */}
+            </nav>
           </div>
         </div>
       </footer>

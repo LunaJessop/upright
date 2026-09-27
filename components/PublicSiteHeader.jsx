@@ -212,6 +212,22 @@ export default function PublicSiteHeader() {
               {ctaLabel}
             </Link>
           </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="px-2 py-2 text-[11px] font-black uppercase tracking-wide text-nv-ink/70 transition-colors hover:text-nv-ink sm:px-3"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                className="border-brutal border-black bg-nv-violet px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white shadow-brutal-btn transition-transform hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none sm:px-4"
+              >
+                Get started
+              </Link>
+            </>
+          )}
         </nav>
       ) : null}
     </header>

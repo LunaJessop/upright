@@ -34,7 +34,9 @@ import {
   mergeInventorySave,
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
+import { planItemUnitChange } from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
+import { normalizeUnit } from "@/lib/units";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -268,6 +270,7 @@ export default function ItemDetailPage({ params }) {
   const [inventoryError, setInventoryError] = useState("");
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
+  const openedFromQuery = useRef(false);
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -418,9 +421,33 @@ export default function ItemDetailPage({ params }) {
       setSaveError("Every router phase needs a name.");
       return;
     }
+    const unitPlan = planItemUnitChange({
+      previousUnit: item.unit_of_measure,
+      nextUnit: draft.unit_of_measure,
+      quantity: inventory?.quantity,
+      plannedDelta: inventory?.planned_delta,
+      goalMin: inventory?.goal_min,
+      goalMax: inventory?.goal_max,
+      purchaseLotCount: purchaseLots.length,
+      productionSkuCount: Array.isArray(item.item_skus)
+        ? item.item_skus.length
+        : 0,
+      inventoryKnown: inventory != null,
+      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
+      canEditGoals,
+    });
+    if (!unitPlan.ok) {
+      setSaveError(unitPlan.error);
+      return;
+    }
     setSaving(true);
     setSaveError("");
+    let goalsConverted = false;
     try {
+      if (unitPlan.goalUpdate) {
+        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
+        goalsConverted = true;
+      }
       const payload = {
         ...item,
         ...draft,
@@ -461,6 +488,7 @@ export default function ItemDetailPage({ params }) {
         ),
       };
       const updated = await UpdateItem(id, payload);
+      goalsConverted = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -472,7 +500,23 @@ export default function ItemDetailPage({ params }) {
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
+      if (
+        normalizeUnit(item.unit_of_measure) !==
+        normalizeUnit(draft.unit_of_measure)
+      ) {
+        await loadInventory();
+      }
     } catch (err) {
+      if (goalsConverted && unitPlan.previousGoals) {
+        try {
+          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
+        } catch {
+          setSaveError(
+            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again."
+          );
+          return;
+        }
+      }
       setSaveError(err?.message || "Failed to save changes.");
     } finally {
       setSaving(false);
@@ -550,6 +594,30 @@ export default function ItemDetailPage({ params }) {
         setItem(null);
       } else {
         setItem(row);
+        if (
+          canWrite &&
+          !openedFromQuery.current &&
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("edit") === "1"
+        ) {
+          openedFromQuery.current = true;
+          setDraft(itemToDraft(row));
+          setDraftTags(
+            Array.isArray(row.tags)
+              ? row.tags.map((tag) => ({
+                  ...(tag.id != null ? { id: Number(tag.id) } : {}),
+                  name: String(tag.name ?? "").trim(),
+                }))
+              : []
+          );
+          setBomLines(itemToBomLines(row, bomLineIdRef.current));
+          bomLineIdRef.current += (row.bom_items?.length ?? 0) + 1;
+          setRouterPhases(itemToRouterPhases(row, routerPhaseIdRef.current));
+          routerPhaseIdRef.current += (row.router_phases?.length ?? 0) + 1;
+          setBomSelectedIds([]);
+          setSaveError("");
+          setEditing(true);
+        }
       }
     } catch {
       setError("Failed to load item.");
@@ -557,11 +625,22 @@ export default function ItemDetailPage({ params }) {
     } finally {
       setLoading(false);
     }
+  }, [id, canWrite]);
+
+  useEffect(() => {
+    openedFromQuery.current = false;
   }, [id]);
 
   useEffect(() => {
     void loadItem();
   }, [loadItem]);
+
+  useEffect(() => {
+    if (!editing || typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash !== "edit-bom" && hash !== "edit-stock-unit") return;
+    document.getElementById(hash)?.scrollIntoView({ block: "center" });
+  }, [editing]);
 
   const loadInventory = useCallback(async () => {
     if (!id) return;
@@ -1342,7 +1421,24 @@ export default function ItemDetailPage({ params }) {
                         Child items — expand make components to see nested
                         materials and their phases.
                       </p>
-                      <BomTreeView lines={item.bom_items} itemById={itemById} />
+                      <BomTreeView
+                        lines={item.bom_items}
+                        itemById={itemById}
+                        parentItem={item}
+                        onEditItem={
+                          canWrite
+                            ? (focusId) => {
+                                startEditing();
+                                window.setTimeout(() => {
+                                  if (!focusId) return;
+                                  document
+                                    .getElementById(focusId)
+                                    ?.scrollIntoView({ block: "center" });
+                                }, 50);
+                              }
+                            : undefined
+                        }
+                      />
                     </>
                   ) : (
                     <p className="text-xs font-medium text-nv-ink/55">
@@ -1612,7 +1708,7 @@ export default function ItemDetailPage({ params }) {
                       )}
 
                       {draft.make_or_buy === "make" && (
-                        <div className="border-b border-black/10 py-3">
+                        <div id="edit-bom" className="border-b border-black/10 py-3">
                           <BomRecipeEditor
                             catalogItems={catalogItems}
                             bomLines={bomLines}
@@ -1628,6 +1724,7 @@ export default function ItemDetailPage({ params }) {
                       )}
 
                       <div className="grid gap-x-6 sm:grid-cols-2">
+                        <div id="edit-stock-unit">
                         <FieldRow label="Unit of measure">
                           <UnitOfMeasureSelect
                             value={draft.unit_of_measure}
@@ -1637,6 +1734,7 @@ export default function ItemDetailPage({ params }) {
                             className={`${editInputClass} cursor-pointer`}
                           />
                         </FieldRow>
+                        </div>
                         {draft.make_or_buy === "make" ? (
                           <FieldRow label="Sell price">
                             <input
