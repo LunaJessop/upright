@@ -1,0 +1,4 @@
+# CDN aliases. Next.js redirects in next.config.mjs cover next dev / next start.
+# These run on Netlify before an unknown path can become a plain-text 404.
+/dashboard    /items              302
+/inventory    /items/inventory    302
