@@ -34,7 +34,12 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
-import { tagsForSave, upsertTagCatalog } from "@/lib/tagCreate";
+import {
+  removeTagById,
+  renameTagInList,
+  tagsForSave,
+  upsertTagCatalog,
+} from "@/lib/tagCreate";
 import {
   mergeInventorySave,
   validateInventoryEdit,
@@ -1716,6 +1721,24 @@ export default function ItemDetailPage({ params }) {
                           catalog={tagCatalog}
                           onCatalogAdd={(tag) => {
                             setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                          }}
+                          onTagRenamed={(tag) => {
+                            setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                            setDraftTags((prev) => renameTagInList(prev, tag.id, tag.name));
+                            setItem((prev) =>
+                              prev
+                                ? { ...prev, tags: renameTagInList(prev.tags, tag.id, tag.name) }
+                                : prev
+                            );
+                          }}
+                          onTagDeleted={(tag) => {
+                            setTagCatalog((prev) => removeTagById(prev, tag.id));
+                            setDraftTags((prev) => removeTagById(prev, tag.id));
+                            setItem((prev) =>
+                              prev
+                                ? { ...prev, tags: removeTagById(prev.tags, tag.id) }
+                                : prev
+                            );
                           }}
                         />
                       </div>

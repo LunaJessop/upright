@@ -10,7 +10,14 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
-import { tagsForSave, upsertTagCatalog } from "@/lib/tagCreate";
+import {
+  removeTagById,
+  removeTagFromItems,
+  renameTagInList,
+  renameTagOnItems,
+  tagsForSave,
+  upsertTagCatalog,
+} from "@/lib/tagCreate";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -686,6 +693,16 @@ export default function NewItem() {
                 catalog={tagCatalog}
                 onCatalogAdd={(tag) => {
                   setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                }}
+                onTagRenamed={(tag) => {
+                  setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                  setTags((prev) => renameTagInList(prev, tag.id, tag.name));
+                  setItems((prev) => renameTagOnItems(prev, tag.id, tag.name));
+                }}
+                onTagDeleted={(tag) => {
+                  setTagCatalog((prev) => removeTagById(prev, tag.id));
+                  setTags((prev) => removeTagById(prev, tag.id));
+                  setItems((prev) => removeTagFromItems(prev, tag.id));
                 }}
               />
             </div>
