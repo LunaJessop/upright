@@ -2,6 +2,7 @@
 
 import {
   getStoredToken,
+  loginHref,
   requestLoginRedirect,
   setStoredToken,
 } from "@/lib/auth";
@@ -52,7 +53,7 @@ function expireSession(sentToken) {
     return;
   }
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.replace("/login");
+    window.location.replace(loginHref());
   }
 }
 

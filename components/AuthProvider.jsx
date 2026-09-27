@@ -19,6 +19,7 @@ import {
 import {
   clearLoginRedirect,
   getStoredToken,
+  loginHref,
   setStoredToken,
 } from "@/lib/auth";
 
@@ -37,7 +38,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       clearSession();
-      router.replace("/login");
+      const path = `${window.location.pathname}${window.location.search || ""}`;
+      router.replace(loginHref(path));
     });
     return () => setUnauthorizedHandler(null);
   }, [clearSession, router]);
