@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-default-type=module --import ./test/register-alias.js --test lib/bomTreeQuantity.test.js lib/formatQuantity.test.js lib/criticalPaths.test.js lib/returnPath.test.js app/api/apiFetch.test.js"
+    "test": "node --experimental-default-type=module --import ./test/register-alias.js --test lib/bomTreeQuantity.test.js lib/formatQuantity.test.js lib/tagSuggestions.test.js lib/criticalPaths.test.js lib/returnPath.test.js app/api/apiFetch.test.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
