@@ -58,7 +58,7 @@ function expireSession(sentToken) {
 
 async function apiFetch(url, options) {
   const sentToken = bearerTokenFrom(options?.headers);
-  const response = await apiFetch(url, options);
+  const response = await fetch(url, options);
   if (response.status === 401) {
     expireSession(sentToken);
   }
