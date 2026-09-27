@@ -58,7 +58,7 @@ export default function RegisterPlanPage() {
   return (
     <div className="flex min-h-full flex-col bg-nv-canvas text-nv-ink">
       <header className="border-b-brutal border-black bg-nv-paper px-5 py-4 sm:px-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link
               href={homeHref}
@@ -75,7 +75,7 @@ export default function RegisterPlanPage() {
               />
             </Link>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-nv-ink/55">
+              <p className="break-words font-mono text-[10px] font-bold uppercase tracking-wide text-nv-ink/55 sm:tracking-widest">
                 Step 2 of 2 — Choose a plan
               </p>
               <h1 className="truncate text-xl font-black uppercase leading-tight sm:text-2xl">
@@ -137,7 +137,7 @@ export default function RegisterPlanPage() {
           </p>
         )}
 
-        <article className="relative flex h-[calc(100vh-14rem)] w-[min(22vw,17.5rem)] min-w-[15.5rem] flex-col border-brutal border-black bg-nv-paper shadow-brutal">
+        <article className="relative flex h-[calc(100vh-14rem)] w-full max-w-[17.5rem] min-w-0 flex-col border-brutal border-black bg-nv-paper shadow-brutal sm:w-[min(22vw,17.5rem)] sm:min-w-[15.5rem]">
           {plan.badge && (
             <span className="absolute right-0 top-0 z-10 border-b-brutal border-l-brutal border-black bg-nv-cyan px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn">
               {plan.badge}

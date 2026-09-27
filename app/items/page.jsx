@@ -70,7 +70,7 @@ function ItemListRow({ item }) {
     <li>
       <Link
         href={`/items/${item.id}`}
-        className="group block border-brutal border-black bg-nv-paper px-2.5 py-2 transition-transform hover:-translate-y-0.5 hover:bg-nv-cyan/10 sm:px-3"
+        className="group block min-w-0 border-brutal border-black bg-nv-paper px-2.5 py-2 transition-transform hover:-translate-y-0.5 hover:bg-nv-cyan/10 sm:px-3"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -111,13 +111,13 @@ function ItemListRow({ item }) {
             ) : null}
           </div>
 
-              <div className="flex shrink-0 flex-col items-end gap-1 self-center text-right">
+              <div className="flex max-w-[46%] shrink-0 flex-col items-end gap-1 self-center text-right">
                 {priceUnit ? (
                   <>
                     <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
                       {priceLabel}
                     </span>
-                    <span className="font-mono text-xs font-black tracking-tight text-nv-ink">
+                    <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
                       {priceUnit}
                     </span>
                   </>
@@ -200,7 +200,7 @@ export default function ItemsPage() {
   }, [items, query, typeFilter, statusFilter]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto w-full max-w-none">
         <header className={`mb-4 ${brutalChrome} bg-nv-violet p-5 text-white`}>
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -208,7 +208,7 @@ export default function ItemsPage() {
               <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
                 Items
               </p>
-              <h1 className="text-3xl font-black uppercase leading-tight">
+              <h1 className="break-words text-3xl font-black uppercase leading-tight">
                 All items
               </h1>
               <p className="mt-2 text-sm font-medium text-white/90">
