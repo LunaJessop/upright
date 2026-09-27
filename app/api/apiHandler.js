@@ -1,6 +1,10 @@
 
 
-import { getStoredToken, setStoredToken } from "@/lib/auth";
+import {
+  getStoredToken,
+  requestLoginRedirect,
+  setStoredToken,
+} from "@/lib/auth";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -19,20 +23,62 @@ function authHeaders(extra = {}) {
   return headers;
 }
 
+function bearerTokenFrom(headers) {
+  if (!headers) return null;
+  const value =
+    typeof Headers !== "undefined" && headers instanceof Headers
+      ? headers.get("Authorization")
+      : headers.Authorization || headers.authorization;
+  if (typeof value !== "string") return null;
+  const match = /^Bearer\s+(\S+)/i.exec(value);
+  return match ? match[1] : null;
+}
+
+let onUnauthorized = null;
+
+/** Registered by AuthProvider so a 401 drops React session state and routes to /login. */
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
+function expireSession(sentToken) {
+  // Ignore 401s for a token that was already replaced or cleared (logout, or a
+  // newer login). Otherwise a late response would sign the user out again.
+  if (!sentToken || sentToken !== getStoredToken()) return;
+  requestLoginRedirect();
+  setStoredToken(null);
+  if (onUnauthorized) {
+    onUnauthorized();
+    return;
+  }
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
+async function apiFetch(url, options) {
+  const sentToken = bearerTokenFrom(options?.headers);
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    expireSession(sentToken);
+  }
+  return response;
+}
+
 async function parseError(response, fallback) {
   const data = await response.json().catch(() => null);
   return data?.error ?? `${fallback} (${response.status})`;
 }
 
 export const checkHealth = async ({ signal } = {}) => {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/health`, {
+  const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/health`, {
     signal,
   });
   return response.json();
 };
 
 export const loginUser = async (email, password) => {
-  const response = await fetch(`${getBaseUrl()}/api/auth/login`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -45,7 +91,7 @@ export const loginUser = async (email, password) => {
 };
 
 export const registerUser = async ({ companyName, name, email, password }) => {
-  const response = await fetch(`${getBaseUrl()}/api/auth/register`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ companyName, name, email, password }),
@@ -58,7 +104,7 @@ export const registerUser = async ({ companyName, name, email, password }) => {
 };
 
 export const getMe = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/auth/me`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/auth/me`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -69,7 +115,7 @@ export const getMe = async () => {
 };
 
 export const createBillingCheckout = async (plan = "monthly") => {
-  const response = await fetch(`${getBaseUrl()}/api/billing/checkout`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/billing/checkout`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ plan }),
@@ -82,7 +128,7 @@ export const createBillingCheckout = async (plan = "monthly") => {
 };
 
 export const createBillingPortal = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/billing/portal`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/billing/portal`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
   });
@@ -94,7 +140,7 @@ export const createBillingPortal = async () => {
 };
 
 export const getClient = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/client`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/client`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -105,7 +151,7 @@ export const getClient = async () => {
 };
 
 export const getAdminClients = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/admin/clients`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/admin/clients`, {
     headers: authHeaders(),
   });
   const data = await response.json().catch(() => null);
@@ -116,7 +162,7 @@ export const getAdminClients = async () => {
 };
 
 export const createClientUser = async ({ name, email, password, role }) => {
-  const response = await fetch(`${getBaseUrl()}/api/client/users`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/client/users`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, password, role }),
@@ -129,7 +175,23 @@ export const createClientUser = async ({ name, email, password, role }) => {
 };
 
 export const logoutUser = () => {
-  setStoredToken(null);
+  const headers = authHeaders();
+  if (!headers.Authorization) return Promise.resolve();
+
+  let baseUrl;
+  try {
+    baseUrl = getBaseUrl();
+  } catch {
+    return Promise.resolve();
+  }
+
+  // keepalive so the revoke still finishes if navigation unloads the page.
+  // Failures are ignored; AuthProvider clears the local session either way.
+  return fetch(`${baseUrl}/api/auth/logout`, {
+    method: "POST",
+    keepalive: true,
+    headers,
+  }).catch(() => undefined);
 };
 
 export const GetAllItems = async ({ tagId } = {}) => {
@@ -138,7 +200,7 @@ export const GetAllItems = async ({ tagId } = {}) => {
     params.set("tag_id", String(tagId));
   }
   const qs = params.toString();
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items${qs ? `?${qs}` : ""}`,
     {
       headers: authHeaders(),
@@ -151,7 +213,7 @@ export const GetAllItems = async ({ tagId } = {}) => {
 };
 
 export const GetItemById = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -161,7 +223,7 @@ export const GetItemById = async (id) => {
 };
 
 export const GetAllInventory = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/inventory`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/inventory`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -171,7 +233,7 @@ export const GetAllInventory = async () => {
 };
 
 export const GetItemInventory = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -181,7 +243,7 @@ export const GetItemInventory = async (id) => {
 };
 
 export const UpdateItemInventory = async (id, { quantity }) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/inventory`, {
     method: "PUT",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ quantity }),
@@ -194,7 +256,7 @@ export const UpdateItemInventory = async (id, { quantity }) => {
 };
 
 export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items/${id}/inventory/goal`,
     {
       method: "PUT",
@@ -210,7 +272,7 @@ export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
 };
 
 export const GetPurchaseLots = async (itemId) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
     { headers: authHeaders() }
   );
@@ -224,7 +286,7 @@ export const CreatePurchaseLot = async (
   itemId,
   { lot_number, quantity, total_cost, arrival_date }
 ) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
     {
       method: "POST",
@@ -240,7 +302,7 @@ export const CreatePurchaseLot = async (
 };
 
 export const DeletePurchaseLot = async (itemId, lotId) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots/${lotId}`,
     {
       method: "DELETE",
@@ -255,7 +317,7 @@ export const DeletePurchaseLot = async (itemId, lotId) => {
 };
 
 export const GetItemProductionTree = async (id, quantity = 1) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/items/${id}/production-tree?quantity=${encodeURIComponent(quantity)}`,
     {
       headers: authHeaders(),
@@ -268,7 +330,7 @@ export const GetItemProductionTree = async (id, quantity = 1) => {
 };
 
 export const CreateItem = async (item) => {
-  const response = await fetch(`${getBaseUrl()}/api/items`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items`, {
     method: "POST",
     body: JSON.stringify(item),
     headers: authHeaders({ "Content-Type": "application/json" }),
@@ -281,7 +343,7 @@ export const CreateItem = async (item) => {
 };
 
 export const UpdateItem = async (id, item) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "PUT",
     body: JSON.stringify(item),
     headers: authHeaders({ "Content-Type": "application/json" }),
@@ -294,7 +356,7 @@ export const UpdateItem = async (id, item) => {
 };
 
 export const DeleteItem = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/items/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -306,7 +368,7 @@ export const DeleteItem = async (id) => {
 };
 
 export const GetAllBatches = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/batches`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/batches`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -316,7 +378,7 @@ export const GetAllBatches = async () => {
 };
 
 export const GetBatchById = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/batches/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/batches/${id}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -326,7 +388,7 @@ export const GetBatchById = async (id) => {
 };
 
 export const GetRouterPhaseTemplates = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/router-phase-templates`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/router-phase-templates`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -340,7 +402,7 @@ export const CreateRouterPhaseTemplate = async ({
   description,
   estimated_minutes,
 }) => {
-  const response = await fetch(`${getBaseUrl()}/api/router-phase-templates`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/router-phase-templates`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, description, estimated_minutes }),
@@ -356,7 +418,7 @@ export const UpdateRouterPhaseTemplate = async (
   id,
   { name, description, estimated_minutes }
 ) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/router-phase-templates/${id}`,
     {
       method: "PUT",
@@ -372,7 +434,7 @@ export const UpdateRouterPhaseTemplate = async (
 };
 
 export const DeleteRouterPhaseTemplate = async (id) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/router-phase-templates/${id}`,
     {
       method: "DELETE",
@@ -387,7 +449,7 @@ export const DeleteRouterPhaseTemplate = async (id) => {
 };
 
 export const GetVendors = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/vendors`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -397,7 +459,7 @@ export const GetVendors = async () => {
 };
 
 export const GetTags = async () => {
-  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/tags`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -407,7 +469,7 @@ export const GetTags = async () => {
 };
 
 export const CreateTag = async (name) => {
-  const response = await fetch(`${getBaseUrl()}/api/tags`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/tags`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name }),
@@ -420,7 +482,7 @@ export const CreateTag = async (name) => {
 };
 
 export const CreateVendor = async ({ name, email, site_link, phone }) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/vendors`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, site_link, phone }),
@@ -433,7 +495,7 @@ export const CreateVendor = async ({ name, email, site_link, phone }) => {
 };
 
 export const UpdateVendor = async (id, { name, email, site_link, phone }) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/vendors/${id}`, {
     method: "PUT",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, email, site_link, phone }),
@@ -446,7 +508,7 @@ export const UpdateVendor = async (id, { name, email, site_link, phone }) => {
 };
 
 export const DeleteVendor = async (id) => {
-  const response = await fetch(`${getBaseUrl()}/api/vendors/${id}`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/vendors/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -458,7 +520,7 @@ export const DeleteVendor = async (id) => {
 };
 
 export const CreateBatch = async ({ item_id, quantity, sku }) => {
-  const response = await fetch(`${getBaseUrl()}/api/batches`, {
+  const response = await apiFetch(`${getBaseUrl()}/api/batches`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ item_id, quantity, sku }),
@@ -471,7 +533,7 @@ export const CreateBatch = async ({ item_id, quantity, sku }) => {
 };
 
 export const CancelBatch = async (batchId) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/batches/${batchId}/cancel`,
     {
       method: "POST",
@@ -486,7 +548,7 @@ export const CancelBatch = async (batchId) => {
 };
 
 export const CompleteBatch = async (batchId) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/batches/${batchId}/complete`,
     {
       method: "POST",
@@ -501,7 +563,7 @@ export const CompleteBatch = async (batchId) => {
 };
 
 export const UpdateBatchPhase = async (batchId, phaseId, status) => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${getBaseUrl()}/api/batches/${batchId}/phases/${phaseId}`,
     {
       method: "PATCH",

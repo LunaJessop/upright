@@ -194,13 +194,13 @@ export default function BatchesPage() {
   };
 
   return (
-    <div className="relative min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="relative min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-3xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
           <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
             Production
           </p>
-          <h1 className="text-3xl font-black uppercase leading-tight">
+          <h1 className="break-words text-3xl font-black uppercase leading-tight">
             Production
           </h1>
           <p className="mt-2 text-sm font-medium text-white/90">
@@ -209,7 +209,7 @@ export default function BatchesPage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <header className="flex items-center justify-between gap-2 border-b-brutal border-black bg-nv-lavender px-3 py-1.5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-lavender px-3 py-1.5">
             <h2 className="text-sm font-black uppercase tracking-wide">
               Queue ({pendingBatches.length})
             </h2>
@@ -267,7 +267,7 @@ export default function BatchesPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="min-w-0 text-sm leading-snug">
-                            <span className="font-mono font-black">
+                            <span className="break-all font-mono font-black">
                               {batch.sku || `Batch ${batch.id}`}
                             </span>
                             <span className="font-black text-nv-ink/40">
