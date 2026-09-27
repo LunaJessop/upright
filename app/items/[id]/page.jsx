@@ -34,6 +34,7 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import { tagsForSave, upsertTagCatalog } from "@/lib/tagCreate";
 import {
   mergeInventorySave,
   validateInventoryEdit,
@@ -493,11 +494,7 @@ export default function ItemDetailPage({ params }) {
             }))
           : [],
         router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
-        tags: draftTags.map((tag) =>
-          tag.id != null
-            ? { id: Number(tag.id), name: tag.name }
-            : { name: tag.name }
-        ),
+        tags: tagsForSave(draftTags),
       };
       const updated = await UpdateItem(id, payload);
       goalsConverted = false;
@@ -1718,18 +1715,7 @@ export default function ItemDetailPage({ params }) {
                           onChange={setDraftTags}
                           catalog={tagCatalog}
                           onCatalogAdd={(tag) => {
-                            setTagCatalog((prev) => {
-                              if (
-                                prev.some(
-                                  (row) => Number(row.id) === Number(tag.id)
-                                )
-                              ) {
-                                return prev;
-                              }
-                              return [...prev, tag].sort((a, b) =>
-                                String(a.name).localeCompare(String(b.name))
-                              );
-                            });
+                            setTagCatalog((prev) => upsertTagCatalog(prev, tag));
                           }}
                         />
                       </div>

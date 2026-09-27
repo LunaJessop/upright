@@ -10,6 +10,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import { tagsForSave, upsertTagCatalog } from "@/lib/tagCreate";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -134,11 +135,7 @@ function formToItem(form, id, vendors = []) {
                 : phase.estimated_minutes.trim(),
           }))
       : [],
-    tags: Array.isArray(form.tags)
-      ? form.tags.map((tag) =>
-          tag.id != null ? { id: Number(tag.id), name: tag.name } : { name: tag.name }
-        )
-      : [],
+    tags: tagsForSave(form.tags),
   };
 }
 
@@ -688,14 +685,7 @@ export default function NewItem() {
                 onChange={setTags}
                 catalog={tagCatalog}
                 onCatalogAdd={(tag) => {
-                  setTagCatalog((prev) => {
-                    if (prev.some((row) => Number(row.id) === Number(tag.id))) {
-                      return prev;
-                    }
-                    return [...prev, tag].sort((a, b) =>
-                      String(a.name).localeCompare(String(b.name))
-                    );
-                  });
+                  setTagCatalog((prev) => upsertTagCatalog(prev, tag));
                 }}
               />
             </div>
