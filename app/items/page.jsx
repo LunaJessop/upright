@@ -25,6 +25,13 @@ const ITEM_CSV_HEADERS = [
   "updated_at",
 ];
 
+function catalogCountLabel(shown, total) {
+  if (shown === total) {
+    return `${shown} ${shown === 1 ? "item" : "items"}`;
+  }
+  return `${shown} of ${total} ${total === 1 ? "item" : "items"}`;
+}
+
 function exportItemsCsv(items) {
   const csv = rowsToCsv(ITEM_CSV_HEADERS, items, (row, header) => {
     if (header === "vendor_name") {
@@ -232,14 +239,11 @@ export default function ItemsPage() {
         <section className={`${brutalChrome} bg-nv-paper`}>
           <div className="space-y-3 border-b-brutal border-black bg-nv-canvas/60 p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-black uppercase tracking-wide">
-                Catalog
+              <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
+                <span>Catalog</span>
                 {!loading ? (
-                  <span className="ml-2 font-mono text-[10px] text-nv-ink/45">
-                    {filteredItems.length}
-                    {filteredItems.length !== items.length
-                      ? ` / ${items.length}`
-                      : ""}
+                  <span className="border border-black bg-nv-paper px-1.5 py-0.5 font-mono text-[10px] font-bold normal-case tracking-normal text-nv-ink/70">
+                    {catalogCountLabel(filteredItems.length, items.length)}
                   </span>
                 ) : null}
               </h2>
