@@ -9,6 +9,7 @@ import {
   UpdateVendor,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const inputClass =
@@ -19,6 +20,7 @@ const EMPTY_FORM = { name: "", email: "", site_link: "", phone: "" };
 
 export default function SettingsVendorsPage() {
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,7 +66,9 @@ export default function SettingsVendorsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setFormError("Vendor name is required.");
+      const message = "Vendor name is required.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -79,13 +83,17 @@ export default function SettingsVendorsPage() {
       };
       if (editingId) {
         await UpdateVendor(editingId, payload);
+        toast.success("Vendor updated.");
       } else {
         await CreateVendor(payload);
+        toast.success("Vendor added.");
       }
       cancelEdit();
       await loadVendors();
     } catch (err) {
-      setFormError(err?.message || "Could not save vendor.");
+      const message = err?.message || "Could not save vendor.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -99,8 +107,11 @@ export default function SettingsVendorsPage() {
       await DeleteVendor(id);
       if (editingId === id) cancelEdit();
       await loadVendors();
+      toast.success("Vendor deleted.");
     } catch (err) {
-      setError(err?.message || "Could not delete vendor.");
+      const message = err?.message || "Could not delete vendor.";
+      setError(message);
+      toast.error(message);
     }
   };
 

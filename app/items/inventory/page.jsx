@@ -8,6 +8,7 @@ import {
   UpdateItemInventoryGoal,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import { ROLE_RANK } from "@/lib/auth";
 import {
@@ -140,6 +141,7 @@ function InventoryCard({
   onCancelEdit,
   onSaved,
 }) {
+  const toast = useToast();
   const [draftQty, setDraftQty] = useState("");
   const [draftGoalMin, setDraftGoalMin] = useState("");
   const [draftGoalMax, setDraftGoalMax] = useState("");
@@ -166,6 +168,7 @@ function InventoryCard({
     });
     if (!parsed.ok) {
       setError(parsed.error);
+      toast.error(parsed.error);
       return;
     }
 
@@ -188,8 +191,11 @@ function InventoryCard({
         make_or_buy: row.make_or_buy,
         active: row.active,
       });
+      toast.success(`Inventory updated for ${row.item_name}.`);
     } catch (err) {
-      setError(err?.message || "Failed to save inventory.");
+      const message = err?.message || "Failed to save inventory.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

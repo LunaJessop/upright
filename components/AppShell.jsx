@@ -7,6 +7,7 @@ import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { ToastProvider } from "@/components/Toast";
 import { clearLoginRedirect, shouldRedirectToLogin } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set([
@@ -332,7 +333,9 @@ function AppShellInner({ children }) {
 export default function AppShell({ children }) {
   return (
     <AuthProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <ToastProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </ToastProvider>
     </AuthProvider>
   );
 }

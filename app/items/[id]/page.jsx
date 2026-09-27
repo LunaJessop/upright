@@ -20,6 +20,7 @@ import {
   CreateBatch,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import BomTreeView from "@/components/BomTreeView";
@@ -225,6 +226,7 @@ export default function ItemDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
   const { user, canWrite } = useAuth();
+  const toast = useToast();
   const canEditGoals =
     canWrite && (ROLE_RANK[user?.role] ?? 0) >= ROLE_RANK.admin;
   const [item, setItem] = useState(null);
@@ -403,7 +405,9 @@ export default function ItemDetailPage({ params }) {
 
   const saveDraft = async () => {
     if (!draft.name.trim()) {
-      setSaveError("Name is required.");
+      const message = "Name is required.";
+      setSaveError(message);
+      toast.error(message);
       return;
     }
     const isMakeDraft = draft.make_or_buy === "make";
@@ -411,14 +415,18 @@ export default function ItemDetailPage({ params }) {
       isMakeDraft &&
       bomLines.some((line) => !(Number(line.quantity) > 0))
     ) {
-      setSaveError("Every recipe component needs a quantity greater than zero.");
+      const message = "Every recipe component needs a quantity greater than zero.";
+      setSaveError(message);
+      toast.error(message);
       return;
     }
     if (
       isMakeDraft &&
       routerPhases.some((phase) => !phase.name.trim())
     ) {
-      setSaveError("Every router phase needs a name.");
+      const message = "Every router phase needs a name.";
+      setSaveError(message);
+      toast.error(message);
       return;
     }
     const unitPlan = planItemUnitChange({
@@ -506,18 +514,22 @@ export default function ItemDetailPage({ params }) {
       ) {
         await loadInventory();
       }
+      toast.success("Item saved.");
     } catch (err) {
       if (goalsConverted && unitPlan.previousGoals) {
         try {
           await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
         } catch {
-          setSaveError(
-            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again."
-          );
+          const message =
+            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again.";
+          setSaveError(message);
+          toast.error(message);
           return;
         }
       }
-      setSaveError(err?.message || "Failed to save changes.");
+      const message = err?.message || "Failed to save changes.";
+      setSaveError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -528,13 +540,16 @@ export default function ItemDetailPage({ params }) {
     setSaveError("");
     try {
       await DeleteItem(id);
+      toast.success("Item deleted.");
       try {
         await router.push("/items");
       } catch {
         window.location.assign("/items");
       }
     } catch (err) {
-      setSaveError(err?.message || "Failed to delete item.");
+      const message = err?.message || "Failed to delete item.";
+      setSaveError(message);
+      toast.error(message);
       setDeleting(false);
       setConfirmingDelete(false);
     }
@@ -543,11 +558,15 @@ export default function ItemDetailPage({ params }) {
   const handleCreateBatch = async () => {
     const qty = Number(batchQty);
     if (!batchSku.trim()) {
-      setBatchError("SKU is required.");
+      const message = "SKU is required.";
+      setBatchError(message);
+      toast.error(message);
       return;
     }
     if (!Number.isFinite(qty) || qty <= 0) {
-      setBatchError("Enter a quantity greater than zero.");
+      const message = "Enter a quantity greater than zero.";
+      setBatchError(message);
+      toast.error(message);
       return;
     }
     setCreatingBatch(true);
@@ -558,9 +577,12 @@ export default function ItemDetailPage({ params }) {
         quantity: qty,
         sku: batchSku.trim(),
       });
+      toast.success("Batch created.");
       await router.push(`/batches/${batch.id}`);
     } catch (err) {
-      setBatchError(err?.message || "Failed to create batch.");
+      const message = err?.message || "Failed to create batch.";
+      setBatchError(message);
+      toast.error(message);
       setCreatingBatch(false);
     }
   };
@@ -695,15 +717,21 @@ export default function ItemDetailPage({ params }) {
     const qty = Number(lotQty);
     const total = Number(lotTotalCost);
     if (!lotNumber.trim()) {
-      setLotError("Vendor lot # is required.");
+      const message = "Vendor lot # is required.";
+      setLotError(message);
+      toast.error(message);
       return;
     }
     if (!Number.isFinite(qty) || qty <= 0) {
-      setLotError("Quantity must be a positive number.");
+      const message = "Quantity must be a positive number.";
+      setLotError(message);
+      toast.error(message);
       return;
     }
     if (!Number.isFinite(total) || total < 0) {
-      setLotError("Total cost must be a non-negative number.");
+      const message = "Total cost must be a non-negative number.";
+      setLotError(message);
+      toast.error(message);
       return;
     }
     setReceivingLot(true);
@@ -725,8 +753,11 @@ export default function ItemDetailPage({ params }) {
         loadPurchaseLots(),
       ]);
       if (updatedItem?.id) setItem(updatedItem);
+      toast.success("Lot received.");
     } catch (err) {
-      setLotError(err?.message || "Failed to receive lot.");
+      const message = err?.message || "Failed to receive lot.";
+      setLotError(message);
+      toast.error(message);
     } finally {
       setReceivingLot(false);
     }
@@ -744,8 +775,11 @@ export default function ItemDetailPage({ params }) {
         loadPurchaseLots(),
       ]);
       if (updatedItem?.id) setItem(updatedItem);
+      toast.success("Lot deleted.");
     } catch (err) {
-      setLotError(err?.message || "Failed to delete lot.");
+      const message = err?.message || "Failed to delete lot.";
+      setLotError(message);
+      toast.error(message);
     } finally {
       setDeletingLotId(null);
     }
@@ -779,6 +813,7 @@ export default function ItemDetailPage({ params }) {
     });
     if (!parsed.ok) {
       setInventoryError(parsed.error);
+      toast.error(parsed.error);
       return;
     }
 
@@ -794,8 +829,11 @@ export default function ItemDetailPage({ params }) {
 
       setInventory(mergeInventorySave(quantityRow, goalRow));
       setInventoryEditing(false);
+      toast.success("Inventory updated.");
     } catch (err) {
-      setInventoryError(err?.message || "Failed to save inventory.");
+      const message = err?.message || "Failed to save inventory.";
+      setInventoryError(message);
+      toast.error(message);
     } finally {
       setInventorySaving(false);
     }
