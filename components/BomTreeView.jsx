@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import RouterPhaseBadges from "@/components/RouterPhaseBadges";
-import { resolveBomTreeQuantity } from "@/lib/bomTreeQuantity";
+import { bomTreeFlagActions, resolveBomTreeQuantity } from "@/lib/bomTreeQuantity";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -28,6 +28,58 @@ function formatQtyUnit(qty, unit) {
   if (qty == null || qty === "") return "—";
   const formatted = formatQty(qty);
   return unit ? `${formatted} ${unit}` : String(formatted);
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-800"
+      aria-hidden="true"
+    >
+      <path
+        fill="currentColor"
+        d="M8.86 1.55a1 1 0 0 0-1.72 0L1.18 12.9A1 1 0 0 0 2.04 14.4h11.92a1 1 0 0 0 .86-1.5L8.86 1.55z"
+      />
+      <path fill="#fff" d="M7.25 6h1.5v4.1h-1.5zM7.25 11.15h1.5V12.6h-1.5z" />
+    </svg>
+  );
+}
+
+function LineWarning({ flag, parentItem, component, onEditItem }) {
+  const actions = bomTreeFlagActions(flag, parentItem, component);
+
+  return (
+    <div className="mt-2 flex gap-2 border-brutal border-black bg-amber-200 px-2 py-1.5 text-[11px] font-semibold leading-snug text-nv-ink">
+      <WarningIcon />
+      <div className="min-w-0">
+        <p>
+          <span className="sr-only">Warning: </span>
+          {flag.message}
+        </p>
+        {actions.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {actions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                onClick={(event) => {
+                  if (!onEditItem || typeof window === "undefined") return;
+                  const url = new URL(action.href, window.location.origin);
+                  if (url.pathname !== window.location.pathname) return;
+                  event.preventDefault();
+                  onEditItem(url.hash.replace(/^#/, ""));
+                }}
+                className="inline-block border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-btn transition-transform hover:-translate-y-0.5"
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function lineDetails(qty, parentMultiplier, depth) {
@@ -66,6 +118,8 @@ function BomTreeNode({
   visited,
   parentMultiplier = 1,
   scaleToBatch = false,
+  parentItem = null,
+  onEditItem,
 }) {
   const [expanded, setExpanded] = useState(false);
   const componentId = String(line.component_item_id);
@@ -162,12 +216,13 @@ function BomTreeNode({
             )}
 
             {qty.flags.map((flag) => (
-              <p
-                key={flag}
-                className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600"
-              >
-                {flag}
-              </p>
+              <LineWarning
+                key={flag.code}
+                flag={flag}
+                parentItem={parentItem}
+                component={component}
+                onEditItem={onEditItem}
+              />
             ))}
 
             {isMake && (
@@ -206,6 +261,8 @@ function BomTreeNode({
                   visited={nextVisited}
                   parentMultiplier={qty.childMultiplier}
                   scaleToBatch={scaleToBatch}
+                  parentItem={component}
+                  onEditItem={onEditItem}
                 />
               ))}
             </ul>
@@ -216,7 +273,13 @@ function BomTreeNode({
   );
 }
 
-export default function BomTreeView({ lines, itemById, rootMultiplier = 1 }) {
+export default function BomTreeView({
+  lines,
+  itemById,
+  rootMultiplier = 1,
+  parentItem = null,
+  onEditItem,
+}) {
   if (!Array.isArray(lines) || lines.length === 0) return null;
 
   const scaleToBatch = Number(rootMultiplier) !== 1;
@@ -231,6 +294,8 @@ export default function BomTreeView({ lines, itemById, rootMultiplier = 1 }) {
           visited={new Set()}
           parentMultiplier={Number(rootMultiplier) || 1}
           scaleToBatch={scaleToBatch}
+          parentItem={parentItem}
+          onEditItem={onEditItem}
         />
       ))}
     </ul>
