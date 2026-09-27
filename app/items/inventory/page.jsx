@@ -10,6 +10,10 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import { ROLE_RANK } from "@/lib/auth";
+import {
+  mergeInventorySave,
+  validateInventoryEdit,
+} from "@/lib/inventoryEdit";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -154,39 +158,27 @@ function InventoryCard({
   const unitSuffix = unit ? ` ${unit}` : "";
 
   const handleSave = async () => {
-    const qty = Number(draftQty);
-    if (!Number.isFinite(qty) || qty < 0) {
-      setError("Current quantity must be a non-negative number.");
+    const parsed = validateInventoryEdit({
+      quantityRaw: draftQty,
+      goalMinRaw: draftGoalMin,
+      goalMaxRaw: draftGoalMax,
+      editGoals: canEditGoals,
+    });
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
 
     setSaving(true);
     setError("");
     try {
-      let next = await UpdateItemInventory(row.item_id, { quantity: qty });
-
-      if (canEditGoals) {
-        const minRaw = draftGoalMin.trim();
-        const maxRaw = draftGoalMax.trim();
-        if (minRaw !== "" || maxRaw !== "") {
-          const goalMin = Number(minRaw);
-          const goalMax = Number(maxRaw);
-          if (!Number.isFinite(goalMin) || goalMin < 0) {
-            setError("Goal min must be a non-negative number.");
-            setSaving(false);
-            return;
-          }
-          if (!Number.isFinite(goalMax) || goalMax < goalMin) {
-            setError("Goal max must be ≥ goal min.");
-            setSaving(false);
-            return;
-          }
-          next = await UpdateItemInventoryGoal(row.item_id, {
-            goal_min: goalMin,
-            goal_max: goalMax,
-          });
-        }
-      }
+      const quantityRow = await UpdateItemInventory(row.item_id, {
+        quantity: parsed.quantity,
+      });
+      const goalRow = parsed.goals
+        ? await UpdateItemInventoryGoal(row.item_id, parsed.goals)
+        : null;
+      const next = mergeInventorySave(quantityRow, goalRow);
 
       onSaved({
         ...row,
