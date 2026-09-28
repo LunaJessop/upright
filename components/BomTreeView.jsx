@@ -60,7 +60,10 @@ function quantityReadout(qty, parentMultiplier, scaleToBatch, depth) {
   return {
     primary: formatReadableQuantity(enteredNumber * factor, sourceUnit),
     label: scaleToBatch ? "for batch" : "per item",
-    note: "",
+    note:
+      qty.unitsDiffer && qty.rolledUp != null
+        ? formatStockNote(qty.rolledUp, qty.stockUnit)
+        : "",
     details: scaleToBatch
       ? [`${formatQuantity(enteredNumber, sourceUnit)} ${perLabel}`]
       : [],
