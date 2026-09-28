@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import RouterPhaseBadges from "@/components/RouterPhaseBadges";
-import { bomTreeFlagActions, resolveBomTreeQuantity } from "@/lib/bomTreeQuantity";
 import {
-  formatQuantity,
-  formatReadableQuantity,
-  formatStockNote,
-} from "@/lib/formatQuantity";
+  bomTreeFlagActions,
+  bomTreeQuantityReadout,
+  resolveBomTreeQuantity,
+} from "@/lib/bomTreeQuantity";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -17,57 +16,6 @@ function isMakeItem(item) {
     item.make_or_buy === true ||
     item.make_or_buy === "true"
   );
-}
-
-function quantityReadout(qty, parentMultiplier, scaleToBatch, depth) {
-  const scale = Number(parentMultiplier);
-  const scaleKnown = Number.isFinite(scale);
-  const multiplied = scaleToBatch || (scaleKnown && scale !== 1);
-  const enteredNumber = Number(qty.enteredQty);
-  const enteredKnown = Number.isFinite(enteredNumber);
-  const enteredUnit = qty.enteredUnit || "";
-  const stockUnit = qty.stockUnit || qty.displayUnit || "";
-  const perLabel = depth === 0 ? "per item" : "per parent";
-
-  if (!enteredKnown || qty.perParentStock == null) {
-    return {
-      primary: formatQuantity(qty.enteredQty, enteredUnit || stockUnit),
-      label:
-        qty.rolledUp != null
-          ? scaleToBatch
-            ? "for batch"
-            : "per item"
-          : "entered per parent",
-      note: "",
-      details: [],
-    };
-  }
-
-  const sourceUnit = enteredUnit || stockUnit;
-
-  if (!multiplied) {
-    return {
-      primary: formatQuantity(enteredNumber, sourceUnit),
-      label: perLabel,
-      note: qty.unitsDiffer
-        ? formatStockNote(qty.perParentStock, qty.stockUnit)
-        : "",
-      details: [],
-    };
-  }
-
-  const factor = scaleKnown ? scale : 1;
-  return {
-    primary: formatReadableQuantity(enteredNumber * factor, sourceUnit),
-    label: scaleToBatch ? "for batch" : "per item",
-    note:
-      qty.unitsDiffer && qty.rolledUp != null
-        ? formatStockNote(qty.rolledUp, qty.stockUnit)
-        : "",
-    details: scaleToBatch
-      ? [`${formatQuantity(enteredNumber, sourceUnit)} ${perLabel}`]
-      : [],
-  };
 }
 
 function WarningIcon() {
@@ -152,7 +100,12 @@ function BomTreeNode({
     [visited, componentId]
   );
 
-  const readout = quantityReadout(qty, parentMultiplier, scaleToBatch, depth);
+  const readout = bomTreeQuantityReadout(
+    qty,
+    parentMultiplier,
+    scaleToBatch,
+    depth
+  );
 
   return (
     <li className={depth > 0 ? "mt-1" : ""}>
