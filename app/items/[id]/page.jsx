@@ -44,7 +44,11 @@ import {
   mergeInventorySave,
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
-import { planItemUnitChange } from "@/lib/itemUnitChange";
+import {
+  implicitBomReferenceCount,
+  planItemUnitChange,
+  scaleRecipeQuantities,
+} from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 import { normalizeUnit } from "@/lib/units";
 
@@ -288,6 +292,22 @@ export default function ItemDetailPage({ params }) {
     setDraft((prev) => ({ ...prev, [field]: value }));
   };
 
+  const changeDraftUnit = (nextUnit) => {
+    const scaled = scaleRecipeQuantities(
+      bomLines,
+      draft?.unit_of_measure,
+      nextUnit
+    );
+    if (!scaled.ok) {
+      setSaveError(scaled.error);
+      toast.error(scaled.error);
+      return;
+    }
+    setBomLines(scaled.lines);
+    setDraftField("unit_of_measure", nextUnit);
+    setSaveError("");
+  };
+
   const startEditing = () => {
     setDraft(itemToDraft(item));
     setDraftTags(
@@ -450,6 +470,7 @@ export default function ItemDetailPage({ params }) {
       productionSkuCount: Array.isArray(item.item_skus)
         ? item.item_skus.length
         : 0,
+      implicitBomReferenceCount: implicitBomReferenceCount(catalogItems, id),
       inventoryKnown: inventory != null,
       purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
       canEditGoals,
@@ -1848,9 +1869,7 @@ export default function ItemDetailPage({ params }) {
                         <FieldRow label="Unit of measure">
                           <UnitOfMeasureSelect
                             value={draft.unit_of_measure}
-                            onChange={(e) =>
-                              setDraftField("unit_of_measure", e.target.value)
-                            }
+                            onChange={(e) => changeDraftUnit(e.target.value)}
                             className={`${editInputClass} cursor-pointer`}
                           />
                         </FieldRow>

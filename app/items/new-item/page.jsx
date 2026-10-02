@@ -10,6 +10,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import { scaleRecipeQuantities } from "@/lib/itemUnitChange";
 import {
   removeTagById,
   removeTagFromItems,
@@ -392,6 +393,18 @@ export default function NewItem() {
   const [formError, setFormError] = useState("");
   const [editingQueueId, setEditingQueueId] = useState(null);
 
+  const changeUnitOfMeasure = (nextUnit) => {
+    const scaled = scaleRecipeQuantities(bomLines, unitOfMeasure, nextUnit);
+    if (!scaled.ok) {
+      setFormError(scaled.error);
+      toast.error(scaled.error);
+      return;
+    }
+    setBomLines(scaled.lines);
+    setUnitOfMeasure(nextUnit);
+    setFormError("");
+  };
+
   const handleMakeOrBuyChange = (value) => {
     setMakeOrBuy(value);
     if (value) {
@@ -661,7 +674,7 @@ export default function NewItem() {
               <span className={labelClass}>Unit of measure</span>
               <UnitOfMeasureSelect
                 value={unitOfMeasure}
-                onChange={(e) => setUnitOfMeasure(e.target.value)}
+                onChange={(e) => changeUnitOfMeasure(e.target.value)}
                 className={`${inputClass} cursor-pointer`}
                 emptyValue={UNSET_SELECT}
                 emptyLabel="Select unit of measure"
