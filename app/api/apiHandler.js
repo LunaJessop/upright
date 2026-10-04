@@ -356,6 +356,24 @@ export const UpdateItem = async (id, item) => {
   return data;
 };
 
+/**
+ * Convert on-hand quantity, goals, prices, and vendor lots into a new stock
+ * unit. The item PUT rejects a unit change so those numbers are not left
+ * behind in the old unit.
+ */
+export const ChangeItemUnit = async (id, unitOfMeasure) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/change-unit`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ unit_of_measure: unitOfMeasure }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Could not change unit (${response.status})`);
+  }
+  return data;
+};
+
 export const DeleteItem = async (id) => {
   const response = await apiFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "DELETE",
