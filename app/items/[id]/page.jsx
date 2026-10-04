@@ -15,6 +15,7 @@ import {
   GetTags,
   GetVendors,
   UpdateItem,
+  ChangeItemUnit,
   UpdateItemInventory,
   UpdateItemInventoryGoal,
   CreateBatch,
@@ -44,7 +45,11 @@ import {
   mergeInventorySave,
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
-import { planItemUnitChange } from "@/lib/itemUnitChange";
+import {
+  planItemUnitChange,
+  restateUnitPrice,
+  scaleRecipeQuantities,
+} from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 import { normalizeUnit } from "@/lib/units";
 
@@ -288,6 +293,52 @@ export default function ItemDetailPage({ params }) {
     setDraft((prev) => ({ ...prev, [field]: value }));
   };
 
+  const changeDraftUnit = (nextUnit) => {
+    const unitPlan = planItemUnitChange({
+      previousUnit: draft?.unit_of_measure,
+      nextUnit,
+      plannedDelta: inventory?.planned_delta,
+      productionSkuCount: Array.isArray(item?.item_skus)
+        ? item.item_skus.length
+        : 0,
+      inventoryKnown: inventory != null,
+    });
+    if (!unitPlan.ok) {
+      setSaveError(unitPlan.error);
+      toast.error(unitPlan.error);
+      return;
+    }
+    const scaled = scaleRecipeQuantities(
+      bomLines,
+      draft?.unit_of_measure,
+      nextUnit
+    );
+    if (!scaled.ok) {
+      setSaveError(scaled.error);
+      toast.error(scaled.error);
+      return;
+    }
+    setBomLines(scaled.lines);
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        unit_of_measure: nextUnit,
+        unit_cost: restateUnitPrice(
+          prev.unit_cost,
+          prev.unit_of_measure,
+          nextUnit
+        ),
+        unit_sell_price: restateUnitPrice(
+          prev.unit_sell_price,
+          prev.unit_of_measure,
+          nextUnit
+        ),
+      };
+    });
+    setSaveError("");
+  };
+
   const startEditing = () => {
     setDraft(itemToDraft(item));
     setDraftTags(
@@ -442,29 +493,24 @@ export default function ItemDetailPage({ params }) {
     const unitPlan = planItemUnitChange({
       previousUnit: item.unit_of_measure,
       nextUnit: draft.unit_of_measure,
-      quantity: inventory?.quantity,
       plannedDelta: inventory?.planned_delta,
-      goalMin: inventory?.goal_min,
-      goalMax: inventory?.goal_max,
-      purchaseLotCount: purchaseLots.length,
       productionSkuCount: Array.isArray(item.item_skus)
         ? item.item_skus.length
         : 0,
       inventoryKnown: inventory != null,
-      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
-      canEditGoals,
     });
     if (!unitPlan.ok) {
       setSaveError(unitPlan.error);
+      toast.error(unitPlan.error);
       return;
     }
     setSaving(true);
     setSaveError("");
-    let goalsConverted = false;
+    let unitChangedOnServer = false;
     try {
-      if (unitPlan.goalUpdate) {
-        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
-        goalsConverted = true;
+      if (unitPlan.unitChanging) {
+        await ChangeItemUnit(id, draft.unit_of_measure);
+        unitChangedOnServer = true;
       }
       const payload = {
         ...item,
@@ -502,7 +548,7 @@ export default function ItemDetailPage({ params }) {
         tags: tagsForSave(draftTags),
       };
       const updated = await UpdateItem(id, payload);
-      goalsConverted = false;
+      unitChangedOnServer = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -522,12 +568,12 @@ export default function ItemDetailPage({ params }) {
       }
       toast.success("Item saved.");
     } catch (err) {
-      if (goalsConverted && unitPlan.previousGoals) {
+      if (unitChangedOnServer) {
         try {
-          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
+          await ChangeItemUnit(id, item.unit_of_measure);
         } catch {
           const message =
-            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again.";
+            "The stock unit was converted, but the rest of the item did not save and the unit could not be changed back. Reload this item before editing it again.";
           setSaveError(message);
           toast.error(message);
           return;
@@ -1848,9 +1894,7 @@ export default function ItemDetailPage({ params }) {
                         <FieldRow label="Unit of measure">
                           <UnitOfMeasureSelect
                             value={draft.unit_of_measure}
-                            onChange={(e) =>
-                              setDraftField("unit_of_measure", e.target.value)
-                            }
+                            onChange={(e) => changeDraftUnit(e.target.value)}
                             className={`${editInputClass} cursor-pointer`}
                           />
                         </FieldRow>

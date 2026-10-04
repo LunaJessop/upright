@@ -10,6 +10,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import { restateUnitPrice, scaleRecipeQuantities } from "@/lib/itemUnitChange";
 import {
   removeTagById,
   removeTagFromItems,
@@ -392,6 +393,29 @@ export default function NewItem() {
   const [formError, setFormError] = useState("");
   const [editingQueueId, setEditingQueueId] = useState(null);
 
+  const changeUnitOfMeasure = (nextUnit) => {
+    const fromUnit = unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure;
+    const toUnit = !nextUnit || nextUnit === UNSET_SELECT ? "" : nextUnit;
+    const hasPrice = unitCost.trim() !== "" || unitSellPrice.trim() !== "";
+    if (fromUnit && !toUnit && (hasPrice || bomLines.length > 0)) {
+      const message = `Prices and recipe amounts are per ${fromUnit}. Pick another unit in that measurement instead of clearing it.`;
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    const scaled = scaleRecipeQuantities(bomLines, fromUnit, toUnit);
+    if (!scaled.ok) {
+      setFormError(scaled.error);
+      toast.error(scaled.error);
+      return;
+    }
+    setBomLines(scaled.lines);
+    setUnitCost(restateUnitPrice(unitCost, fromUnit, toUnit));
+    setUnitSellPrice(restateUnitPrice(unitSellPrice, fromUnit, toUnit));
+    setUnitOfMeasure(nextUnit);
+    setFormError("");
+  };
+
   const handleMakeOrBuyChange = (value) => {
     setMakeOrBuy(value);
     if (value) {
@@ -661,7 +685,7 @@ export default function NewItem() {
               <span className={labelClass}>Unit of measure</span>
               <UnitOfMeasureSelect
                 value={unitOfMeasure}
-                onChange={(e) => setUnitOfMeasure(e.target.value)}
+                onChange={(e) => changeUnitOfMeasure(e.target.value)}
                 className={`${inputClass} cursor-pointer`}
                 emptyValue={UNSET_SELECT}
                 emptyLabel="Select unit of measure"
