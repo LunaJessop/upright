@@ -15,6 +15,7 @@ import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
+import { allocationQuantityUnit } from "@/lib/batchAllocation";
 import { friendlyUnitLabel, formatReadableQuantity } from "@/lib/formatQuantity";
 import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
 
@@ -328,32 +329,40 @@ export default function BatchDetailPage({ params }) {
                             (c) =>
                               !isMakeItem(c.make_or_buy) && c.line_cost != null
                           )
-                          .map((c) => (
-                            <li
-                              key={c.id ?? c.item_id}
-                              className="flex items-center justify-between gap-2 text-xs font-semibold"
-                            >
-                              <span className="min-w-0 truncate">
-                                {c.name}
-                                <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
-                                  {formatReadableQuantity(
-                                    c.quantity_allocated,
-                                    c.unit_of_measure
-                                  )}
-                                  {c.unit_cost_snapshot != null
-                                    ? ` @ ${formatMoney(c.unit_cost_snapshot)}${
-                                        c.unit_of_measure
-                                          ? ` per ${friendlyUnitLabel(c.unit_of_measure)}`
-                                          : ""
-                                      }`
-                                    : ""}
+                          .map((c) => {
+                            const allocationUnit = allocationQuantityUnit({
+                              batchStatus: batch.status,
+                              recordedUnit: c.unit_of_measure,
+                              stockUnit: itemById.get(String(c.item_id))
+                                ?.unit_of_measure,
+                            });
+                            return (
+                              <li
+                                key={c.id ?? c.item_id}
+                                className="flex items-center justify-between gap-2 text-xs font-semibold"
+                              >
+                                <span className="min-w-0 truncate">
+                                  {c.name}
+                                  <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
+                                    {formatReadableQuantity(
+                                      c.quantity_allocated,
+                                      allocationUnit
+                                    )}
+                                    {c.unit_cost_snapshot != null
+                                      ? ` @ ${formatMoney(c.unit_cost_snapshot)}${
+                                          allocationUnit
+                                            ? ` per ${friendlyUnitLabel(allocationUnit)}`
+                                            : ""
+                                        }`
+                                      : ""}
+                                  </span>
                                 </span>
-                              </span>
-                              <span className="shrink-0 font-mono">
-                                {formatMoney(c.line_cost)}
-                              </span>
-                            </li>
-                          ))}
+                                <span className="shrink-0 font-mono">
+                                  {formatMoney(c.line_cost)}
+                                </span>
+                              </li>
+                            );
+                          })}
                       </ul>
                     </div>
                   )}
