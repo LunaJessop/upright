@@ -14,6 +14,7 @@ import {
   GetRouterPhaseTemplates,
   GetTags,
   GetVendors,
+  ChangeItemUnit,
   UpdateItem,
   UpdateItemInventory,
   UpdateItemInventoryGoal,
@@ -44,9 +45,11 @@ import {
   mergeInventorySave,
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
-import { planItemUnitChange } from "@/lib/itemUnitChange";
+import {
+  planStockUnitChange,
+  priceAfterUnitChange,
+} from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
-import { normalizeUnit } from "@/lib/units";
 
 const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -439,56 +442,57 @@ export default function ItemDetailPage({ params }) {
       toast.error(message);
       return;
     }
-    const unitPlan = planItemUnitChange({
-      previousUnit: item.unit_of_measure,
-      nextUnit: draft.unit_of_measure,
-      quantity: inventory?.quantity,
-      plannedDelta: inventory?.planned_delta,
-      goalMin: inventory?.goal_min,
-      goalMax: inventory?.goal_max,
-      purchaseLotCount: purchaseLots.length,
-      productionSkuCount: Array.isArray(item.item_skus)
-        ? item.item_skus.length
-        : 0,
-      inventoryKnown: inventory != null,
-      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
-      canEditGoals,
-    });
-    if (!unitPlan.ok) {
+    const unitPlan = planStockUnitChange(
+      item.unit_of_measure,
+      draft.unit_of_measure
+    );
+    if (unitPlan.action === "reject") {
       setSaveError(unitPlan.error);
+      toast.error(unitPlan.error);
       return;
     }
+    const blankToNull = (value) => {
+      const text = value == null ? "" : String(value).trim();
+      return text === "" ? null : text;
+    };
     setSaving(true);
     setSaveError("");
-    let goalsConverted = false;
+    let unitChangedOnServer = false;
     try {
-      if (unitPlan.goalUpdate) {
-        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
-        goalsConverted = true;
+      let changedItem = null;
+      if (unitPlan.action === "change") {
+        changedItem = await ChangeItemUnit(id, unitPlan.unitOfMeasure);
+        unitChangedOnServer = true;
+        if (changedItem?.id) setItem(changedItem);
       }
+      const unitCost = changedItem
+        ? priceAfterUnitChange(
+            item.unit_cost,
+            draft.unit_cost,
+            changedItem.unit_cost,
+            unitPlan.factor
+          )
+        : draft.unit_cost;
+      const unitSellPrice = changedItem
+        ? priceAfterUnitChange(
+            item.unit_sell_price,
+            draft.unit_sell_price,
+            changedItem.unit_sell_price,
+            unitPlan.factor
+          )
+        : draft.unit_sell_price;
       const payload = {
         ...item,
         ...draft,
         name: draft.name.trim(),
         sku: null,
         description: draft.description.trim(),
+        unit_of_measure: unitPlan.unitOfMeasure,
         default_unit_price: isMakeDraft
-          ? draft.unit_sell_price.trim() === ""
-            ? null
-            : draft.unit_sell_price.trim()
-          : draft.unit_cost.trim() === ""
-            ? null
-            : draft.unit_cost.trim(),
-        unit_cost: isMakeDraft
-          ? null
-          : draft.unit_cost.trim() === ""
-            ? null
-            : draft.unit_cost.trim(),
-        unit_sell_price: isMakeDraft
-          ? draft.unit_sell_price.trim() === ""
-            ? null
-            : draft.unit_sell_price.trim()
-          : null,
+          ? blankToNull(unitSellPrice)
+          : blankToNull(unitCost),
+        unit_cost: isMakeDraft ? null : blankToNull(unitCost),
+        unit_sell_price: isMakeDraft ? blankToNull(unitSellPrice) : null,
         vendor:
           isMakeDraft || draft.vendor === "" ? null : Number(draft.vendor),
         bom_items: isMakeDraft
@@ -502,7 +506,6 @@ export default function ItemDetailPage({ params }) {
         tags: tagsForSave(draftTags),
       };
       const updated = await UpdateItem(id, payload);
-      goalsConverted = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -514,26 +517,18 @@ export default function ItemDetailPage({ params }) {
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
-      if (
-        normalizeUnit(item.unit_of_measure) !==
-        normalizeUnit(draft.unit_of_measure)
-      ) {
+      if (unitPlan.action === "change") {
         await loadInventory();
+        if (!isMakeFlag(item.make_or_buy)) await loadPurchaseLots();
       }
       toast.success("Item saved.");
     } catch (err) {
-      if (goalsConverted && unitPlan.previousGoals) {
-        try {
-          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
-        } catch {
-          const message =
-            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again.";
-          setSaveError(message);
-          toast.error(message);
-          return;
-        }
+      if (unitChangedOnServer) {
+        await loadInventory();
       }
-      const message = err?.message || "Failed to save changes.";
+      const message = unitChangedOnServer
+        ? `The unit changed, but the other edits did not save. ${err?.message || "Failed to save changes."}`
+        : err?.message || "Failed to save changes.";
       setSaveError(message);
       toast.error(message);
     } finally {

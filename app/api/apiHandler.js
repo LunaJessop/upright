@@ -343,6 +343,19 @@ export const CreateItem = async (item) => {
   return data;
 };
 
+export const ChangeItemUnit = async (id, unitOfMeasure) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/change-unit`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ unit_of_measure: unitOfMeasure }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Could not change unit (${response.status})`);
+  }
+  return data;
+};
+
 export const UpdateItem = async (id, item) => {
   const response = await apiFetch(`${getBaseUrl()}/api/items/${id}`, {
     method: "PUT",
