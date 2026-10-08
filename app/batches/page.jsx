@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
@@ -25,6 +24,10 @@ const STATUS_STYLES = {
 function statusLabel(status) {
   if (!status || status === "planned") return "pending";
   return status.replace("_", " ");
+}
+
+function batchCountLabel(count) {
+  return `${count} ${count === 1 ? "batch" : "batches"}`;
 }
 
 const BATCH_CSV_HEADERS = [
@@ -94,7 +97,6 @@ function PhaseStrip({ phases }) {
 }
 
 export default function BatchesPage() {
-  const router = useRouter();
   const { canWrite } = useAuth();
   const toast = useToast();
   const [batches, setBatches] = useState([]);
@@ -108,6 +110,7 @@ export default function BatchesPage() {
   const [quantity, setQuantity] = useState("1");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [highlightedBatchId, setHighlightedBatchId] = useState(null);
 
   const pendingBatches = useMemo(
     () =>
@@ -157,13 +160,35 @@ export default function BatchesPage() {
 
   const selectedItem = itemById.get(String(selectedItemId)) ?? null;
 
-  const closePanel = () => {
+  const dismissPanel = () => {
+    setPanelOpen(false);
+  };
+
+  const cancelPanel = () => {
     setPanelOpen(false);
     setCreateError("");
     setSelectedItemId("");
     setSku("");
     setQuantity("1");
   };
+
+  useEffect(() => {
+    if (highlightedBatchId == null) return;
+    document
+      .querySelector(`[data-batch-row="${highlightedBatchId}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+    const timer = window.setTimeout(() => setHighlightedBatchId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [highlightedBatchId]);
+
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onKey = (event) => {
+      if (event.key === "Escape") setPanelOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panelOpen]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -196,11 +221,19 @@ export default function BatchesPage() {
         sku: sku.trim(),
       });
       toast.success("Batch created.");
-      router.push(`/batches/${batch.id}`);
+      setPanelOpen(false);
+      setCreateError("");
+      setSelectedItemId("");
+      setSku("");
+      setQuantity("1");
+      setHighlightedBatchId(batch.id);
+      const batchRows = await GetAllBatches();
+      setBatches(Array.isArray(batchRows) ? batchRows : []);
     } catch (err) {
       const message = err?.message || "Failed to create batch.";
       setCreateError(message);
       toast.error(message);
+    } finally {
       setCreating(false);
     }
   };
@@ -222,9 +255,14 @@ export default function BatchesPage() {
 
         <section className={`${brutalChrome} bg-nv-paper`}>
           <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-purple-dark px-3 py-1.5">
-            <h2 className="text-sm font-black uppercase tracking-wide">
-              Queue ({pendingBatches.length})
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-black uppercase tracking-wide">
+                Queue
+              </h2>
+              <span className="text-[10px] font-black uppercase tracking-wide">
+                {batchCountLabel(pendingBatches.length)}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -248,7 +286,7 @@ export default function BatchesPage() {
             </div>
           </header>
 
-          <div>
+          <div className="md:max-h-[60vh] md:overflow-y-auto">
             {loading && (
               <p className="px-3 py-2 text-xs font-medium text-nv-ink/55">
                 Loading queue…
@@ -266,18 +304,32 @@ export default function BatchesPage() {
               </p>
             )}
             {!loading && !error && pendingBatches.length > 0 && (
-              <ul className={listClass}>
+              <>
+                <div className="z-10 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 border-b border-black/10 bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-nv-ink/55 md:sticky md:top-0">
+                  <span>Batch</span>
+                  <span>Status</span>
+                  <span className="text-right">Qty</span>
+                </div>
+                <ul className={listClass}>
                 {pendingBatches.map((batch, index) => {
                   const unit = batch.item_unit_of_measure
                     ? ` ${batch.item_unit_of_measure}`
                     : "";
+                  const highlighted =
+                    highlightedBatchId != null &&
+                    String(batch.id) === String(highlightedBatchId);
                   return (
-                    <li key={batch.id}>
+                    <li key={batch.id} data-batch-row={batch.id}>
                       <Link
                         href={`/batches/${batch.id}`}
                         className={`block px-3 py-2 transition-colors hover:bg-nv-lavender/30 ${rowStripe(index, "lavender")}`}
+                        style={
+                          highlighted
+                            ? { backgroundColor: "var(--nv-purple-muted)" }
+                            : undefined
+                        }
                       >
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-2">
                           <p className="min-w-0 text-sm leading-snug">
                             <span className="break-all font-mono font-black">
                               {batch.sku || `Batch ${batch.id}`}
@@ -295,32 +347,29 @@ export default function BatchesPage() {
                           >
                             {statusLabel(batch.status)}
                           </span>
-                        </div>
-
-                        <PhaseStrip phases={batch.phases} />
-
-                        <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
-                          {batch.projected_profit != null ||
-                          batch.projected_margin != null ? (
-                            <span className="font-mono text-[10px] font-black text-nv-ink/70">
-                              {formatMoney(batch.projected_profit)}
-                              {batch.projected_margin != null
-                                ? ` · ${formatMargin(batch.projected_margin)}`
-                                : ""}
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <span className="font-mono text-[10px] font-black">
+                          <span className="text-right font-mono text-[10px] font-black">
                             {batch.quantity}
                             {unit}
                           </span>
                         </div>
+
+                        <PhaseStrip phases={batch.phases} />
+
+                        {batch.projected_profit != null ||
+                        batch.projected_margin != null ? (
+                          <p className="mt-1 font-mono text-[10px] font-black text-nv-ink/70">
+                            {formatMoney(batch.projected_profit)}
+                            {batch.projected_margin != null
+                              ? ` · ${formatMargin(batch.projected_margin)}`
+                              : ""}
+                          </p>
+                        ) : null}
                       </Link>
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </>
             )}
           </div>
         </section>
@@ -332,10 +381,10 @@ export default function BatchesPage() {
             type="button"
             aria-label="Close new batch panel"
             className="fixed inset-0 z-40 bg-black/40"
-            onClick={closePanel}
+            onClick={dismissPanel}
           />
-          <aside
-            className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l-brutal border-black bg-nv-paper shadow-brutal`}
+          <div
+            className={`fixed left-3 right-3 top-[12vh] z-50 mx-auto flex max-h-[76vh] w-auto max-w-lg flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-batch-title"
@@ -349,7 +398,7 @@ export default function BatchesPage() {
               </h2>
               <button
                 type="button"
-                onClick={closePanel}
+                onClick={dismissPanel}
                 aria-label="Close"
                 className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
               >
@@ -424,7 +473,7 @@ export default function BatchesPage() {
               <div className="mt-auto flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={closePanel}
+                  onClick={cancelPanel}
                   disabled={creating}
                   className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                 >
@@ -439,7 +488,7 @@ export default function BatchesPage() {
                 </button>
               </div>
             </form>
-          </aside>
+          </div>
         </>
       )}
     </div>
