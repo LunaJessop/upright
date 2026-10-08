@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClientUser, getClient } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import {
   PASSWORD_POLICY_HINT,
   ROLE_LABELS,
@@ -37,6 +38,7 @@ function Field({ label, value }) {
 
 export default function ClientPage() {
   const { user, canWrite } = useAuth();
+  const toast = useToast();
   const isFounder = user?.role === "founder";
 
   const [client, setClient] = useState(null);
@@ -77,6 +79,7 @@ export default function ClientPage() {
 
     if (!passwordMeetsPolicy(password)) {
       setFormError(PASSWORD_POLICY_HINT);
+      toast.error(PASSWORD_POLICY_HINT);
       return;
     }
 
@@ -93,9 +96,12 @@ export default function ClientPage() {
       setPassword("");
       setRole("user");
       setFormSuccess("User account created.");
+      toast.success("User account created.");
       await loadClient();
     } catch (err) {
-      setFormError(err?.message || "Could not create user.");
+      const message = err?.message || "Could not create user.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -269,13 +275,30 @@ export default function ClientPage() {
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-              >
-                {submitting ? "Creating…" : "Create user"}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setName("");
+                    setEmail("");
+                    setPassword("");
+                    setRole("user");
+                    setFormError("");
+                    setFormSuccess("");
+                  }}
+                  disabled={submitting}
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
+                >
+                  {submitting ? "Creating…" : "Create user"}
+                </button>
+              </div>
             </form>
           </section>
         ) : (

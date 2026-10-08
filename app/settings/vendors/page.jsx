@@ -9,6 +9,7 @@ import {
   UpdateVendor,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { brutalChrome, inputClass, listClass, rowStripe } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
@@ -16,6 +17,7 @@ const EMPTY_FORM = { name: "", email: "", site_link: "", phone: "" };
 
 export default function SettingsVendorsPage() {
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,7 +63,9 @@ export default function SettingsVendorsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setFormError("Vendor name is required.");
+      const message = "Vendor name is required.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -76,13 +80,17 @@ export default function SettingsVendorsPage() {
       };
       if (editingId) {
         await UpdateVendor(editingId, payload);
+        toast.success("Vendor updated.");
       } else {
         await CreateVendor(payload);
+        toast.success("Vendor added.");
       }
       cancelEdit();
       await loadVendors();
     } catch (err) {
-      setFormError(err?.message || "Could not save vendor.");
+      const message = err?.message || "Could not save vendor.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -96,8 +104,11 @@ export default function SettingsVendorsPage() {
       await DeleteVendor(id);
       if (editingId === id) cancelEdit();
       await loadVendors();
+      toast.success("Vendor deleted.");
     } catch (err) {
-      setError(err?.message || "Could not delete vendor.");
+      const message = err?.message || "Could not delete vendor.";
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -179,6 +190,14 @@ export default function SettingsVendorsPage() {
 
             <div className="flex flex-wrap gap-2">
               <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+                className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
                 type="submit"
                 disabled={saving}
                 className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
@@ -189,15 +208,6 @@ export default function SettingsVendorsPage() {
                     ? "Update vendor"
                     : "Add vendor"}
               </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide"
-                >
-                  Cancel
-                </button>
-              )}
             </div>
           </form>
         </section>

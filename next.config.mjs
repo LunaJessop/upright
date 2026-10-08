@@ -11,6 +11,10 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Main: legacy URLs.
+      { source: "/dashboard", destination: "/items", permanent: false },
+      { source: "/inventory", destination: "/items/inventory", permanent: false },
+      // Style-Changes: inventory page folded into the items catalog.
       {
         source: "/items/inventory",
         destination: "/items",

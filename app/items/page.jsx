@@ -22,6 +22,13 @@ const ITEM_CSV_HEADERS = [
   "updated_at",
 ];
 
+function catalogCountLabel(shown, total) {
+  if (shown === total) {
+    return `${shown} ${shown === 1 ? "item" : "items"}`;
+  }
+  return `${shown} of ${total} ${total === 1 ? "item" : "items"}`;
+}
+
 function exportItemsCsv(items) {
   const csv = rowsToCsv(ITEM_CSV_HEADERS, items, (row, header) => {
     if (header === "vendor_name") {
@@ -60,7 +67,7 @@ function ItemListRow({ item, index }) {
     <li>
       <Link
         href={`/items/${item.id}`}
-        className={`block px-2.5 py-2 transition-colors hover:bg-nv-violet/20 sm:px-3 ${rowStripe(index)}`}
+        className={`block min-w-0 px-2.5 py-2 transition-colors hover:bg-nv-violet/20 sm:px-3 ${rowStripe(index)}`}
       >
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
@@ -101,13 +108,13 @@ function ItemListRow({ item, index }) {
             ) : null}
           </div>
 
-              <div className="flex shrink-0 flex-col items-end gap-1 self-center text-right">
+              <div className="flex max-w-[46%] shrink-0 flex-col items-end gap-1 self-center text-right">
                 {priceUnit ? (
                   <>
                     <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
                       {priceLabel}
                     </span>
-                    <span className="font-mono text-xs font-black tracking-tight text-nv-ink">
+                    <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
                       {priceUnit}
                     </span>
                   </>
@@ -187,7 +194,7 @@ export default function ItemsPage() {
   }, [items, query, typeFilter, statusFilter]);
 
   return (
-    <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto w-full max-w-none">
         <header className={`mb-4 ${brutalChrome} bg-nv-violet p-5 text-white`}>
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -195,7 +202,7 @@ export default function ItemsPage() {
               <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
                 Items
               </p>
-              <h1 className="text-3xl font-black uppercase leading-tight">
+              <h1 className="break-words text-3xl font-black uppercase leading-tight">
                 All items
               </h1>
               <p className="mt-2 text-sm font-medium text-white/90">
@@ -226,14 +233,11 @@ export default function ItemsPage() {
         <section className={`${brutalChrome} bg-nv-paper`}>
           <div className="space-y-3 border-b-brutal-xs border-black bg-nv-cyan/30 p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-black uppercase tracking-wide">
-                Catalog
+              <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
+                <span>Catalog</span>
                 {!loading ? (
-                  <span className="ml-2 font-mono text-[10px] text-nv-ink/45">
-                    {filteredItems.length}
-                    {filteredItems.length !== items.length
-                      ? ` / ${items.length}`
-                      : ""}
+                  <span className="border border-black bg-nv-paper px-1.5 py-0.5 font-mono text-[10px] font-bold normal-case tracking-normal text-nv-ink/70">
+                    {catalogCountLabel(filteredItems.length, items.length)}
                   </span>
                 ) : null}
               </h2>

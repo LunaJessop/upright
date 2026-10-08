@@ -174,7 +174,7 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
             <span className="font-mono text-xs font-black text-nv-violet">
               {displaySequence ?? phase.sequence}
             </span>
-            <span className="text-sm font-black">{phase.name}</span>
+            <span className="min-w-0 break-words text-sm font-black">{phase.name}</span>
             <StatusIcon status={phase.status} />
           </div>
           {phase.description ? (

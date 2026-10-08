@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { UNIT_OF_MEASURE_OPTIONS } from "@/app/items/unitOfMeasureOptions";
+import { formatQuantity, friendlyUnitLabel } from "@/lib/formatQuantity";
 import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
@@ -26,7 +27,9 @@ export function formatBomSummary(catalogItems, bomLines) {
       const label = catalogItemLabel(catalogItems, line.itemId);
       const stockUnit = catalogItemUnit(catalogItems, line.itemId);
       const unit = normalizeUnit(line.unitOfMeasure) || stockUnit;
-      const qty = unit ? `${line.quantity} ${unit}` : line.quantity;
+      const qty = unit
+        ? formatQuantity(line.quantity, unit)
+        : line.quantity;
       return `${qty}× ${label}`;
     })
     .join(", ");
@@ -225,9 +228,10 @@ export default function BomRecipeEditor({
               stockUnit || lineUnit,
               UNIT_OF_MEASURE_OPTIONS
             );
+            const parentLabel = friendlyUnitLabel(parentUnit) || parentUnit;
             const quantityLabel = lineUnit
-              ? `${lineUnit} per ${parentUnit}`
-              : `Unit per ${parentUnit}`;
+              ? `${friendlyUnitLabel(lineUnit)} per ${parentLabel}`
+              : `Unit per ${parentLabel}`;
 
             return (
               <li
@@ -239,7 +243,7 @@ export default function BomRecipeEditor({
                     {catalogItemDisplay(catalogItems, line.itemId)}
                     {stockUnit ? (
                       <span className="mt-0.5 block font-medium text-nv-ink/55">
-                        Stocked as {stockUnit}
+                        Stocked as {friendlyUnitLabel(stockUnit)}
                       </span>
                     ) : null}
                   </span>

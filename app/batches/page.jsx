@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
+import BomTreeView from "@/components/BomTreeView";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMargin, formatMoney } from "@/lib/pricing";
@@ -94,7 +96,9 @@ function PhaseStrip({ phases }) {
 export default function BatchesPage() {
   const router = useRouter();
   const { canWrite } = useAuth();
+  const toast = useToast();
   const [batches, setBatches] = useState([]);
+  const [catalogItems, setCatalogItems] = useState([]);
   const [makeItems, setMakeItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -123,6 +127,7 @@ export default function BatchesPage() {
       ]);
       setBatches(Array.isArray(batchRows) ? batchRows : []);
       const items = Array.isArray(itemRows) ? itemRows : [];
+      setCatalogItems(items);
       setMakeItems(
         items.filter(
           (item) =>
@@ -142,6 +147,16 @@ export default function BatchesPage() {
     void loadData();
   }, [loadData]);
 
+  const itemById = useMemo(() => {
+    const map = new Map();
+    for (const entry of catalogItems) {
+      map.set(String(entry.id), entry);
+    }
+    return map;
+  }, [catalogItems]);
+
+  const selectedItem = itemById.get(String(selectedItemId)) ?? null;
+
   const closePanel = () => {
     setPanelOpen(false);
     setCreateError("");
@@ -155,15 +170,21 @@ export default function BatchesPage() {
     const qty = Number(quantity);
     const itemId = Number(selectedItemId);
     if (!Number.isInteger(itemId) || itemId <= 0) {
-      setCreateError("Select a make item.");
+      const message = "Select a make item.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     if (!Number.isFinite(qty) || qty <= 0) {
-      setCreateError("Quantity must be greater than zero.");
+      const message = "Quantity must be greater than zero.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     if (!sku.trim()) {
-      setCreateError("SKU is required.");
+      const message = "SKU is required.";
+      setCreateError(message);
+      toast.error(message);
       return;
     }
     setCreating(true);
@@ -174,21 +195,24 @@ export default function BatchesPage() {
         quantity: qty,
         sku: sku.trim(),
       });
+      toast.success("Batch created.");
       router.push(`/batches/${batch.id}`);
     } catch (err) {
-      setCreateError(err?.message || "Failed to create batch.");
+      const message = err?.message || "Failed to create batch.";
+      setCreateError(message);
+      toast.error(message);
       setCreating(false);
     }
   };
 
   return (
-    <div className="relative min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
+    <div className="relative min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-3xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
           <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
             Production
           </p>
-          <h1 className="text-3xl font-black uppercase leading-tight">
+          <h1 className="break-words text-3xl font-black uppercase leading-tight">
             Production
           </h1>
           <p className="mt-2 text-sm font-medium text-white/90">
@@ -197,7 +221,7 @@ export default function BatchesPage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <header className="flex items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-lavender/30 px-3 py-1.5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-lavender/30 px-3 py-1.5">
             <h2 className="text-sm font-black uppercase tracking-wide">
               Queue ({pendingBatches.length})
             </h2>
@@ -255,7 +279,7 @@ export default function BatchesPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="min-w-0 text-sm leading-snug">
-                            <span className="font-mono font-black">
+                            <span className="break-all font-mono font-black">
                               {batch.sku || `Batch ${batch.id}`}
                             </span>
                             <span className="font-black text-nv-ink/40">
@@ -381,13 +405,39 @@ export default function BatchesPage() {
                   No make items yet. Create one under Items first.
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={creating || makeItems.length === 0}
-                className="mt-auto border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
-              >
-                {creating ? "Creating…" : "Create batch"}
-              </button>
+              {selectedItem &&
+                Array.isArray(selectedItem.bom_items) &&
+                selectedItem.bom_items.length > 0 &&
+                Number(quantity) > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-medium text-nv-ink/55">
+                      Batch preview — totals for this quantity.
+                    </p>
+                    <BomTreeView
+                      lines={selectedItem.bom_items}
+                      itemById={itemById}
+                      rootMultiplier={Number(quantity) || 1}
+                      parentItem={selectedItem}
+                    />
+                  </div>
+                )}
+              <div className="mt-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  disabled={creating}
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || makeItems.length === 0}
+                  className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                >
+                  {creating ? "Creating…" : "Create batch"}
+                </button>
+              </div>
             </form>
           </aside>
         </>

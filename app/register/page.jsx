@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import uprightLogo from "@/app/assets/upright-logo.png";
 import { useAuth } from "@/components/AuthProvider";
+import PublicSiteHeader from "@/components/PublicSiteHeader";
+import PasswordInput from "@/components/PasswordInput";
 import { PASSWORD_POLICY_HINT, passwordMeetsPolicy } from "@/lib/auth";
 
 import { brutalChrome, inputClass } from "@/lib/chrome";
@@ -48,7 +50,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-nv-canvas px-4 py-10">
+    <div className="flex min-h-full flex-col bg-nv-canvas">
+      <PublicSiteHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className={`w-full max-w-md ${brutalChrome} bg-nv-paper`}>
         <header className="border-b-brutal border-black bg-nv-violet px-6 py-5 text-center text-white">
           <Image
@@ -66,40 +70,56 @@ export default function RegisterPage() {
         </header>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 p-6">
-          <label className="block space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+          <div className="block space-y-1">
+            <label
+              htmlFor="organization"
+              className="block text-[10px] font-black uppercase tracking-wide text-nv-ink/55"
+            >
               Company name
-            </span>
+            </label>
             <input
+              id="organization"
+              name="organization"
               type="text"
+              autoComplete="organization"
               required
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               className={inputClass}
               placeholder="Acme Manufacturing"
             />
-          </label>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+          <div className="block space-y-1">
+            <label
+              htmlFor="name"
+              className="block text-[10px] font-black uppercase tracking-wide text-nv-ink/55"
+            >
               Your name
-            </span>
+            </label>
             <input
+              id="name"
+              name="name"
               type="text"
-              required
               autoComplete="name"
+              required
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={inputClass}
               placeholder="Jane Founder"
             />
-          </label>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+          <div className="block space-y-1">
+            <label
+              htmlFor="email"
+              className="block text-[10px] font-black uppercase tracking-wide text-nv-ink/55"
+            >
               Email
-            </span>
+            </label>
             <input
+              id="email"
+              name="email"
               type="email"
               autoComplete="email"
               required
@@ -108,46 +128,66 @@ export default function RegisterPage() {
               className={inputClass}
               placeholder="you@company.com"
             />
-          </label>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+          <div className="block space-y-1">
+            <label
+              htmlFor="password"
+              className="block text-[10px] font-black uppercase tracking-wide text-nv-ink/55"
+            >
               Password
-            </span>
-            <input
-              type="password"
+            </label>
+            <PasswordInput
+              id="password"
+              name="password"
               autoComplete="new-password"
-              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              placeholder="••••••••"
             />
             <span className="block text-[10px] font-medium text-nv-ink/45">
               {PASSWORD_POLICY_HINT}
             </span>
-          </label>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+          <div className="block space-y-1">
+            <label
+              htmlFor="confirm-password"
+              className="block text-[10px] font-black uppercase tracking-wide text-nv-ink/55"
+            >
               Confirm password
-            </span>
-            <input
-              type="password"
+            </label>
+            <PasswordInput
+              id="confirm-password"
+              name="confirm-password"
               autoComplete="new-password"
-              required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
-              placeholder="••••••••"
             />
-          </label>
+          </div>
 
           {error && (
             <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
               {error}
             </p>
           )}
+
+          <p className="text-[10px] font-medium leading-relaxed text-nv-ink/60">
+            By creating an account you agree to our{" "}
+            <Link
+              href="/terms"
+              className="font-bold text-nv-violet hover:underline"
+            >
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy"
+              className="font-bold text-nv-violet hover:underline"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
 
           <button
             type="submit"
@@ -173,6 +213,7 @@ export default function RegisterPage() {
             ← Back to home
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );

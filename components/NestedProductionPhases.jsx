@@ -72,7 +72,7 @@ export default function NestedProductionPhases({ rootItem, itemById }) {
             {group.itemId ? (
               <Link
                 href={`/items/${group.itemId}`}
-                className="text-sm font-black uppercase tracking-wide underline-offset-2 hover:underline"
+                className="break-words text-sm font-black uppercase tracking-wide underline-offset-2 hover:underline"
               >
                 {group.name}
               </Link>

@@ -8,7 +8,16 @@ import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import {
+  removeTagById,
+  removeTagFromItems,
+  renameTagInList,
+  renameTagOnItems,
+  tagsForSave,
+  upsertTagCatalog,
+} from "@/lib/tagCreate";
 
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 
@@ -133,11 +142,7 @@ function formToItem(form, id, vendors = []) {
                 : phase.estimated_minutes.trim(),
           }))
       : [],
-    tags: Array.isArray(form.tags)
-      ? form.tags.map((tag) =>
-          tag.id != null ? { id: Number(tag.id), name: tag.name } : { name: tag.name }
-        )
-      : [],
+    tags: tagsForSave(form.tags),
   };
 }
 
@@ -328,6 +333,7 @@ function isFormComplete(form) {
 export default function NewItem() {
   const router = useRouter();
   const { canWrite, loading: authLoading } = useAuth();
+  const toast = useToast();
   const nextIdRef = useRef(1);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
@@ -393,9 +399,6 @@ export default function NewItem() {
       if (!unitSellPrice && unitCost) setUnitSellPrice(unitCost);
       setUnitCost("");
     } else {
-      setBomLines([]);
-      setBomSelectedIds([]);
-      setRouterPhases([]);
       if (!unitCost && unitSellPrice) setUnitCost(unitSellPrice);
       setUnitSellPrice("");
     }
@@ -567,10 +570,17 @@ export default function NewItem() {
       setItems(failed);
       if (failed.length === 0) {
         resetForm();
-      } else if (failed.length > 0) {
-        setSubmitError(
-          `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`
+        toast.success(
+          items.length === 1 ? "Item created." : `${items.length} items created.`
         );
+      } else {
+        const created = items.length - failed.length;
+        const message =
+          created > 0
+            ? `${created} item${created === 1 ? "" : "s"} created. ${failed.length} failed. ${firstError}`
+            : `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`;
+        setSubmitError(message);
+        toast.error(message);
       }
     } finally {
       setSubmitting(false);
@@ -581,11 +591,11 @@ export default function NewItem() {
     e.preventDefault();
 
     if (!isFormComplete(form)) {
-      setFormError(
-        makeOrBuy
-          ? "Fill in all fields. Recipe and router lines must be valid."
-          : "Fill in all fields and select a vendor."
-      );
+      const message = makeOrBuy
+        ? "Fill in all fields. Recipe and router lines must be valid."
+        : "Fill in all fields and select a vendor.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -682,14 +692,17 @@ export default function NewItem() {
                 onChange={setTags}
                 catalog={tagCatalog}
                 onCatalogAdd={(tag) => {
-                  setTagCatalog((prev) => {
-                    if (prev.some((row) => Number(row.id) === Number(tag.id))) {
-                      return prev;
-                    }
-                    return [...prev, tag].sort((a, b) =>
-                      String(a.name).localeCompare(String(b.name))
-                    );
-                  });
+                  setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                }}
+                onTagRenamed={(tag) => {
+                  setTagCatalog((prev) => upsertTagCatalog(prev, tag));
+                  setTags((prev) => renameTagInList(prev, tag.id, tag.name));
+                  setItems((prev) => renameTagOnItems(prev, tag.id, tag.name));
+                }}
+                onTagDeleted={(tag) => {
+                  setTagCatalog((prev) => removeTagById(prev, tag.id));
+                  setTags((prev) => removeTagById(prev, tag.id));
+                  setItems((prev) => removeTagFromItems(prev, tag.id));
                 }}
               />
             </div>
@@ -783,15 +796,13 @@ export default function NewItem() {
                 </p>
               )}
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {isEditingQueue && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="border-brutal-xs border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5"
-                  >
-                    Cancel edit
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={!canAdd}

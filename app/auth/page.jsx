@@ -1,8 +1,11 @@
 import Link from "next/link";
+import PublicSiteHeader from "@/components/PublicSiteHeader";
 
 export default function AuthPage() {
   return (
-    <div className="flex min-h-full items-center justify-center bg-nv-canvas px-4 py-16 text-nv-ink">
+    <div className="flex min-h-full flex-col bg-nv-canvas text-nv-ink">
+      <PublicSiteHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm border-brutal border-black bg-nv-paper p-8 text-center shadow-brutal">
         <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-nv-ink/55">
           upright
@@ -31,6 +34,7 @@ export default function AuthPage() {
         >
           ← Back to home
         </Link>
+      </div>
       </div>
     </div>
   );
