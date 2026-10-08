@@ -1,3 +1,4 @@
+import AnalyticsProvider from "@/components/AnalyticsProvider";
 import AppShell from "@/components/AppShell";
 import "./globals.css";
 
@@ -16,7 +17,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-nv-canvas font-sans text-nv-ink">
-        <AppShell>{children}</AppShell>
+        <AnalyticsProvider>
+          <AppShell>{children}</AppShell>
+        </AnalyticsProvider>
       </body>
     </html>
   );
