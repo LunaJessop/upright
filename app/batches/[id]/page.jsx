@@ -13,11 +13,10 @@ import {
 } from "@/app/api/apiHandler";
 import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
+import BatchReceipt from "@/components/BatchReceipt";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { brutalChrome, listClass, rowStripe } from "@/lib/chrome";
-import { friendlyUnitLabel, formatReadableQuantity } from "@/lib/formatQuantity";
-import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
+import { brutalChrome } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 const STATUS_STYLES = {
@@ -284,78 +283,13 @@ export default function BatchDetailPage({ params }) {
                 <FieldRow label="Created" value={formatDate(batch.created_at)} />
               </SectionCard>
 
-              <SectionCard title="Projected economics" accent="bg-nv-green-dark">
-                <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
-                  Snapshot from batch creation — buy material cost vs finished
-                  sell price. Catalog price changes later do not update this.
-                </p>
-                <FieldRow
-                  label="Material cost"
-                  value={formatMoney(batch.projected_cost)}
+              <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">
+                <BatchReceipt
+                  components={batch.components}
+                  quantity={batch.quantity}
+                  unitSell={batch.projected_unit_sell}
+                  projectedCost={batch.projected_cost}
                 />
-                <FieldRow
-                  label="Projected revenue"
-                  value={formatMoney(batch.projected_revenue)}
-                />
-                <FieldRow
-                  label="Projected profit"
-                  value={formatMoney(batch.projected_profit)}
-                />
-                <FieldRow
-                  label="Margin"
-                  value={formatMargin(batch.projected_margin)}
-                />
-                <div className="mt-2 grid gap-x-4 border-t border-black/10 pt-1 sm:grid-cols-2">
-                  <FieldRow
-                    label="Unit cost"
-                    value={formatMoney(batch.projected_unit_cost)}
-                  />
-                  <FieldRow
-                    label="Unit sell"
-                    value={formatMoney(batch.projected_unit_sell)}
-                  />
-                </div>
-                {Array.isArray(batch.components) &&
-                  batch.components.some(
-                    (c) => c.line_cost != null && !isMakeItem(c.make_or_buy)
-                  ) && (
-                    <div className="mt-4 border-t border-black/10 pt-3">
-                      <p className={`${labelClass} mb-2`}>Buy materials</p>
-                      <ul className={listClass}>
-                        {batch.components
-                          .filter(
-                            (c) =>
-                              !isMakeItem(c.make_or_buy) && c.line_cost != null
-                          )
-                          .map((c, index) => (
-                            <li
-                              key={c.id ?? c.item_id}
-                              className={`flex items-center justify-between gap-2 px-2 py-1.5 text-xs font-semibold ${rowStripe(index, "teal")}`}
-                            >
-                              <span className="min-w-0 truncate">
-                                {c.name}
-                                <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
-                                  {formatReadableQuantity(
-                                    c.quantity_allocated,
-                                    c.unit_of_measure
-                                  )}
-                                  {c.unit_cost_snapshot != null
-                                    ? ` @ ${formatMoney(c.unit_cost_snapshot)}${
-                                        c.unit_of_measure
-                                          ? ` per ${friendlyUnitLabel(c.unit_of_measure)}`
-                                          : ""
-                                      }`
-                                    : ""}
-                                </span>
-                              </span>
-                              <span className="shrink-0 font-mono">
-                                {formatMoney(c.line_cost)}
-                              </span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
               </SectionCard>
             </div>
 
