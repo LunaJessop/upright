@@ -144,11 +144,11 @@ function BomTreeNode({
                 <span className="font-black">Unknown component</span>
               )}
               {isMake ? (
-                <span className="border-brutal-xs border-black bg-nv-teal/40 px-1 py-px text-[9px] font-black uppercase tracking-wide">
+                <span className="border-brutal-xs border-black bg-nv-purple-dark px-1 py-px text-[9px] font-black uppercase tracking-wide">
                   Make
                 </span>
               ) : (
-                <span className="border-brutal-xs border-black bg-nv-lavender/50 px-1 py-px text-[9px] font-black uppercase tracking-wide">
+                <span className="border-brutal-xs border-black bg-nv-green-dark px-1 py-px text-[9px] font-black uppercase tracking-wide">
                   Buy
                 </span>
               )}

@@ -49,7 +49,7 @@ export default function ProfilePage() {
     <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-2xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Account
           </p>
           <h1 className="text-3xl font-black uppercase leading-tight">Profile</h1>

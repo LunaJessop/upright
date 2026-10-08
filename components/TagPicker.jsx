@@ -240,7 +240,7 @@ export default function TagPicker({
           {selected.map((tag) => (
             <span
               key={tagKey(tag)}
-              className="inline-flex items-center gap-1 border-brutal-xs border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+              className="inline-flex items-center gap-1 border-brutal-xs border-black bg-nv-purple-dark px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
             >
               {tag.name}
               {!disabled && (
@@ -401,7 +401,7 @@ export default function TagPicker({
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => void confirmDelete(tag)}
                             disabled={deletingId != null}
-                            className="border-brutal-xs border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-red-600 px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {deletingId === Number(tag.id) ? "Removing…" : "Remove tag"}
                           </button>
@@ -449,7 +449,7 @@ export default function TagPicker({
                                 setDeleteId(Number(tag.id));
                                 setOpen(true);
                               }}
-                              className="min-h-8 shrink-0 border-l border-black/15 px-2 text-[10px] font-black uppercase tracking-wide text-nv-ink hover:bg-nv-cyan/20"
+                              className="min-h-8 shrink-0 border-l border-black/15 bg-red-600 px-2 text-[10px] font-black uppercase tracking-wide text-white"
                             >
                               Delete
                             </button>

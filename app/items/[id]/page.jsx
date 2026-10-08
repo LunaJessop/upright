@@ -116,7 +116,7 @@ function FieldBlock({ label, value, children }) {
   );
 }
 
-function SectionCard({ title, accent = "bg-nv-cyan", action, children, className = "" }) {
+function SectionCard({ title, accent = "bg-nv-green-dark", action, children, className = "" }) {
   return (
     <section className={`${brutalChrome} bg-nv-paper ${className}`}>
       <header
@@ -218,9 +218,9 @@ function stockStatusLabel(status) {
 }
 
 const STOCK_STATUS_STYLES = {
-  below: "bg-red-600 text-white",
-  above: "bg-nv-violet text-white",
-  on_track: "bg-nv-teal text-black",
+  below: "bg-red-600",
+  above: "bg-nv-purple-dark",
+  on_track: "bg-nv-green-dark",
 };
 
 function formatPlannedDelta(delta, unit) {
@@ -904,20 +904,24 @@ export default function ItemDetailPage({ params }) {
             <header className={`mb-6 ${brutalChrome} overflow-hidden bg-nv-violet text-white`}>
               <div className="flex flex-wrap items-start justify-between gap-3 p-6 pb-4">
                 <div className="min-w-0 flex-1">
-                  <p className="break-words font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+                  <p className="break-words font-mono text-xs font-bold uppercase tracking-widest text-white">
                     {headerLabel}
                   </p>
                   <h1 className="break-words text-3xl font-black uppercase leading-tight">
                     {item.name}
                   </h1>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="border-brutal-xs border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide">
+                    <span
+                      className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                        isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
+                      }`}
+                    >
                       {isMake ? "Make" : "Buy"}
                     </span>
                     <span
                       className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                         item.active
-                          ? "bg-nv-cyan"
+                          ? "bg-nv-green-dark"
                           : "bg-black/20 text-white"
                       }`}
                     >
@@ -929,7 +933,7 @@ export default function ItemDetailPage({ params }) {
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="shrink-0 border-brutal-xs border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black"
+                    className="shrink-0 border-brutal-xs border-black bg-nv-green-tint px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black"
                   >
                     Edit
                   </button>
@@ -955,7 +959,7 @@ export default function ItemDetailPage({ params }) {
                         {item.tags.map((tag) => (
                           <span
                             key={tag.id ?? tag.name}
-                            className="border-brutal-xs border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                            className="border-brutal-xs border-black bg-nv-purple-dark px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
                           >
                             {tag.name}
                           </span>
@@ -1002,7 +1006,7 @@ export default function ItemDetailPage({ params }) {
             <div className="grid gap-6 lg:grid-cols-2">
               <SectionCard
                 title="Inventory"
-                accent="bg-nv-lavender/30"
+                accent="bg-nv-purple-dark"
                 action={
                   inventoryEditing ? (
                     confirmingInventoryQty ? null : (
@@ -1030,7 +1034,7 @@ export default function ItemDetailPage({ params }) {
                       type="button"
                       onClick={startInventoryEdit}
                       disabled={!inventory}
-                      className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                      className="border-brutal-xs border-black bg-nv-green-tint px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                     >
                       Edit
                     </button>
@@ -1226,7 +1230,7 @@ export default function ItemDetailPage({ params }) {
               </SectionCard>
 
               {!isMake && (
-                <SectionCard title="Vendor lots" accent="bg-nv-lavender/30">
+                <SectionCard title="Vendor lots" accent="bg-nv-purple-dark">
                   <p className="mb-3 text-[10px] font-medium leading-snug text-nv-ink/55">
                     Enter the total amount paid for this receive — we divide by
                     qty to set unit cost. Same lot # can be received more than
@@ -1381,7 +1385,7 @@ export default function ItemDetailPage({ params }) {
                                 type="button"
                                 onClick={() => setConfirmingLotId(row.id)}
                                 disabled={deletingLotId != null}
-                                className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 disabled:opacity-40"
+                                className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                               >
                                 Delete
                               </button>
@@ -1401,7 +1405,7 @@ export default function ItemDetailPage({ params }) {
               )}
 
               {isMake && (
-                <SectionCard title="Batches" accent="bg-nv-lavender/30">
+                <SectionCard title="Batches" accent="bg-nv-purple-dark">
                   {!editing && canWrite && (
                     <div className="mb-4 space-y-2 border-b border-black/10 pb-4">
                       <p className="text-[10px] font-black uppercase tracking-wide">
@@ -1518,7 +1522,7 @@ export default function ItemDetailPage({ params }) {
               )}
 
               {isMake && (
-                <SectionCard title="BOM" accent="bg-nv-teal">
+                <SectionCard title="BOM" accent="bg-nv-green-dark">
                   {Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
@@ -1554,7 +1558,7 @@ export default function ItemDetailPage({ params }) {
                 </SectionCard>
               )}
 
-              <SectionCard title="Used In" accent="bg-nv-lavender/30">
+              <SectionCard title="Used In" accent="bg-nv-purple-dark">
                 {Array.isArray(item.used_in) && item.used_in.length > 0 ? (
                   <ul className={`${listClass} -mx-4 -mb-4`}>
                     {item.used_in.map((parent, index) => (
@@ -1582,7 +1586,7 @@ export default function ItemDetailPage({ params }) {
 
               {isMake && (
                 <div className="lg:col-span-2">
-                  <SectionCard title="Production phases" accent="bg-nv-violet">
+                  <SectionCard title="Production phases" accent="bg-nv-purple-dark">
                     <NestedProductionPhases
                       rootItem={item}
                       itemById={itemById}
@@ -1608,7 +1612,7 @@ export default function ItemDetailPage({ params }) {
                   aria-labelledby="edit-item-title"
                   className={`fixed left-3 right-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-auto max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
                 >
-                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-cyan px-4 py-2">
+                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-2">
                     <h2
                       id="edit-item-title"
                       className="text-sm font-black uppercase tracking-wide"

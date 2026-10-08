@@ -355,7 +355,7 @@ function InventoryCard({
               onClick={onStartEdit}
               aria-label={`Edit inventory for ${row.item_name}`}
               title="Edit inventory"
-              className="flex h-10 w-10 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-black transition-colors hover:bg-nv-cyan/80"
+              className="flex h-10 w-10 items-center justify-center border-brutal-xs border-black bg-nv-green-tint text-black transition-colors hover:bg-nv-green-muted"
             >
               <PencilIcon />
             </button>
@@ -397,7 +397,7 @@ export default function InventoryPage() {
     <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Items
           </p>
           <h1 className="break-words text-3xl font-black uppercase leading-tight">

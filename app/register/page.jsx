@@ -61,7 +61,7 @@ export default function RegisterPage() {
             className="mx-auto mb-3 h-auto w-32"
             priority
           />
-          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white">
             Get started — $25/mo
           </p>
           <h1 className="text-2xl font-black uppercase leading-tight">

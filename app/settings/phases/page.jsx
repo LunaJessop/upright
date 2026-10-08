@@ -112,7 +112,7 @@ export default function SettingsPhasesPage() {
     <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-3xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Business Settings
           </p>
           <h1 className="text-3xl font-black uppercase leading-tight">Phases</h1>
@@ -251,14 +251,14 @@ export default function SettingsPhasesPage() {
                     <button
                       type="button"
                       onClick={() => startEdit(phase)}
-                      className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+                      className="border-brutal-xs border-black bg-nv-green-tint px-2 py-1 text-[10px] font-black uppercase tracking-wide text-black"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDelete(phase.id)}
-                      className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-red-600"
+                      className="border-brutal-xs border-black bg-red-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white"
                     >
                       Delete
                     </button>

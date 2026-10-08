@@ -114,7 +114,7 @@ export default function LandingPage() {
               />
               <p className="text-xs font-black lowercase tracking-wide">upright</p>
             </div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-white">
               Get your business up and to the right
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -133,19 +133,19 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex flex-col gap-3 border-t border-white/25 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-white">
               © {new Date().getFullYear()} Upright
             </p>
             <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Link
                 href="/terms"
-                className="text-[10px] font-black uppercase tracking-wide text-white/80 hover:text-white hover:underline"
+                className="text-[10px] font-black uppercase tracking-wide text-white hover:text-white hover:underline"
               >
                 Terms of Service
               </Link>
               <Link
                 href="/privacy"
-                className="text-[10px] font-black uppercase tracking-wide text-white/80 hover:text-white hover:underline"
+                className="text-[10px] font-black uppercase tracking-wide text-white hover:text-white hover:underline"
               >
                 Privacy Policy
               </Link>

@@ -23,7 +23,7 @@ export default function StylesPage() {
         <header
           className={`mb-12 ${brutalChrome} bg-nv-violet p-6 text-white sm:p-8`}
         >
-          <p className="mb-2 font-mono text-sm font-bold uppercase tracking-widest text-white/85">
+          <p className="mb-2 font-mono text-sm font-bold uppercase tracking-widest text-white">
             Upright · style lab (you weren&apos;t supposed to see this... enjoy the styles.)
           </p>
           <h1 className="text-4xl font-black uppercase leading-tight sm:text-5xl">
@@ -46,17 +46,18 @@ export default function StylesPage() {
         <div className="flex flex-col gap-14">
           <Section title="Palette">
             <p className="text-sm font-medium text-nv-ink/75">
-              NexaVerse-style accents. Each swatch uses the same border + shadow
-              treatment.
+              One dark, one muted, and one light tint for purple and for green.
+              Dark is for level-1 headers and badges. Muted is for a header
+              nested inside one of those. The tint is for list rows.
             </p>
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               {[
-                { bg: "bg-nv-violet", label: "Brand violet", fg: "text-white" },
-                { bg: "bg-nv-teal", label: "Teal", fg: "text-black" },
-                { bg: "bg-nv-cyan", label: "Cyan", fg: "text-black" },
-                { bg: "bg-nv-lavender", label: "Lavender", fg: "text-black" },
-                { bg: "bg-nv-paper", label: "Paper", fg: "text-black" },
-                { bg: "bg-nv-ink", label: "Ink", fg: "text-white" },
+                { bg: "bg-nv-purple-dark", label: "Purple dark", fg: "text-white" },
+                { bg: "bg-nv-purple-muted", label: "Purple muted", fg: "text-black" },
+                { bg: "bg-nv-purple-tint", label: "Purple tint", fg: "text-black" },
+                { bg: "bg-nv-green-dark", label: "Green dark", fg: "text-white" },
+                { bg: "bg-nv-green-muted", label: "Green muted", fg: "text-black" },
+                { bg: "bg-nv-green-tint", label: "Green tint", fg: "text-black" },
               ].map(({ bg, label, fg }) => (
                 <li
                   key={label}

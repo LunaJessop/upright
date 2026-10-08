@@ -17,9 +17,9 @@ const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 const STATUS_STYLES = {
   planned: "bg-nv-paper text-nv-ink/70",
-  in_progress: "bg-nv-cyan text-black",
-  complete: "bg-nv-teal text-black",
-  cancelled: "bg-red-600 text-white",
+  in_progress: "bg-nv-purple-dark",
+  complete: "bg-nv-green-dark",
+  cancelled: "bg-red-600",
 };
 
 function statusLabel(status) {
@@ -68,19 +68,19 @@ function PhaseStrip({ phases }) {
           key={group.key}
           className="flex flex-wrap items-center gap-0.5"
         >
-          <span className="border border-black bg-nv-violet px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+          <span className="border-brutal-xs border-black bg-nv-purple-dark px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide">
             {group.name}
           </span>
           {group.phases.map((phase) => (
             <span
               key={phase.id}
-              className={`border border-black px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+              className={`border-brutal-xs border-black px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                 phase.status === "complete"
-                  ? "bg-nv-teal text-black"
+                  ? "bg-nv-green-dark"
                   : phase.status === "in_progress"
-                    ? "bg-nv-cyan text-black"
+                    ? "bg-nv-purple-dark"
                     : phase.status === "skipped"
-                      ? "bg-red-600 text-white"
+                      ? "bg-red-600"
                       : "bg-nv-paper text-nv-ink/70"
               }`}
             >
@@ -209,7 +209,7 @@ export default function BatchesPage() {
     <div className="relative min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-3xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Production
           </p>
           <h1 className="break-words text-3xl font-black uppercase leading-tight">
@@ -221,7 +221,7 @@ export default function BatchesPage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-lavender/30 px-3 py-1.5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-purple-dark px-3 py-1.5">
             <h2 className="text-sm font-black uppercase tracking-wide">
               Queue ({pendingBatches.length})
             </h2>
@@ -340,7 +340,7 @@ export default function BatchesPage() {
             aria-modal="true"
             aria-labelledby="new-batch-title"
           >
-            <header className="flex items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-cyan text-black px-3 py-2">
+            <header className="flex items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-green-dark px-3 py-2">
               <h2
                 id="new-batch-title"
                 className="text-sm font-black uppercase tracking-wide"
