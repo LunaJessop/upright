@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
+import SiteFooter from "@/components/SiteFooter";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ToastProvider } from "@/components/Toast";
 import { clearLoginRedirect, loginHref, safeNextPath } from "@/lib/auth";
@@ -186,7 +187,7 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
   }, []);
 
   return (
-    <div className="flex min-h-full min-w-0 flex-1 flex-col">
+    <div className="flex min-h-screen min-w-0 flex-col">
       {banners}
       <div className="flex min-h-0 min-w-0 flex-1">
         <div className="hidden shrink-0 md:flex">
@@ -214,6 +215,7 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
           >
             {children}
           </main>
+          <SiteFooter />
         </div>
       </div>
       <MobileNavDrawer
@@ -277,28 +279,33 @@ function AppShellInner({ children }) {
     // Unknown URLs should paint the not-found page without waiting on session.
     if (!isPublic && !protectedPath) {
       return (
-        <main className="min-h-full min-w-0 max-w-full flex-1">{children}</main>
+        <div className="flex min-h-screen flex-col">
+          <main className="min-w-0 max-w-full flex-1">{children}</main>
+          <SiteFooter />
+        </div>
       );
     }
     return (
-      <div className="flex min-h-full flex-1 items-center justify-center bg-nv-canvas px-4">
-        <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/55">
-          Loading session…
-        </p>
+      <div className="flex min-h-screen flex-col">
+        <div className="flex flex-1 items-center justify-center bg-nv-canvas px-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/55">
+            Loading session…
+          </p>
+        </div>
+        <SiteFooter />
       </div>
     );
   }
 
   // Help is always a public docs surface (own top nav) — never app chrome.
-  if (helpPath) {
+  // Unknown URLs (not public, not a real app route) render app/not-found
+  // without app chrome.
+  if (helpPath || isPublic || !protectedPath) {
     return (
-      <main className="min-h-full min-w-0 max-w-full flex-1">{children}</main>
-    );
-  }
-
-  if (isPublic || !protectedPath) {
-    return (
-      <main className="min-h-full min-w-0 max-w-full flex-1">{children}</main>
+      <div className="flex min-h-screen flex-col">
+        <main className="min-w-0 max-w-full flex-1">{children}</main>
+        <SiteFooter />
+      </div>
     );
   }
 
@@ -315,7 +322,14 @@ function AppShellInner({ children }) {
   }
 
   if (!hasReadAccess) {
-    return <BillingWall />;
+    return (
+      <div className="flex min-h-screen flex-col">
+        <div className="flex-1">
+          <BillingWall />
+        </div>
+        <SiteFooter />
+      </div>
+    );
   }
 
   return (

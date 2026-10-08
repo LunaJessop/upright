@@ -14,15 +14,13 @@ import QuantityChangeConfirm, {
   quantityChanged,
 } from "@/components/QuantityChangeConfirm";
 import { ROLE_RANK } from "@/lib/auth";
+import { brutalChrome, compactInputClass, rowStripe } from "@/lib/chrome";
 import {
   mergeInventorySave,
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
-const editInputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
 
 function formatQty(value) {
   const number = Number(value);
@@ -137,6 +135,7 @@ function PencilIcon({ className = "h-4 w-4" }) {
 
 function InventoryCard({
   row,
+  index,
   canWrite,
   canEditGoals,
   editing,
@@ -215,7 +214,7 @@ function InventoryCard({
   };
 
   return (
-    <li className={`${brutalChrome} bg-nv-paper`}>
+    <li className={rowStripe(index, "violet")}>
       <div className="flex items-stretch gap-3 p-3 sm:gap-4 sm:p-4">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -244,7 +243,7 @@ function InventoryCard({
                     setDraftQty(e.target.value);
                     setConfirmingQty(false);
                   }}
-                  className={editInputClass}
+                  className={compactInputClass}
                 />
               </label>
               {canEditGoals ? (
@@ -258,7 +257,7 @@ function InventoryCard({
                       inputMode="decimal"
                       value={draftGoalMin}
                       onChange={(e) => setDraftGoalMin(e.target.value)}
-                      className={editInputClass}
+                      className={compactInputClass}
                       placeholder="Optional"
                     />
                   </label>
@@ -271,7 +270,7 @@ function InventoryCard({
                       inputMode="decimal"
                       value={draftGoalMax}
                       onChange={(e) => setDraftGoalMax(e.target.value)}
-                      className={editInputClass}
+                      className={compactInputClass}
                       placeholder="Optional"
                     />
                   </label>
@@ -301,7 +300,7 @@ function InventoryCard({
                     type="button"
                     onClick={onCancelEdit}
                     disabled={saving}
-                    className="border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                    className="border-brutal-xs border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                   >
                     Cancel
                   </button>
@@ -309,7 +308,7 @@ function InventoryCard({
                     type="button"
                     onClick={() => void handleSave(false)}
                     disabled={saving}
-                    className="border-brutal border-black bg-nv-violet px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                    className="border-brutal-xs border-black bg-nv-violet px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                   >
                     {saving ? "Saving…" : "Save"}
                   </button>
@@ -356,7 +355,7 @@ function InventoryCard({
               onClick={onStartEdit}
               aria-label={`Edit inventory for ${row.item_name}`}
               title="Edit inventory"
-              className="flex h-10 w-10 items-center justify-center border-brutal border-black bg-nv-cyan text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="flex h-10 w-10 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-black transition-colors hover:bg-nv-cyan/80"
             >
               <PencilIcon />
             </button>
@@ -436,11 +435,12 @@ export default function InventoryPage() {
           )}
 
           {!loading && !error && rows.length > 0 && (
-            <ul className="space-y-2">
-              {rows.map((row) => (
+            <ul className={`divide-y divide-black/10 ${brutalChrome} overflow-hidden bg-nv-paper`}>
+              {rows.map((row, index) => (
                 <InventoryCard
                   key={row.item_id}
                   row={row}
+                  index={index}
                   canWrite={canWrite}
                   canEditGoals={canEditGoals}
                   editing={editingId === row.item_id}

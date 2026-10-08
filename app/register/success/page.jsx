@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 const POLL_MS = 1500;
 const MAX_ATTEMPTS = 40;
 
@@ -68,7 +68,7 @@ export default function RegisterSuccessPage() {
               attemptsRef.current = 0;
               void refreshSession();
             }}
-            className="mt-6 border-brutal border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm"
+            className="mt-6 border-brutal-xs border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white"
           >
             Check again
           </button>

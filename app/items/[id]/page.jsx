@@ -35,6 +35,7 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import { brutalChrome, compactInputClass, listClass, rowStripe } from "@/lib/chrome";
 import {
   removeTagById,
   renameTagInList,
@@ -50,8 +51,6 @@ import {
   priceAfterUnitChange,
 } from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 function formatDate(value) {
@@ -89,8 +88,7 @@ function formatDate(value) {
   });
 }
 
-const editInputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+const editInputClass = compactInputClass;
 
 function FieldRow({ label, value, children }) {
   return (
@@ -122,9 +120,9 @@ function SectionCard({ title, accent = "bg-nv-cyan", action, children, className
   return (
     <section className={`${brutalChrome} bg-nv-paper ${className}`}>
       <header
-        className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal border-black ${accent} px-4 py-2`}
+        className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black ${accent} px-4 py-2`}
       >
-        <h2 className="text-sm font-black uppercase tracking-wide text-black">
+        <h2 className="text-sm font-black uppercase tracking-wide">
           {title}
         </h2>
         {action}
@@ -913,13 +911,13 @@ export default function ItemDetailPage({ params }) {
                     {item.name}
                   </h1>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                    <span className="border-brutal-xs border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide">
                       {isMake ? "Make" : "Buy"}
                     </span>
                     <span
-                      className={`border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                      className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                         item.active
-                          ? "bg-nv-cyan text-black"
+                          ? "bg-nv-cyan"
                           : "bg-black/20 text-white"
                       }`}
                     >
@@ -931,14 +929,14 @@ export default function ItemDetailPage({ params }) {
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="shrink-0 border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                    className="shrink-0 border-brutal-xs border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black"
                   >
                     Edit
                   </button>
                 )}
               </div>
 
-              <div className="border-t-brutal border-black bg-nv-paper p-4 text-nv-ink">
+              <div className="border-t-brutal-xs border-black bg-nv-paper p-4 text-nv-ink">
                 <div className="space-y-1">
                   <FieldBlock label="Description" value={item.description} />
                   {!isMake && (
@@ -957,7 +955,7 @@ export default function ItemDetailPage({ params }) {
                         {item.tags.map((tag) => (
                           <span
                             key={tag.id ?? tag.name}
-                            className="border-brutal border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                            className="border-brutal-xs border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
                           >
                             {tag.name}
                           </span>
@@ -1004,7 +1002,7 @@ export default function ItemDetailPage({ params }) {
             <div className="grid gap-6 lg:grid-cols-2">
               <SectionCard
                 title="Inventory"
-                accent="bg-nv-lavender"
+                accent="bg-nv-lavender/30"
                 action={
                   inventoryEditing ? (
                     confirmingInventoryQty ? null : (
@@ -1013,7 +1011,7 @@ export default function ItemDetailPage({ params }) {
                         type="button"
                         onClick={cancelInventoryEdit}
                         disabled={inventorySaving}
-                        className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                       >
                         Cancel
                       </button>
@@ -1021,7 +1019,7 @@ export default function ItemDetailPage({ params }) {
                         type="button"
                         onClick={() => void saveInventoryEdit(false)}
                         disabled={inventorySaving}
-                        className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                       >
                         {inventorySaving ? "Saving…" : "Save"}
                       </button>
@@ -1032,7 +1030,7 @@ export default function ItemDetailPage({ params }) {
                       type="button"
                       onClick={startInventoryEdit}
                       disabled={!inventory}
-                      className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                      className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                     >
                       Edit
                     </button>
@@ -1228,7 +1226,7 @@ export default function ItemDetailPage({ params }) {
               </SectionCard>
 
               {!isMake && (
-                <SectionCard title="Vendor lots" accent="bg-nv-lavender">
+                <SectionCard title="Vendor lots" accent="bg-nv-lavender/30">
                   <p className="mb-3 text-[10px] font-medium leading-snug text-nv-ink/55">
                     Enter the total amount paid for this receive — we divide by
                     qty to set unit cost. Same lot # can be received more than
@@ -1254,7 +1252,7 @@ export default function ItemDetailPage({ params }) {
                             value={lotNumber}
                             onChange={(e) => setLotNumber(e.target.value)}
                             placeholder="Supplier batch / lot"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-20 space-y-1">
@@ -1266,7 +1264,7 @@ export default function ItemDetailPage({ params }) {
                             inputMode="decimal"
                             value={lotQty}
                             onChange={(e) => setLotQty(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-24 space-y-1">
@@ -1279,7 +1277,7 @@ export default function ItemDetailPage({ params }) {
                             value={lotTotalCost}
                             onChange={(e) => setLotTotalCost(e.target.value)}
                             placeholder="0.00"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-36 space-y-1">
@@ -1290,14 +1288,14 @@ export default function ItemDetailPage({ params }) {
                             type="date"
                             value={lotArrivalDate}
                             onChange={(e) => setLotArrivalDate(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <button
                           type="button"
                           onClick={cancelLotDraft}
                           disabled={receivingLot}
-                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                         >
                           Cancel
                         </button>
@@ -1305,7 +1303,7 @@ export default function ItemDetailPage({ params }) {
                           type="button"
                           onClick={() => void handleReceiveLot()}
                           disabled={receivingLot}
-                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {receivingLot ? "Receiving…" : "Receive"}
                         </button>
@@ -1320,11 +1318,11 @@ export default function ItemDetailPage({ params }) {
                   )}
 
                   {!purchaseLotsLoading && purchaseLots.length > 0 ? (
-                    <ul className="space-y-2">
-                      {purchaseLots.map((row) => (
+                    <ul className={`${listClass} -mx-4`}>
+                      {purchaseLots.map((row, index) => (
                         <li
                           key={row.id}
-                          className="flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2"
+                          className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2 ${rowStripe(index, "lavender")}`}
                         >
                           <div>
                             <span className="font-mono text-sm font-black">
@@ -1363,7 +1361,7 @@ export default function ItemDetailPage({ params }) {
                                   type="button"
                                   onClick={() => setConfirmingLotId(null)}
                                   disabled={deletingLotId === row.id}
-                                  className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                                  className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                                 >
                                   No
                                 </button>
@@ -1371,7 +1369,7 @@ export default function ItemDetailPage({ params }) {
                                   type="button"
                                   onClick={() => void handleDeleteLot(row.id)}
                                   disabled={deletingLotId === row.id}
-                                  className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                                  className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                                 >
                                   {deletingLotId === row.id
                                     ? "Deleting…"
@@ -1383,7 +1381,7 @@ export default function ItemDetailPage({ params }) {
                                 type="button"
                                 onClick={() => setConfirmingLotId(row.id)}
                                 disabled={deletingLotId != null}
-                                className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 disabled:opacity-40"
+                                className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 disabled:opacity-40"
                               >
                                 Delete
                               </button>
@@ -1403,7 +1401,7 @@ export default function ItemDetailPage({ params }) {
               )}
 
               {isMake && (
-                <SectionCard title="Batches" accent="bg-nv-lavender">
+                <SectionCard title="Batches" accent="bg-nv-lavender/30">
                   {!editing && canWrite && (
                     <div className="mb-4 space-y-2 border-b border-black/10 pb-4">
                       <p className="text-[10px] font-black uppercase tracking-wide">
@@ -1424,7 +1422,7 @@ export default function ItemDetailPage({ params }) {
                             value={batchSku}
                             onChange={(e) => setBatchSku(e.target.value)}
                             placeholder="Lot / batch number"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-20 space-y-1">
@@ -1436,14 +1434,14 @@ export default function ItemDetailPage({ params }) {
                             inputMode="decimal"
                             value={batchQty}
                             onChange={(e) => setBatchQty(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <button
                           type="button"
                           onClick={cancelBatchDraft}
                           disabled={creatingBatch}
-                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                         >
                           Cancel
                         </button>
@@ -1451,7 +1449,7 @@ export default function ItemDetailPage({ params }) {
                           type="button"
                           onClick={() => void handleCreateBatch()}
                           disabled={creatingBatch}
-                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {creatingBatch ? "Creating…" : "Create batch"}
                         </button>
@@ -1475,8 +1473,8 @@ export default function ItemDetailPage({ params }) {
                   )}
 
                   {lotSkus.length > 0 ? (
-                    <ul className="space-y-2">
-                      {lotSkus.map((row) => {
+                    <ul className={`${listClass} -mx-4`}>
+                      {lotSkus.map((row, index) => {
                         const content = (
                           <>
                             <span className="font-mono text-sm font-black">{row.sku}</span>
@@ -1489,15 +1487,14 @@ export default function ItemDetailPage({ params }) {
                             </div>
                           </>
                         );
-                        const rowClass =
-                          "flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2";
+                        const rowClass = `flex flex-wrap items-center justify-between gap-3 px-4 py-2 hover:bg-nv-lavender/30 ${rowStripe(index, "lavender")}`;
 
                         if (row.batch_id != null) {
                           return (
                             <li key={row.id}>
                               <Link
                                 href={`/batches/${row.batch_id}`}
-                                className={`${rowClass} transition-transform hover:-translate-y-0.5 hover:bg-nv-lavender/40`}
+                                className={rowClass}
                               >
                                 {content}
                               </Link>
@@ -1532,6 +1529,7 @@ export default function ItemDetailPage({ params }) {
                       <BomTreeView
                         lines={item.bom_items}
                         itemById={itemById}
+                        tone="teal"
                         parentItem={item}
                         onEditItem={
                           canWrite
@@ -1556,14 +1554,14 @@ export default function ItemDetailPage({ params }) {
                 </SectionCard>
               )}
 
-              <SectionCard title="Used In" accent="bg-nv-lavender">
+              <SectionCard title="Used In" accent="bg-nv-lavender/30">
                 {Array.isArray(item.used_in) && item.used_in.length > 0 ? (
-                  <ul className="divide-y divide-black/10 border-brutal border-black">
-                    {item.used_in.map((parent) => (
-                      <li key={parent.id}>
+                  <ul className={`${listClass} -mx-4 -mb-4`}>
+                    {item.used_in.map((parent, index) => (
+                      <li key={parent.id} className={rowStripe(index, "lavender")}>
                         <Link
                           href={`/items/${parent.id}`}
-                          className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-cyan/20"
+                          className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-violet/20"
                         >
                           <span className="min-w-0 break-words">{parent.name}</span>
                           {parent.sku ? (
@@ -1610,17 +1608,17 @@ export default function ItemDetailPage({ params }) {
                   aria-labelledby="edit-item-title"
                   className={`fixed left-3 right-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-auto max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
                 >
-                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-cyan px-4 py-2">
+                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-cyan px-4 py-2">
                     <h2
                       id="edit-item-title"
-                      className="text-sm font-black uppercase tracking-wide text-black"
+                      className="text-sm font-black uppercase tracking-wide"
                     >
                       Edit item
                     </h2>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {confirmingDelete ? (
                         <>
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-black">
+                          <span className="text-[10px] font-bold uppercase tracking-wide">
                             Delete &quot;{item.name}&quot;?
                           </span>
                           <button
@@ -1630,7 +1628,7 @@ export default function ItemDetailPage({ params }) {
                               setSaveError("");
                             }}
                             disabled={deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                           >
                             No
                           </button>
@@ -1638,7 +1636,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={() => void handleDelete()}
                             disabled={deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {deleting ? "Deleting…" : "Yes, delete"}
                           </button>
@@ -1652,7 +1650,7 @@ export default function ItemDetailPage({ params }) {
                               setSaveError("");
                             }}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             Delete
                           </button>
@@ -1660,7 +1658,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={cancelEditing}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                           >
                             Cancel
                           </button>
@@ -1668,7 +1666,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={() => void saveDraft()}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {saving ? "Saving…" : "Save"}
                           </button>
@@ -1779,6 +1777,7 @@ export default function ItemDetailPage({ params }) {
                               moveRouterPhase(phaseId, "down")
                             }
                             onReorderPhases={setRouterPhases}
+                            tone="cyan"
                           />
                         </div>
                       )}
@@ -1808,7 +1807,7 @@ export default function ItemDetailPage({ params }) {
                                 href="/settings/vendors"
                                 aria-label="Add vendor"
                                 title="Add vendor"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
                               >
                                 +
                               </Link>
@@ -1834,6 +1833,7 @@ export default function ItemDetailPage({ params }) {
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
                             parentUnitOfMeasure={draft.unit_of_measure}
+                            tone="cyan"
                           />
                         </div>
                       )}

@@ -8,12 +8,11 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
 import BomTreeView from "@/components/BomTreeView";
+import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMargin, formatMoney } from "@/lib/pricing";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+const inputClass = `w-full ${controlClass}`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 const STATUS_STYLES = {
@@ -222,7 +221,7 @@ export default function BatchesPage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-lavender px-3 py-1.5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-lavender/30 px-3 py-1.5">
             <h2 className="text-sm font-black uppercase tracking-wide">
               Queue ({pendingBatches.length})
             </h2>
@@ -231,7 +230,7 @@ export default function BatchesPage() {
                 type="button"
                 onClick={() => exportBatchesCsv(batches)}
                 disabled={loading || batches.length === 0}
-                className="border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
               >
                 Export CSV
               </button>
@@ -241,7 +240,7 @@ export default function BatchesPage() {
                   onClick={() => setPanelOpen(true)}
                   aria-label="New batch"
                   title="New batch"
-                  className="inline-flex h-7 w-7 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                  className="inline-flex h-7 w-7 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-black text-sm font-black leading-none"
                 >
                   +
                 </button>
@@ -249,26 +248,26 @@ export default function BatchesPage() {
             </div>
           </header>
 
-          <div className="p-2">
+          <div>
             {loading && (
-              <p className="px-1 py-2 text-xs font-medium text-nv-ink/55">
+              <p className="px-3 py-2 text-xs font-medium text-nv-ink/55">
                 Loading queue…
               </p>
             )}
             {error && (
-              <p className="px-1 py-2 text-xs font-bold uppercase tracking-wide text-red-600">
+              <p className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-600">
                 {error}
               </p>
             )}
             {!loading && !error && pendingBatches.length === 0 && (
-              <p className="px-1 py-2 text-xs font-medium text-nv-ink/55">
+              <p className="px-3 py-2 text-xs font-medium text-nv-ink/55">
                 No batches in the queue.
                 {canWrite ? " Use + to start one." : ""}
               </p>
             )}
             {!loading && !error && pendingBatches.length > 0 && (
-              <ul className="space-y-1.5">
-                {pendingBatches.map((batch) => {
+              <ul className={listClass}>
+                {pendingBatches.map((batch, index) => {
                   const unit = batch.item_unit_of_measure
                     ? ` ${batch.item_unit_of_measure}`
                     : "";
@@ -276,7 +275,7 @@ export default function BatchesPage() {
                     <li key={batch.id}>
                       <Link
                         href={`/batches/${batch.id}`}
-                        className="block border-brutal border-black bg-nv-lavender/15 px-2 py-1.5 transition-transform hover:-translate-y-0.5"
+                        className={`block px-3 py-2 transition-colors hover:bg-nv-lavender/30 ${rowStripe(index, "lavender")}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="min-w-0 text-sm leading-snug">
@@ -341,7 +340,7 @@ export default function BatchesPage() {
             aria-modal="true"
             aria-labelledby="new-batch-title"
           >
-            <header className="flex items-center justify-between gap-2 border-b-brutal border-black bg-nv-cyan px-3 py-2">
+            <header className="flex items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-cyan text-black px-3 py-2">
               <h2
                 id="new-batch-title"
                 className="text-sm font-black uppercase tracking-wide"
@@ -352,7 +351,7 @@ export default function BatchesPage() {
                 type="button"
                 onClick={closePanel}
                 aria-label="Close"
-                className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
               >
                 Close
               </button>
@@ -427,14 +426,14 @@ export default function BatchesPage() {
                   type="button"
                   onClick={closePanel}
                   disabled={creating}
-                  className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm disabled:opacity-40"
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating || makeItems.length === 0}
-                  className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm disabled:opacity-40"
+                  className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                 >
                   {creating ? "Creating…" : "Create batch"}
                 </button>

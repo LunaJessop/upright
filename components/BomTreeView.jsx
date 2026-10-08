@@ -8,6 +8,7 @@ import {
   bomTreeQuantityReadout,
   resolveBomTreeQuantity,
 } from "@/lib/bomTreeQuantity";
+import { listClass, rowStripe } from "@/lib/chrome";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -74,6 +75,8 @@ function BomTreeNode({
   line,
   itemById,
   depth = 0,
+  index = 0,
+  tone = "cyan",
   visited,
   parentMultiplier = 1,
   scaleToBatch = false,
@@ -108,12 +111,8 @@ function BomTreeNode({
   );
 
   return (
-    <li className={depth > 0 ? "mt-1" : ""}>
-      <div
-        className={`border-brutal border-black px-3 py-2 ${
-          depth === 0 ? "bg-nv-cyan/15" : "bg-nv-paper"
-        }`}
-      >
+    <li className={rowStripe(index, tone)}>
+      <div className="px-3 py-2">
         <div className="flex items-start gap-2">
           {hasNestedBom ? (
             <button
@@ -121,7 +120,7 @@ function BomTreeNode({
               onClick={() => setExpanded((open) => !open)}
               aria-expanded={expanded}
               aria-label={expanded ? "Collapse sub-recipe" : "Expand sub-recipe"}
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-[10px] font-black leading-none transition-transform hover:-translate-y-0.5"
+              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-[10px] font-black leading-none"
             >
               {expanded ? "−" : "+"}
             </button>
@@ -145,11 +144,11 @@ function BomTreeNode({
                 <span className="font-black">Unknown component</span>
               )}
               {isMake ? (
-                <span className="border-brutal border-black bg-nv-teal/40 px-1 py-px text-[9px] font-black uppercase tracking-wide">
+                <span className="border-brutal-xs border-black bg-nv-teal/40 px-1 py-px text-[9px] font-black uppercase tracking-wide">
                   Make
                 </span>
               ) : (
-                <span className="border-brutal border-black bg-nv-lavender/50 px-1 py-px text-[9px] font-black uppercase tracking-wide">
+                <span className="border-brutal-xs border-black bg-nv-lavender/50 px-1 py-px text-[9px] font-black uppercase tracking-wide">
                   Buy
                 </span>
               )}
@@ -202,13 +201,15 @@ function BomTreeNode({
               Circular BOM reference — can&apos;t expand further
             </p>
           ) : (
-            <ul className="space-y-1">
-              {childLines.map((childLine, index) => (
+            <ul className={listClass}>
+              {childLines.map((childLine, childIndex) => (
                 <BomTreeNode
-                  key={`${childLine.component_item_id}-${index}`}
+                  key={`${childLine.component_item_id}-${childIndex}`}
                   line={childLine}
                   itemById={itemById}
                   depth={depth + 1}
+                  index={childIndex}
+                  tone={tone}
                   visited={nextVisited}
                   parentMultiplier={qty.childMultiplier}
                   scaleToBatch={scaleToBatch}
@@ -228,6 +229,7 @@ export default function BomTreeView({
   lines,
   itemById,
   rootMultiplier = 1,
+  tone = "cyan",
   parentItem = null,
   onEditItem,
 }) {
@@ -236,10 +238,12 @@ export default function BomTreeView({
   const scaleToBatch = Number(rootMultiplier) !== 1;
 
   return (
-    <ul className="space-y-2">
+    <ul className={listClass}>
       {lines.map((line, index) => (
         <BomTreeNode
           key={`${line.component_item_id}-${index}`}
+          index={index}
+          tone={tone}
           line={line}
           itemById={itemById}
           visited={new Set()}

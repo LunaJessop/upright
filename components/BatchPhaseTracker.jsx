@@ -1,5 +1,7 @@
 "use client";
 
+import { listClass, rowStripe } from "@/lib/chrome";
+
 const STATUS_STYLES = {
   pending: "text-nv-ink/40",
   in_progress: "text-nv-cyan",
@@ -22,7 +24,7 @@ function IconButton({ label, disabled, onClick, children, className = "" }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black transition-transform hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0 ${className}`}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal-xs border-black disabled:opacity-40 ${className}`}
     >
       {children}
     </button>
@@ -165,7 +167,7 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
   const isClosed = isComplete || isCancelled;
 
   return (
-    <li className="border-b-brutal border-black bg-nv-paper last:border-b-0">
+    <li className={rowStripe(displaySequence != null ? displaySequence - 1 : 0, "violet")}>
       <div className="flex items-stretch">
         <div className="min-w-0 flex-1 px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -186,7 +188,7 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
                 type="button"
                 disabled={updating}
                 onClick={() => onStatusChange(phase.id, "skipped")}
-                className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
               >
                 Cancel
               </button>
@@ -194,13 +196,13 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col justify-center gap-1 border-l-brutal border-black p-1.5">
+        <div className="flex shrink-0 flex-col justify-center gap-1 border-l border-black/10 p-1.5">
           {isClosed ? (
             <IconButton
               label="Reopen"
               disabled={updating}
               onClick={() => onStatusChange(phase.id, "pending")}
-              className="bg-nv-lavender text-black"
+              className="bg-nv-lavender/40 text-nv-ink"
             >
               <ReopenIcon />
             </IconButton>
@@ -256,8 +258,8 @@ export default function BatchPhaseTracker({ phases, updating, onStatusChange }) 
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <section key={group.key} className="border-brutal border-black bg-nv-lavender/15">
-          <header className="border-b-brutal border-black bg-nv-violet px-3 py-2 text-white">
+        <section key={group.key}>
+          <header className="bg-nv-violet px-3 py-2 text-white">
             <p className="text-sm font-black uppercase tracking-wide">
               {group.name}
             </p>
@@ -267,7 +269,7 @@ export default function BatchPhaseTracker({ phases, updating, onStatusChange }) 
               </p>
             )}
           </header>
-          <ol>
+          <ol className={listClass}>
             {group.phases.map((phase, index) => (
               <PhaseRow
                 key={phase.id}

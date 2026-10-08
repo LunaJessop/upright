@@ -4,12 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
+import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMoney, isMakeItem, itemDisplayPrice } from "@/lib/pricing";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const controlClass =
-  "border-brutal border-black bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
 
 const ITEM_CSV_HEADERS = [
   "id",
@@ -51,7 +48,7 @@ function exportItemsCsv(items) {
   downloadCsv(`upright-items-${stamp}.csv`, csv);
 }
 
-function ItemListRow({ item }) {
+function ItemListRow({ item, index }) {
   const isMake = isMakeItem(item.make_or_buy);
   const price = formatMoney(itemDisplayPrice(item));
   const tags = Array.isArray(item.tags) ? item.tags : [];
@@ -70,23 +67,23 @@ function ItemListRow({ item }) {
     <li>
       <Link
         href={`/items/${item.id}`}
-        className="group block min-w-0 border-brutal border-black bg-nv-paper px-2.5 py-2 transition-transform hover:-translate-y-0.5 hover:bg-nv-cyan/10 sm:px-3"
+        className={`block min-w-0 px-2.5 py-2 transition-colors hover:bg-nv-violet/20 sm:px-3 ${rowStripe(index)}`}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <h3 className="truncate text-sm font-black uppercase leading-tight tracking-tight text-nv-ink">
                 {item.name || "Untitled"}
               </h3>
               <span
-                className={`border-brutal border-black px-1 py-px text-[8px] font-black uppercase tracking-wide ${
+                className={`px-2 py-px text-[10px] font-black uppercase tracking-wide ${
                   isMake ? "bg-nv-violet text-white" : "bg-nv-teal text-black"
                 }`}
               >
                 {isMake ? "Make" : "Buy"}
               </span>
               <span
-                className={`border-brutal border-black px-1 py-px text-[8px] font-black uppercase tracking-wide ${
+                className={`px-2 py-px text-[10px] font-black uppercase tracking-wide ${
                   item.active
                     ? "bg-nv-cyan/50 text-black"
                     : "bg-black/10 text-nv-ink/50"
@@ -126,9 +123,6 @@ function ItemListRow({ item }) {
                     —
                   </span>
                 )}
-                <span className="font-mono text-[10px] font-black uppercase tracking-wide text-nv-ink/30 transition-colors group-hover:text-nv-violet">
-                  →
-                </span>
               </div>
         </div>
       </Link>
@@ -220,14 +214,14 @@ export default function ItemsPage() {
                 type="button"
                 onClick={() => exportItemsCsv(filteredItems)}
                 disabled={loading || filteredItems.length === 0}
-                className="border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5 disabled:opacity-40"
+                className="border-brutal-xs border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-colors hover:bg-nv-cyan/30 disabled:opacity-40"
               >
                 Export CSV
               </button>
               {canWrite ? (
                 <Link
                   href="/items/new-item"
-                  className="border-brutal border-black bg-nv-cyan px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                  className="border-brutal-xs border-black bg-nv-cyan px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-colors hover:bg-nv-cyan/80"
                 >
                   Add item
                 </Link>
@@ -237,7 +231,7 @@ export default function ItemsPage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <div className="space-y-3 border-b-brutal border-black bg-nv-canvas/60 p-3 sm:p-4">
+          <div className="space-y-3 border-b-brutal-xs border-black bg-nv-cyan/30 p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
                 <span>Catalog</span>
@@ -310,7 +304,7 @@ export default function ItemsPage() {
             </div>
           </div>
 
-          <div className="p-3 sm:p-4">
+          <div className="">
             {loading && (
               <p className="text-xs font-medium text-nv-ink/55">Loading items…</p>
             )}
@@ -332,9 +326,9 @@ export default function ItemsPage() {
             )}
 
             {!loading && !error && filteredItems.length > 0 && (
-              <ul className="space-y-1.5">
-                {filteredItems.map((item) => (
-                  <ItemListRow key={item.id} item={item} />
+              <ul className={`${listClass} border-t border-black/10`}>
+                {filteredItems.map((item, index) => (
+                  <ItemListRow key={item.id} item={item} index={index}/>
                 ))}
               </ul>
             )}

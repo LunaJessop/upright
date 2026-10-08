@@ -39,7 +39,7 @@ export default function ReadOnlyBanner() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/register/plan"
-              className="border-brutal border-black bg-nv-cyan px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-btn"
+              className="border-brutal border-black bg-nv-cyan px-3 py-1 text-[10px] font-black uppercase tracking-wide shadow-brutal-btn"
             >
               Choose a plan
             </Link>

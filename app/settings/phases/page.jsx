@@ -9,10 +9,7 @@ import {
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+import { brutalChrome, inputClass, listClass, rowStripe } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 const EMPTY_FORM = { name: "", description: "", estimated_minutes: "" };
@@ -184,14 +181,14 @@ export default function SettingsPhasesPage() {
                 type="button"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm disabled:opacity-40"
+                className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm disabled:opacity-40"
+                className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
               >
                 {saving
                   ? "Saving…"
@@ -228,11 +225,11 @@ export default function SettingsPhasesPage() {
           )}
 
           {!loading && phases.length > 0 && (
-            <ul className="divide-y divide-black/10 border-t border-black/10">
-              {phases.map((phase) => (
+            <ul className={`${listClass} -mx-5 border-t border-black/10`}>
+              {phases.map((phase, index) => (
                 <li
                   key={phase.id}
-                  className="flex flex-wrap items-start justify-between gap-3 py-3"
+                  className={`flex flex-wrap items-start justify-between gap-3 px-5 py-3 ${rowStripe(index, "violet")}`}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black uppercase tracking-wide">
@@ -254,14 +251,14 @@ export default function SettingsPhasesPage() {
                     <button
                       type="button"
                       onClick={() => startEdit(phase)}
-                      className="border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+                      className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDelete(phase.id)}
-                      className="border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-red-600"
+                      className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-red-600"
                     >
                       Delete
                     </button>

@@ -9,10 +9,7 @@ import { useAuth } from "@/components/AuthProvider";
 import PublicSiteHeader from "@/components/PublicSiteHeader";
 import PasswordInput from "@/components/PasswordInput";
 import { pathAfterLogin, safeNextPath } from "@/lib/auth";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+import { brutalChrome, inputClass } from "@/lib/chrome";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -103,7 +100,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full border-brutal border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full border-brutal-xs border-black bg-nv-violet px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
           >
             {submitting ? "Signing in…" : "Sign in"}
           </button>

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 
-const brutalBorder = "border-brutal border-black";
-const inputClass =
-  "w-full border-0 bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet border-brutal border-black";
+const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 export function formatRouterPhaseSummary(phases) {
@@ -42,6 +41,7 @@ export default function RouterPhaseEditor({
   onMoveUp,
   onMoveDown,
   onReorderPhases,
+  tone = "cyan",
 }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
@@ -53,7 +53,7 @@ export default function RouterPhaseEditor({
   };
 
   return (
-    <div className={`w-full space-y-2 ${brutalBorder} bg-nv-paper p-2`}>
+    <div className="w-full space-y-2 bg-nv-paper">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={labelClass}>Production router</p>
         <div className="flex flex-wrap items-center gap-2">
@@ -90,7 +90,7 @@ export default function RouterPhaseEditor({
             href="/settings/phases"
             aria-label="Add phase to library"
             title="Add phase to library"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-sm font-black leading-none transition-colors hover:bg-nv-cyan/80"
           >
             +
           </Link>
@@ -98,7 +98,7 @@ export default function RouterPhaseEditor({
       </div>
 
       {phases.length > 0 ? (
-        <ul className="space-y-2 border-t-brutal border-black pt-2">
+        <ul className={listClass}>
           {phases.map((phase, index) => {
             const isDragging = dragIndex === index;
             const isOver = overIndex === index && dragIndex !== index;
@@ -135,7 +135,7 @@ export default function RouterPhaseEditor({
                   setDragIndex(null);
                   setOverIndex(null);
                 }}
-                className={`space-y-2 ${brutalBorder} bg-nv-lavender/20 p-2 ${
+                className={`space-y-2 px-2 py-2 ${rowStripe(index, tone)} ${
                   isDragging ? "opacity-50" : ""
                 } ${isOver ? "ring-2 ring-nv-violet" : ""} ${
                   onReorderPhases ? "cursor-grab active:cursor-grabbing" : ""
@@ -167,7 +167,7 @@ export default function RouterPhaseEditor({
                       onClick={() => onMoveUp(phase.id)}
                       disabled={index === 0}
                       aria-label="Move phase up"
-                      className="border-brutal border-black bg-nv-paper px-1.5 py-0.5 text-[10px] font-black disabled:opacity-30"
+                      className="border-brutal-xs border-black bg-nv-paper px-1.5 py-0.5 text-[10px] font-black disabled:opacity-30"
                     >
                       ↑
                     </button>
@@ -176,7 +176,7 @@ export default function RouterPhaseEditor({
                       onClick={() => onMoveDown(phase.id)}
                       disabled={index === phases.length - 1}
                       aria-label="Move phase down"
-                      className="border-brutal border-black bg-nv-paper px-1.5 py-0.5 text-[10px] font-black disabled:opacity-30"
+                      className="border-brutal-xs border-black bg-nv-paper px-1.5 py-0.5 text-[10px] font-black disabled:opacity-30"
                     >
                       ↓
                     </button>

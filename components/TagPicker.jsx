@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CreateTag, DeleteTag, UpdateTag } from "@/app/api/apiHandler";
 import { useToast } from "@/components/Toast";
+import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { createdTag } from "@/lib/tagCreate";
 import {
   canCreateTag,
@@ -10,8 +11,7 @@ import {
   moveTagHighlight,
 } from "@/lib/tagSuggestions";
 
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+const inputClass = `w-full ${controlClass}`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 function tagKey(tag) {
@@ -240,7 +240,7 @@ export default function TagPicker({
           {selected.map((tag) => (
             <span
               key={tagKey(tag)}
-              className="inline-flex items-center gap-1 border-brutal border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+              className="inline-flex items-center gap-1 border-brutal-xs border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
             >
               {tag.name}
               {!disabled && (
@@ -316,7 +316,7 @@ export default function TagPicker({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => void createFromQuery()}
               disabled={query.trim() === "" || creating}
-              className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+              className="shrink-0 border-brutal-xs border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
             >
               {creating ? "Saving…" : canCreate ? "Add new" : "Add"}
             </button>
@@ -328,7 +328,7 @@ export default function TagPicker({
               id={listId}
               role="listbox"
               aria-label="Tags"
-              className="max-h-[min(10rem,45dvh)] overflow-y-auto overscroll-contain border-brutal border-black bg-nv-paper"
+              className={`max-h-[min(10rem,45dvh)] overflow-y-auto overscroll-contain border-brutal-xs border-black bg-nv-paper ${listClass}`}
             >
               {suggestions.map((tag, index) => {
                 const added = selectedKeys.has(tagKey(tag));
@@ -338,7 +338,7 @@ export default function TagPicker({
                 return (
                   <li
                     key={tag.id ?? tagKey(tag)}
-                    className="border-b border-black/10 last:border-b-0"
+                    className={rowStripe(index)}
                   >
                     {isEditing ? (
                       <div className="flex items-center gap-1 p-1">
@@ -360,14 +360,14 @@ export default function TagPicker({
                               cancelRename();
                             }
                           }}
-                          className="min-w-0 flex-1 border-brutal border-black bg-white px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                          className="min-w-0 flex-1 border-brutal-xs border-black bg-white px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                         />
                         <button
                           type="button"
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => void saveRename(tag)}
                           disabled={savingRename}
-                          className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          className="shrink-0 border-brutal-xs border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {savingRename ? "Saving…" : "Save"}
                         </button>
@@ -376,7 +376,7 @@ export default function TagPicker({
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={cancelRename}
                           disabled={savingRename}
-                          className="shrink-0 border-brutal border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                          className="shrink-0 border-brutal-xs border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                         >
                           Cancel
                         </button>
@@ -392,7 +392,7 @@ export default function TagPicker({
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => setDeleteId(null)}
                             disabled={deletingId != null}
-                            className="border-brutal border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-paper px-2 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                           >
                             Go back
                           </button>
@@ -401,7 +401,7 @@ export default function TagPicker({
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => void confirmDelete(tag)}
                             disabled={deletingId != null}
-                            className="border-brutal border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-violet px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {deletingId === Number(tag.id) ? "Removing…" : "Remove tag"}
                           </button>
@@ -418,8 +418,8 @@ export default function TagPicker({
                           onMouseDown={(event) => event.preventDefault()}
                           onMouseEnter={() => setActiveIndex(index)}
                           onClick={() => addTag(tag)}
-                          className={`min-h-8 min-w-0 flex-1 truncate px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20 ${
-                            activeIndex === index ? "bg-nv-cyan/30" : ""
+                          className={`min-h-8 min-w-0 flex-1 truncate px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-violet/20 ${
+                            activeIndex === index ? "bg-nv-violet/20" : ""
                           }`}
                         >
                           {tag.name}
@@ -472,7 +472,7 @@ export default function TagPicker({
                     onMouseEnter={() => setActiveIndex(suggestions.length)}
                     onClick={() => void createFromQuery()}
                     disabled={creating}
-                    className={`block w-full border-t border-black/10 px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10 disabled:opacity-40 ${
+                    className={`block w-full px-2 py-1.5 text-left text-xs font-bold text-nv-violet hover:bg-nv-violet/10 disabled:opacity-40 ${
                       activeIndex === suggestions.length ? "bg-nv-violet/10" : ""
                     }`}
                   >

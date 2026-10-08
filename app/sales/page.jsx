@@ -1,4 +1,4 @@
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 
 export default function SalesPage() {
   return (
