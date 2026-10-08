@@ -16,6 +16,7 @@ import {
   registerUser,
   setUnauthorizedHandler,
 } from "@/app/api/apiHandler";
+import { identifyAnalyticsUser, resetAnalytics } from "@/lib/analytics";
 import {
   clearLoginRedirect,
   getStoredToken,
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
   const clearSession = useCallback(() => {
     setStoredToken(null);
     setUser(null);
+    resetAnalytics();
   }, []);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function AuthProvider({ children }) {
     try {
       const session = await getMe();
       setUser(session.user);
+      identifyAnalyticsUser(session.user);
       return session.user;
     } catch {
       clearSession();
@@ -73,6 +76,7 @@ export function AuthProvider({ children }) {
     clearLoginRedirect();
     setStoredToken(session.token);
     setUser(session.user);
+    identifyAnalyticsUser(session.user);
     return session.user;
   }, []);
 
@@ -87,6 +91,7 @@ export function AuthProvider({ children }) {
       clearLoginRedirect();
       setStoredToken(session.token);
       setUser(session.user);
+      identifyAnalyticsUser(session.user);
       return session;
     },
     []
