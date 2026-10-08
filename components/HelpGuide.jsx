@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 
 const TOC = [
   { id: "start", label: "1. Set up your shop" },
@@ -231,9 +230,8 @@ export default function HelpGuide() {
             5. How to read inventory
           </h2>
           <p className="text-sm font-medium leading-relaxed text-nv-ink/75">
-            Check stock on each item, or browse{" "}
-            <InAppLink href="/items/inventory">Inventory</InAppLink> for a wider
-            view.
+            Check stock on each item from{" "}
+            <InAppLink href="/items">All items</InAppLink>.
           </p>
           <div
             className={`${brutalChrome} space-y-3 bg-nv-paper p-5 text-sm font-medium text-nv-ink/75`}

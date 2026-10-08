@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { UNIT_OF_MEASURE_OPTIONS } from "@/app/items/unitOfMeasureOptions";
 import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
-const brutalBorder = "border-brutal border-black";
-const inputClass =
-  "w-full border-0 bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet border-brutal border-black";
+import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+
+const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 export function catalogItemLabel(catalogItems, itemId) {
@@ -53,12 +53,12 @@ function QuantityStepper({ value, onChange }) {
   };
 
   return (
-    <div className="inline-flex shrink-0 items-stretch overflow-hidden border-brutal border-black">
+    <div className="inline-flex shrink-0 items-stretch overflow-hidden border-brutal-xs border-black">
       <button
         type="button"
         onClick={() => adjust(-1)}
         aria-label="Decrease quantity"
-        className="border-r-brutal border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
+        className="border-r-brutal-xs border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
       >
         −
       </button>
@@ -73,7 +73,7 @@ function QuantityStepper({ value, onChange }) {
         type="button"
         onClick={() => adjust(1)}
         aria-label="Increase quantity"
-        className="border-l-brutal border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
+        className="border-l-brutal-xs border-black bg-nv-paper px-1.5 py-0.5 text-xs font-bold leading-none hover:bg-nv-cyan/30"
       >
         +
       </button>
@@ -141,25 +141,23 @@ function MultiSelectDropdown({
       </label>
       {open ? (
         <ul
-          className={`absolute z-20 mt-1 max-h-40 w-full overflow-y-auto ${brutalBorder} bg-nv-paper`}
+          className={`absolute z-20 mt-1 max-h-40 w-full overflow-y-auto border-brutal-xs border-black bg-nv-paper ${listClass}`}
           role="listbox"
           aria-multiselectable="true"
         >
-          {options.map((option) => {
+          {options.map((option, index) => {
             const checked = selectedValues.includes(option.value);
             return (
-              <li key={option.value}>
+              <li key={option.value} className={checked ? "bg-nv-cyan/20" : rowStripe(index, tone)}>
                 <button
                   type="button"
                   role="option"
                   aria-selected={checked}
                   onClick={() => toggleOption(option.value)}
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/30 ${
-                    checked ? "bg-nv-cyan/20" : ""
-                  }`}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-violet/20"
                 >
                   <span
-                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center border-brutal border-black text-[9px] font-black ${
+                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center border-brutal-xs border-black text-[9px] font-black ${
                       checked ? "bg-nv-cyan" : "bg-nv-paper"
                     }`}
                   >
@@ -186,6 +184,7 @@ export default function BomRecipeEditor({
   onUpdateLineQuantity,
   onUpdateLineUnit,
   parentUnitOfMeasure = "",
+  tone = "cyan",
 }) {
   const bomOptions = catalogItems.map((item) => ({
     value: String(item.id),
@@ -194,7 +193,7 @@ export default function BomRecipeEditor({
   const parentUnit = normalizeUnit(parentUnitOfMeasure) || "item";
 
   return (
-    <div className={`w-full space-y-2 ${brutalBorder} bg-nv-paper p-2`}>
+    <div className="w-full space-y-2 bg-nv-paper">
       <p className={labelClass}>Recipe (BOM)</p>
 
       <div className="space-y-2">
@@ -209,7 +208,7 @@ export default function BomRecipeEditor({
           <button
             type="button"
             onClick={onAddSelected}
-            className="border-brutal border-black bg-nv-cyan px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1"
+            className="border-brutal-xs border-black bg-nv-cyan px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-colors hover:bg-nv-cyan/80"
           >
             Add
           </button>
@@ -217,8 +216,8 @@ export default function BomRecipeEditor({
       </div>
 
       {bomLines.length > 0 ? (
-        <ul className="space-y-2 border-t-brutal border-black pt-2">
-          {bomLines.map((line) => {
+        <ul className={listClass}>
+          {bomLines.map((line, index) => {
             const stockUnit = catalogItemUnit(catalogItems, line.itemId);
             const lineUnit =
               normalizeUnit(line.unitOfMeasure) || stockUnit || "";
@@ -233,7 +232,7 @@ export default function BomRecipeEditor({
             return (
               <li
                 key={line.id}
-                className={`space-y-1.5 ${brutalBorder} bg-nv-cyan/15 p-2`}
+                className={`space-y-1.5 px-2 py-2 ${rowStripe(index, tone)}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0 flex-1 text-[10px] leading-snug">
@@ -269,7 +268,7 @@ export default function BomRecipeEditor({
                         onUpdateLineUnit?.(line.id, e.target.value)
                       }
                       aria-label="BOM unit of measure"
-                      className="max-w-[9rem] border-brutal border-black bg-nv-paper px-1.5 py-1 text-[10px] font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                      className="max-w-[9rem] border-brutal-xs border-black bg-nv-paper px-1.5 py-1 text-[10px] font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                     >
                       {unitOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>

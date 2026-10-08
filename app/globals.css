@@ -4,6 +4,7 @@
 
 @source "./**/*.{js,jsx}";
 @source "../components/**/*.{js,jsx}";
+@source "../lib/**/*.{js,jsx}";
 
 /* -------------------------------------------------------------------------- */
 /* Design tokens — NexaVerse-style palette + neobrutal chrome                  */
@@ -51,6 +52,8 @@
   --shadow-brutal-btn: var(--shadow-brutal-btn-val);
 
   --border-width-brutal: 3px;
+  --border-width-brutal-sm: 2px;
+  --border-width-brutal-xs: 1px;
 
   --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol";
@@ -67,27 +70,50 @@ body {
   color: var(--nv-ink);
 }
 
-/* Light surfaces — always use dark ink text (overrides inherited white/light) */
+/*
+ * Contrast. These rules are unlayered, so they beat Tailwind text-* utilities
+ * on the same element. Match whole class tokens only: hover:bg-nv-violet/20
+ * must not count as a dark fill, or list rows render white on white.
+ *
+ * White text: violet, violet-dark, and ink.
+ * Ink text: paper, cyan, teal, lavender, and every tint. Cyan, teal, and
+ * lavender are too light for white type.
+ */
 .bg-nv-paper,
 .bg-nv-canvas,
 .bg-nv-row-alt,
 .bg-nv-cyan,
+.bg-nv-teal,
+.bg-nv-lavender,
 .bg-white,
-[class~="bg-nv-cyan/25"],
+[class~="bg-nv-cyan/10"],
+[class~="bg-nv-cyan/15"],
 [class~="bg-nv-cyan/20"],
+[class~="bg-nv-cyan/25"],
 [class~="bg-nv-cyan/30"],
-[class~="hover:bg-nv-cyan/20"],
-[class~="hover:bg-nv-canvas"] {
+[class~="bg-nv-cyan/40"],
+[class~="bg-nv-cyan/50"],
+[class~="bg-nv-cyan/80"],
+[class~="bg-nv-teal/15"],
+[class~="bg-nv-teal/40"],
+[class~="bg-nv-teal/45"],
+[class~="bg-nv-teal/50"],
+[class~="bg-nv-lavender/15"],
+[class~="bg-nv-lavender/20"],
+[class~="bg-nv-lavender/25"],
+[class~="bg-nv-lavender/30"],
+[class~="bg-nv-lavender/40"],
+[class~="bg-nv-lavender/50"],
+[class~="bg-nv-violet/10"],
+[class~="bg-nv-violet/15"],
+[class~="bg-nv-violet/20"],
+[class~="bg-nv-violet/40"] {
   color: var(--nv-text-on-light);
 }
 
-/* Dark accent surfaces — keep light text */
 .bg-nv-violet,
 .bg-nv-violet-dark,
-.bg-nv-lavender,
-.bg-nv-teal,
-.bg-nv-ink,
-[class*="bg-nv-violet/"] {
+.bg-nv-ink {
   color: var(--nv-text-on-dark);
 }
 

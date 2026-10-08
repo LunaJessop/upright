@@ -139,7 +139,7 @@ export default function RegisterPlanPage() {
 
         <article className="relative flex h-[calc(100vh-14rem)] w-[min(22vw,17.5rem)] min-w-[15.5rem] flex-col border-brutal border-black bg-nv-paper shadow-brutal">
           {plan.badge && (
-            <span className="absolute right-0 top-0 z-10 border-b-brutal border-l-brutal border-black bg-nv-cyan px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn">
+            <span className="absolute right-0 top-0 z-10 border-b-brutal border-l-brutal border-black bg-nv-cyan px-2.5 py-1 text-[10px] font-black uppercase tracking-wide shadow-brutal-btn">
               {plan.badge}
             </span>
           )}

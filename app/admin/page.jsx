@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAdminClients } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome, rowStripe } from "@/lib/chrome";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -114,7 +113,7 @@ export default function AdminClientsPage() {
           ) : (
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b-brutal border-black bg-nv-canvas text-[10px] font-black uppercase tracking-wide">
+                <tr className="border-b border-black/10 bg-nv-violet text-[10px] font-black uppercase tracking-wide text-white">
                   <th className="px-3 py-2">ID</th>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
@@ -125,10 +124,10 @@ export default function AdminClientsPage() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((client) => (
+                {clients.map((client, index) => (
                   <tr
                     key={client.id}
-                    className="border-b border-black/10 align-top last:border-b-0"
+                    className={`border-b border-black/10 align-top last:border-b-0 ${rowStripe(index, "violet")}`}
                   >
                     <td className="px-3 py-2 font-mono text-xs">{client.id}</td>
                     <td className="px-3 py-2">
@@ -140,7 +139,7 @@ export default function AdminClientsPage() {
                     <td className="px-3 py-2 font-medium">{client.email || "—"}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-block border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusClass(
+                        className={`inline-block border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusClass(
                           client.subscription_status
                         )}`}
                       >

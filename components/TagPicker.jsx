@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+const inputClass = `w-full ${controlClass}`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 function tagKey(tag) {
@@ -118,7 +118,7 @@ export default function TagPicker({
           {selected.map((tag) => (
             <span
               key={tagKey(tag)}
-              className="inline-flex items-center gap-1 border-brutal border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+              className="inline-flex items-center gap-1 border-brutal-xs border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
             >
               {tag.name}
               {!disabled && (
@@ -157,20 +157,20 @@ export default function TagPicker({
               type="button"
               onClick={createFromQuery}
               disabled={query.trim() === ""}
-              className="shrink-0 border-brutal border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+              className="shrink-0 border-brutal-xs border-black bg-nv-violet px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
             >
               {canCreate ? "Add new" : "Add"}
             </button>
           </div>
 
           {query.trim() !== "" && (suggestions.length > 0 || canCreate) && (
-            <ul className="max-h-40 overflow-y-auto border-brutal border-black bg-nv-paper">
-              {suggestions.map((tag) => (
-                <li key={tag.id}>
+            <ul className={`max-h-40 overflow-y-auto border-brutal-xs border-black bg-nv-paper ${listClass}`}>
+              {suggestions.map((tag, index) => (
+                <li key={tag.id} className={rowStripe(index)}>
                   <button
                     type="button"
                     onClick={() => addTag(tag)}
-                    className="block w-full px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-cyan/20"
+                    className="block w-full px-2 py-1.5 text-left text-xs font-semibold hover:bg-nv-violet/20"
                   >
                     {tag.name}
                   </button>

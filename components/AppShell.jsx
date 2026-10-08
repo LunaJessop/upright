@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
+import SiteFooter from "@/components/SiteFooter";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 
 const PUBLIC_PATHS = new Set([
@@ -80,21 +81,25 @@ function AppShellInner({ children }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-full flex-1 items-center justify-center bg-nv-canvas px-4">
-        <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/55">
-          Loading session…
-        </p>
+      <div className="flex min-h-screen flex-col">
+        <div className="flex flex-1 items-center justify-center bg-nv-canvas px-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/55">
+            Loading session…
+          </p>
+        </div>
+        <SiteFooter />
       </div>
     );
   }
 
   // Help is always a public docs surface (own top nav) — never app chrome.
-  if (helpPath) {
-    return <main className="min-h-full flex-1">{children}</main>;
-  }
-
-  if (isPublic) {
-    return <main className="min-h-full flex-1">{children}</main>;
+  if (helpPath || isPublic) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+      </div>
+    );
   }
 
   if (!user) {
@@ -107,30 +112,41 @@ function AppShellInner({ children }) {
       return null;
     }
     return (
-      <div className="flex min-h-full flex-1 flex-col">
-        <div className="flex min-h-0 flex-1">
-          <Navbar />
-          <main className="min-w-0 flex-1">{children}</main>
+      <div className="flex min-h-screen">
+        <Navbar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
         </div>
       </div>
     );
   }
 
   if (!hasReadAccess) {
-    return <BillingWall />;
+    return (
+      <div className="flex min-h-screen flex-col">
+        <div className="flex-1">
+          <BillingWall />
+        </div>
+        <SiteFooter />
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-screen flex-col">
       <PastDueBanner />
       <ReadOnlyBanner />
-      <div className="flex min-h-0 flex-1">
+      <div className="flex flex-1">
         <Navbar />
-        <main
-          className={`min-w-0 flex-1 ${!hasAppAccess ? "upright-readonly" : ""}`}
-        >
-          {children}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main
+            className={`flex-1 ${!hasAppAccess ? "upright-readonly" : ""}`}
+          >
+            {children}
+          </main>
+          <SiteFooter />
+        </div>
       </div>
     </div>
   );

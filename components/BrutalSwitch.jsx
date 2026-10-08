@@ -15,7 +15,7 @@ export default function BrutalSwitch({
   return (
     <div className={className}>
       <div
-        className="relative inline-flex h-8 w-auto overflow-hidden rounded-full border-brutal border-black bg-nv-paper shadow-brutal-sm"
+        className="relative inline-flex h-8 w-auto overflow-hidden rounded-full border-brutal-xs border-black bg-nv-paper"
         role="group"
         aria-label={ariaLabel}
       >
@@ -23,8 +23,8 @@ export default function BrutalSwitch({
           aria-hidden
           className={`absolute inset-y-0 w-1/2 bg-nv-cyan transition-transform duration-150 ease-out ${
             isOn
-              ? "translate-x-full border-l-brutal border-black"
-              : "translate-x-0 border-r-brutal border-black"
+              ? "translate-x-full border-l-brutal-xs border-black"
+              : "translate-x-0 border-r-brutal-xs border-black"
           }`}
         />
         <button

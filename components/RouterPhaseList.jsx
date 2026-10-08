@@ -1,5 +1,7 @@
 "use client";
 
+import { listClass, rowStripe } from "@/lib/chrome";
+
 function formatMinutes(value) {
   const minutes = Number(value);
   if (!Number.isFinite(minutes) || minutes <= 0) return null;
@@ -9,7 +11,7 @@ function formatMinutes(value) {
   return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-export default function RouterPhaseList({ phases }) {
+export default function RouterPhaseList({ phases, tone = "cyan" }) {
   if (!Array.isArray(phases) || phases.length === 0) {
     return (
       <p className="text-xs font-medium text-nv-ink/55">
@@ -19,13 +21,13 @@ export default function RouterPhaseList({ phases }) {
   }
 
   return (
-    <ol className="space-y-2">
-      {phases.map((phase) => {
+    <ol className={listClass}>
+      {phases.map((phase, index) => {
         const duration = formatMinutes(phase.estimated_minutes);
         return (
           <li
             key={phase.id ?? phase.sequence}
-            className="flex gap-3 border-brutal border-black bg-nv-lavender/15 px-3 py-2"
+            className={`flex gap-3 px-3 py-2 ${rowStripe(index, tone)}`}
           >
             <span className="font-mono text-sm font-black text-nv-violet">
               {phase.sequence}

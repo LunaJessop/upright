@@ -52,9 +52,9 @@ export default function StylesPage() {
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               {[
                 { bg: "bg-nv-violet", label: "Brand violet", fg: "text-white" },
-                { bg: "bg-nv-teal", label: "Teal", fg: "text-white" },
+                { bg: "bg-nv-teal", label: "Teal", fg: "text-black" },
                 { bg: "bg-nv-cyan", label: "Cyan", fg: "text-black" },
-                { bg: "bg-nv-lavender", label: "Lavender", fg: "text-white" },
+                { bg: "bg-nv-lavender", label: "Lavender", fg: "text-black" },
                 { bg: "bg-nv-paper", label: "Paper", fg: "text-black" },
                 { bg: "bg-nv-ink", label: "Ink", fg: "text-white" },
               ].map(({ bg, label, fg }) => (
@@ -115,7 +115,7 @@ export default function StylesPage() {
               </button>
               <button
                 type="button"
-                className={`bg-nv-teal px-5 py-2.5 text-sm font-black uppercase tracking-wide text-white ${brutalChrome} transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none`}
+                className={`bg-nv-teal px-5 py-2.5 text-sm font-black uppercase tracking-wide text-black ${brutalChrome} transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none`}
               >
                 Secondary
               </button>
@@ -138,10 +138,10 @@ export default function StylesPage() {
           <Section title="Cards">
             <div className="grid gap-6 sm:grid-cols-2">
               <article
-                className={`flex flex-col bg-nv-lavender p-5 text-white ${brutalChrome}`}
+                className={`flex flex-col bg-nv-lavender/30 p-5 text-nv-ink ${brutalChrome}`}
               >
                 <h3 className="text-xl font-black uppercase">Card one</h3>
-                <p className="mt-2 flex-1 text-sm font-medium leading-relaxed text-white/95">
+                <p className="mt-2 flex-1 text-sm font-medium leading-relaxed text-nv-ink/80">
                   Lavender panel—same brutal border and hard shadow as the SaaS
                   reference.
                 </p>
@@ -176,7 +176,7 @@ export default function StylesPage() {
                 <input
                   type="text"
                   placeholder="Type something bold"
-                  className={`w-full border-0 bg-nv-paper px-3 py-2.5 text-sm font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet border-brutal border-black`}
+                  className={`w-full border-brutal-xs border-black bg-nv-paper px-3 py-2.5 text-sm font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet`}
                 />
               </label>
               <label className="block space-y-2">
@@ -184,7 +184,7 @@ export default function StylesPage() {
                   Select
                 </span>
                 <select
-                  className={`w-full cursor-pointer bg-nv-paper px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet border-brutal border-black`}
+                  className={`w-full cursor-pointer border-brutal-xs border-black bg-nv-paper px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet`}
                   defaultValue="a"
                 >
                   <option value="a">Option A</option>
@@ -193,7 +193,7 @@ export default function StylesPage() {
               </label>
               <button
                 type="button"
-                className={`w-full border-brutal border-black bg-nv-violet py-3 text-sm font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none`}
+                className={`w-full border-brutal-xs border-black bg-nv-violet py-3 text-sm font-black uppercase tracking-wide text-white`}
               >
                 Submit
               </button>
@@ -215,12 +215,12 @@ export default function StylesPage() {
           <Section title="Badges & chips">
             <div className="flex flex-wrap gap-3">
               <span
-                className={`bg-nv-lavender px-3 py-1 text-xs font-black uppercase text-white ${brutalChromeSm}`}
+                className={`bg-nv-lavender/30 px-3 py-1 text-xs font-black uppercase text-nv-ink ${brutalChromeSm}`}
               >
                 Pro
               </span>
               <span
-                className={`bg-nv-teal px-3 py-1 text-xs font-black uppercase text-white ${brutalChromeSm}`}
+                className={`bg-nv-teal px-3 py-1 text-xs font-black uppercase text-black ${brutalChromeSm}`}
               >
                 Basic
               </span>

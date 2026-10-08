@@ -9,6 +9,15 @@ const nextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  async redirects() {
+    return [
+      {
+        source: "/items/inventory",
+        destination: "/items",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

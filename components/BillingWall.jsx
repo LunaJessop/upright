@@ -5,7 +5,7 @@ import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useState } from "react";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 
 export default function BillingWall() {
   const { user, logout, subscriptionStatus } = useAuth();
@@ -59,7 +59,7 @@ export default function BillingWall() {
             {needsNewCheckout ? (
               <Link
                 href="/register/plan"
-                className="border-brutal border-black bg-nv-violet px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm"
+                className="border-brutal-xs border-black bg-nv-violet px-4 py-3 text-xs font-black uppercase tracking-wide text-white"
               >
                 Choose a plan
               </Link>
@@ -68,7 +68,7 @@ export default function BillingWall() {
               type="button"
               disabled={busy}
               onClick={() => void openPortal()}
-              className="border-brutal border-black bg-nv-paper px-4 py-3 text-xs font-black uppercase tracking-wide shadow-brutal-sm disabled:opacity-40"
+              className="border-brutal-xs border-black bg-nv-paper px-4 py-3 text-xs font-black uppercase tracking-wide disabled:opacity-40"
             >
               Manage billing
             </button>

@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ROLE_LABELS } from "@/lib/auth";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -59,9 +59,9 @@ export default function ProfilePage() {
         </header>
 
         <section className={`${brutalChrome} bg-nv-paper p-5`}>
-          <div className="mb-4 flex items-center gap-4 border-b-brutal border-black pb-4">
+          <div className="mb-4 flex items-center gap-4 border-b border-black/10 pb-4">
             <span
-              className="flex h-14 w-14 shrink-0 items-center justify-center border-brutal border-black bg-nv-violet text-sm font-black uppercase text-white shadow-brutal-sm"
+              className="flex h-14 w-14 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-violet text-sm font-black uppercase text-white"
               aria-hidden
             >
               {initials}
@@ -93,13 +93,13 @@ export default function ProfilePage() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href="/client"
-            className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+            className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white"
           >
             Company page
           </Link>
           <Link
             href="/items"
-            className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+            className="border-brutal-xs border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide"
           >
             Back to items
           </Link>

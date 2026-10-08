@@ -9,10 +9,7 @@ import {
   ROLE_LABELS,
   passwordMeetsPolicy,
 } from "@/lib/auth";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const inputClass =
-  "w-full border-brutal border-black bg-nv-paper px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+import { brutalChrome, inputClass, listClass, rowStripe } from "@/lib/chrome";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -161,11 +158,11 @@ export default function ClientPage() {
           {members.length === 0 ? (
             <p className="text-xs font-medium text-nv-ink/50">No team members yet.</p>
           ) : (
-            <ul className="divide-y divide-black/10 border-t border-black/10">
-              {members.map((member) => (
+            <ul className={`${listClass} -mx-5 border-t border-black/10`}>
+              {members.map((member, index) => (
                 <li
                   key={member.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-3"
+                  className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3 ${rowStripe(index, "violet")}`}
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black uppercase tracking-wide">
@@ -275,7 +272,7 @@ export default function ClientPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="border-brutal border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 disabled:opacity-40"
+                className="border-brutal-xs border-black bg-nv-violet px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
               >
                 {submitting ? "Creating…" : "Create user"}
               </button>

@@ -14,13 +14,13 @@ export default function AuthPage() {
         <div className="mt-8 flex flex-col gap-3">
           <Link
             href="/login"
-            className="border-brutal border-black bg-nv-violet px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+            className="border-brutal-xs border-black bg-nv-violet px-4 py-3 text-xs font-black uppercase tracking-wide text-white"
           >
             Log in
           </Link>
           <Link
             href="/register"
-            className="border-brutal border-black bg-nv-paper px-4 py-3 text-xs font-black uppercase tracking-wide shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+            className="border-brutal-xs border-black bg-nv-paper px-4 py-3 text-xs font-black uppercase tracking-wide"
           >
             Register
           </Link>

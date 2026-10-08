@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { listClass, rowStripe } from "@/lib/chrome";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -66,11 +67,8 @@ export default function NestedProductionPhases({ rootItem, itemById }) {
         Work queue for a batch — make children first, then this item.
       </p>
       {groups.map((group) => (
-        <section
-          key={group.itemId}
-          className="border-brutal border-black bg-nv-lavender/15"
-        >
-          <header className="border-b-brutal border-black bg-nv-violet px-3 py-2 text-white">
+        <section key={group.itemId}>
+          <header className="bg-nv-violet px-3 py-2 text-white">
             {group.itemId ? (
               <Link
                 href={`/items/${group.itemId}`}
@@ -84,11 +82,11 @@ export default function NestedProductionPhases({ rootItem, itemById }) {
               </p>
             )}
           </header>
-          <ol>
+          <ol className={listClass}>
             {group.phases.map((phase, index) => (
               <li
                 key={phase.id ?? `${group.itemId}-${index}`}
-                className="flex gap-2 border-b border-black/10 px-3 py-2 text-xs font-semibold last:border-b-0"
+                className={`flex gap-2 px-3 py-2 text-xs font-semibold ${rowStripe(index, "violet")}`}
               >
                 <span className="font-mono font-black text-nv-violet">
                   {index + 1}.
