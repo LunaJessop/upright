@@ -46,7 +46,7 @@ export default function HelpGuide() {
         className={`mb-10 ${brutalChrome} overflow-hidden bg-nv-violet text-white`}
       >
         <div className="p-6 sm:p-8">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-white/75">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-white">
             Help · Business Setup
           </p>
           <h1 className="mt-2 text-3xl font-black uppercase leading-tight sm:text-4xl">

@@ -1,6 +1,6 @@
 "use client";
 
-import { listClass, rowStripe } from "@/lib/chrome";
+import { listClass, nestedHeaderClass, rowStripe } from "@/lib/chrome";
 
 const STATUS_STYLES = {
   pending: "text-nv-ink/40",
@@ -160,14 +160,14 @@ export function currentPhaseLabel(phases) {
   return "All phases done";
 }
 
-function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
+function PhaseRow({ phase, displaySequence, updating, onStatusChange, tone = "green" }) {
   const isRunning = phase.status === "in_progress";
   const isComplete = phase.status === "complete";
   const isCancelled = phase.status === "skipped";
   const isClosed = isComplete || isCancelled;
 
   return (
-    <li className={rowStripe(displaySequence != null ? displaySequence - 1 : 0, "violet")}>
+    <li className={rowStripe(displaySequence != null ? displaySequence - 1 : 0, tone === "purple" ? "violet" : "teal")}>
       <div className="flex items-stretch">
         <div className="min-w-0 flex-1 px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,12 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange }) {
   );
 }
 
-export default function BatchPhaseTracker({ phases, updating, onStatusChange }) {
+export default function BatchPhaseTracker({
+  phases,
+  updating,
+  onStatusChange,
+  tone = "green",
+}) {
   const groups = groupPhasesByItem(phases);
 
   if (groups.length === 0) {
@@ -259,12 +264,14 @@ export default function BatchPhaseTracker({ phases, updating, onStatusChange }) 
     <div className="space-y-4">
       {groups.map((group) => (
         <section key={group.key}>
-          <header className="bg-nv-violet px-3 py-2 text-white">
+          <header
+            className={`${nestedHeaderClass[tone] || nestedHeaderClass.green} px-3 py-2`}
+          >
             <p className="text-sm font-black uppercase tracking-wide">
               {group.name}
             </p>
             {group.quantity != null && (
-              <p className="mt-0.5 text-[10px] font-medium text-white/80">
+              <p className="mt-0.5 text-[10px] font-medium">
                 Qty {group.quantity}
               </p>
             )}
@@ -277,6 +284,7 @@ export default function BatchPhaseTracker({ phases, updating, onStatusChange }) 
                 displaySequence={index + 1}
                 updating={updating}
                 onStatusChange={onStatusChange}
+                tone={tone}
               />
             ))}
           </ol>

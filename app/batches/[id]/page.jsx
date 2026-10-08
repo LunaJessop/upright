@@ -56,7 +56,7 @@ function FieldRow({ label, value }) {
   );
 }
 
-function SectionCard({ title, accent = "bg-nv-cyan", children }) {
+function SectionCard({ title, accent = "bg-nv-green-dark", children }) {
   return (
     <section className={`${brutalChrome} bg-nv-paper`}>
       <header className={`border-b-brutal-xs border-black ${accent} px-4 py-2`}>
@@ -233,7 +233,7 @@ export default function BatchDetailPage({ params }) {
         {!loading && !error && batch && (
           <>
             <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-              <p className="break-all font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+              <p className="break-all font-mono text-xs font-bold uppercase tracking-widest text-white">
                 {batch.sku || `Batch #${batch.id}`}
               </p>
               <h1 className="break-words text-3xl font-black uppercase leading-tight">
@@ -265,7 +265,7 @@ export default function BatchDetailPage({ params }) {
             </header>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-              <SectionCard title="Batch data" accent="bg-nv-lavender/30">
+              <SectionCard title="Batch data" accent="bg-nv-purple-dark">
                 <FieldRow label="Item" value={batch.item_name} />
                 <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
                   <span className={`shrink-0 ${labelClass}`}>Item link</span>
@@ -284,7 +284,7 @@ export default function BatchDetailPage({ params }) {
                 <FieldRow label="Created" value={formatDate(batch.created_at)} />
               </SectionCard>
 
-              <SectionCard title="Projected economics" accent="bg-nv-teal">
+              <SectionCard title="Projected economics" accent="bg-nv-green-dark">
                 <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
                   Snapshot from batch creation — buy material cost vs finished
                   sell price. Catalog price changes later do not update this.
@@ -360,7 +360,7 @@ export default function BatchDetailPage({ params }) {
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-              <SectionCard title="Actions" accent="bg-nv-lavender/30">
+              <SectionCard title="Actions" accent="bg-nv-purple-dark">
                 {canMasterComplete && (
                   <div className="space-y-2">
                     <p className="text-[10px] font-medium text-nv-ink/60">
@@ -477,7 +477,7 @@ export default function BatchDetailPage({ params }) {
                 )}
               </SectionCard>
 
-              <SectionCard title="BOM" accent="bg-nv-cyan">
+              <SectionCard title="BOM" accent="bg-nv-green-dark">
                 {bomLines.length > 0 ? (
                   <>
                     <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
@@ -502,7 +502,7 @@ export default function BatchDetailPage({ params }) {
               </SectionCard>
             </div>
 
-            <SectionCard title="Production phases" accent="bg-nv-teal">
+            <SectionCard title="Production phases" accent="bg-nv-green-dark">
               <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
                 Nested by item — make children first, then this item&apos;s own
                 steps. Use Complete batch above when floor work is done.
@@ -523,6 +523,7 @@ export default function BatchDetailPage({ params }) {
                 </p>
               )}
               <BatchPhaseTracker
+                tone="green"
                 phases={phases}
                 updating={updating || batchLocked || !canWrite}
                 onStatusChange={(phaseId, status) =>

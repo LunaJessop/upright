@@ -77,7 +77,7 @@ function ItemListRow({ item, index }) {
               </h3>
               <span
                 className={`px-2 py-px text-[10px] font-black uppercase tracking-wide ${
-                  isMake ? "bg-nv-violet text-white" : "bg-nv-teal text-black"
+                  isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
                 }`}
               >
                 {isMake ? "Make" : "Buy"}
@@ -85,7 +85,7 @@ function ItemListRow({ item, index }) {
               <span
                 className={`px-2 py-px text-[10px] font-black uppercase tracking-wide ${
                   item.active
-                    ? "bg-nv-cyan/50 text-black"
+                    ? "bg-nv-green-dark"
                     : "bg-black/10 text-nv-ink/50"
                 }`}
               >
@@ -94,7 +94,7 @@ function ItemListRow({ item, index }) {
               {tags.map((tag) => (
                 <span
                   key={tag.id ?? tag.name}
-                  className="border border-black bg-nv-lavender/40 px-1 py-px text-[8px] font-black uppercase tracking-wide"
+                  className="border-brutal-xs border-black bg-nv-purple-dark px-1 py-px text-[8px] font-black uppercase tracking-wide"
                 >
                   {tag.name}
                 </span>
@@ -199,7 +199,7 @@ export default function ItemsPage() {
         <header className={`mb-4 ${brutalChrome} bg-nv-violet p-5 text-white`}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+              <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
                 Items
               </p>
               <h1 className="break-words text-3xl font-black uppercase leading-tight">

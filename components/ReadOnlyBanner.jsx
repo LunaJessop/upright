@@ -53,7 +53,7 @@ export default function ReadOnlyBanner() {
             </button>
           </div>
         ) : (
-          <p className="text-[10px] font-bold uppercase tracking-wide text-white/80">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-white">
             Ask a founder to update billing
           </p>
         )}

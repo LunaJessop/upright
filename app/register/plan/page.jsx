@@ -149,12 +149,12 @@ export default function RegisterPlanPage() {
             </h2>
             <p className="mt-3 flex items-baseline gap-1">
               <span className="text-3xl font-black">{plan.priceLabel}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-white/70">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-white">
                 {plan.cadence}
               </span>
             </p>
             {plan.blurb ? (
-              <p className="mt-2 text-[11px] font-medium leading-snug text-white/85">
+              <p className="mt-2 text-[11px] font-medium leading-snug text-white">
                 {plan.blurb}
               </p>
             ) : null}

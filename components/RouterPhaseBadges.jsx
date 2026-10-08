@@ -14,7 +14,7 @@ export default function RouterPhaseBadges({ phases }) {
       {phases.map((phase) => (
         <span
           key={phase.id ?? phase.sequence}
-          className="border-brutal-xs border-black bg-nv-lavender/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+          className="border-brutal-xs border-black bg-nv-purple-dark px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
         >
           {phase.name}
         </span>

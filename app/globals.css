@@ -6,27 +6,59 @@
 @source "../components/**/*.{js,jsx}";
 @source "../lib/**/*.{js,jsx}";
 
-/* -------------------------------------------------------------------------- */
-/* Design tokens — NexaVerse-style palette + neobrutal chrome                  */
-/* Light theme: white canvas, ink text on light surfaces, white on dark accents  */
-/* -------------------------------------------------------------------------- */
-
+/*
+ * Palette — one dark, one muted, and one light tint per hue.
+ * On-colors are black or white, whichever WCAG relative luminance scores
+ * higher, and each pair below is at least 4.5:1.
+ *
+ * Purple
+ *   dark  #7c3aed  white  5.70:1   level-1 headers and badges
+ *   muted #b691f5  black  8.36:1   headers nested inside a level-1 container
+ *   tint  #ebe1fc  black 16.71:1   list stripes and quiet fills (violet at 15%)
+ * Green
+ *   dark  #16717a  white  5.71:1   level-1 headers and badges
+ *   muted #7dafb5  black  8.67:1   headers nested inside a level-1 container
+ *   tint  #e4f1f2  black 18.16:1   list stripes and the Edit button fill
+ * Red (delete only, not a brand hue)
+ *   #dc2626       white  4.83:1
+ *
+ * Level-1 headers and badges use the dark shade with white text.
+ * A container nested inside one of those uses the muted shade of the same hue.
+ * List rows stay on the light tint of that hue, alternating with white.
+ * Button fills keep the legacy cyan and teal tokens so existing buttons
+ * are not recolored. --nv-violet-dark is the same purple dark (one dark purple).
+ */
 :root {
   --background: #ffffff;
   --foreground: #111827;
 
-  --nv-violet: #7c3aed;
-  --nv-violet-dark: #5b21b6;
+  --nv-purple-dark: #7c3aed;
+  --nv-purple-muted: #b691f5;
+  --nv-purple-tint: #ebe1fc;
+  --nv-green-dark: #16717a;
+  --nv-green-muted: #7dafb5;
+  --nv-green-tint: #e4f1f2;
+
+  --nv-on-purple-dark: #ffffff;
+  --nv-on-purple-muted: #000000;
+  --nv-on-purple-tint: #000000;
+  --nv-on-green-dark: #ffffff;
+  --nv-on-green-muted: #000000;
+  --nv-on-green-tint: #000000;
+  --nv-on-red: #ffffff;
+
+  --nv-violet: var(--nv-purple-dark);
+  --nv-violet-dark: var(--nv-purple-dark);
   --nv-teal: #4da1a9;
   --nv-cyan: #00d1c1;
   --nv-lavender: #7b61ff;
   --nv-canvas: #ffffff;
   --nv-ink: #111827;
   --nv-paper: #ffffff;
-  --nv-row-alt: #e8e4ff;
+  --nv-row-alt: var(--nv-purple-tint);
 
   --nv-text-on-light: var(--nv-ink);
-  --nv-text-on-dark: #ffffff;
+  --nv-text-on-dark: var(--nv-on-purple-dark);
 
   --shadow-brutal-val: 6px 6px 0 0 #000;
   --shadow-brutal-sm-val: 4px 4px 0 0 #000;
@@ -37,6 +69,12 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
+  --color-nv-purple-dark: var(--nv-purple-dark);
+  --color-nv-purple-muted: var(--nv-purple-muted);
+  --color-nv-purple-tint: var(--nv-purple-tint);
+  --color-nv-green-dark: var(--nv-green-dark);
+  --color-nv-green-muted: var(--nv-green-muted);
+  --color-nv-green-tint: var(--nv-green-tint);
   --color-nv-violet: var(--nv-violet);
   --color-nv-violet-dark: var(--nv-violet-dark);
   --color-nv-teal: var(--nv-teal);
@@ -75,13 +113,17 @@ body {
  * on the same element. Match whole class tokens only: hover:bg-nv-violet/20
  * must not count as a dark fill, or list rows render white on white.
  *
- * White text: violet, violet-dark, and ink.
- * Ink text: paper, cyan, teal, lavender, and every tint. Cyan, teal, and
- * lavender are too light for white type.
+ * White text: purple dark, green dark, violet, ink, and red-600.
+ * Black text: muted and tint steps, paper, and the legacy cyan/teal/lavender
+ * fills (those button colors are too light for white type).
  */
 .bg-nv-paper,
 .bg-nv-canvas,
 .bg-nv-row-alt,
+.bg-nv-purple-muted,
+.bg-nv-purple-tint,
+.bg-nv-green-muted,
+.bg-nv-green-tint,
 .bg-nv-cyan,
 .bg-nv-teal,
 .bg-nv-lavender,
@@ -107,14 +149,65 @@ body {
 [class~="bg-nv-violet/10"],
 [class~="bg-nv-violet/15"],
 [class~="bg-nv-violet/20"],
-[class~="bg-nv-violet/40"] {
-  color: var(--nv-text-on-light);
+[class~="bg-nv-violet/40"],
+[class~="bg-nv-teal/80"] {
+  color: #000000;
 }
 
+.bg-nv-purple-dark,
+.bg-nv-green-dark,
 .bg-nv-violet,
 .bg-nv-violet-dark,
-.bg-nv-ink {
-  color: var(--nv-text-on-dark);
+.bg-nv-ink,
+.bg-red-600 {
+  color: #ffffff;
+}
+
+/*
+ * Pointer on every clickable control. In @layer base so an explicit
+ * cursor utility (the disabled-style specimen, for example) can still win.
+ * Disabled controls use not-allowed.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  summary,
+  select:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  textarea:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/*
+ * Buttons and inputs use the 1px border token. Outer frames and headings
+ * keep border-brutal (3px) because they are not buttons. Unlayered so this
+ * wins over the 3px utility on a button or button-like link.
+ * border-0 fields (the quantity stepper) stay borderless.
+ */
+button.border-brutal,
+button.border-brutal-sm,
+button.border-brutal-xs,
+a.border-brutal,
+a.border-brutal-sm,
+a.border-brutal-xs,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not(.border-0),
+select:not(.border-0),
+textarea:not(.border-0) {
+  border-width: var(--border-width-brutal-xs);
 }
 
 /* Form controls on light backgrounds */

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { listClass, rowStripe } from "@/lib/chrome";
+import { listClass, nestedHeaderClass, rowStripe } from "@/lib/chrome";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -68,7 +68,7 @@ export default function NestedProductionPhases({ rootItem, itemById }) {
       </p>
       {groups.map((group) => (
         <section key={group.itemId}>
-          <header className="bg-nv-violet px-3 py-2 text-white">
+          <header className={`${nestedHeaderClass.purple} px-3 py-2`}>
             {group.itemId ? (
               <Link
                 href={`/items/${group.itemId}`}
