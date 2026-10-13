@@ -84,14 +84,16 @@ function QuantityStepper({ value, onChange }) {
   );
 }
 
-function MultiSelectDropdown({
+export function MultiSelectDropdown({
   title,
   options,
   selectedValues,
   onChange,
   className = "",
+  tone = "cyan",
+  defaultOpen = false,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -188,6 +190,7 @@ export default function BomRecipeEditor({
   onUpdateLineUnit,
   parentUnitOfMeasure = "",
   tone = "cyan",
+  defaultOpen = false,
 }) {
   const bomOptions = catalogItems.map((item) => ({
     value: String(item.id),
@@ -206,6 +209,8 @@ export default function BomRecipeEditor({
           selectedValues={selectedItemIds}
           onChange={onSelectedItemIdsChange}
           className="w-full"
+          tone={tone}
+          defaultOpen={defaultOpen}
         />
         <div className="flex justify-end">
           <button
