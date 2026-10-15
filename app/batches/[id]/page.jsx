@@ -16,6 +16,7 @@ import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTra
 import BatchReceipt from "@/components/BatchReceipt";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
+import { allocationQuantityUnit } from "@/lib/batchAllocation";
 import { brutalChrome } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
@@ -207,6 +208,18 @@ export default function BatchDetailPage({ params }) {
     return map;
   }, [batchItem, catalogItems]);
 
+  const receiptComponents = useMemo(() => {
+    const components = Array.isArray(batch?.components) ? batch.components : [];
+    return components.map((component) => ({
+      ...component,
+      unit_of_measure: allocationQuantityUnit({
+        batchStatus: batch?.status,
+        recordedUnit: component.unit_of_measure,
+        stockUnit: itemById.get(String(component.item_id))?.unit_of_measure,
+      }),
+    }));
+  }, [batch, itemById]);
+
   return (
     <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
@@ -285,7 +298,7 @@ export default function BatchDetailPage({ params }) {
 
               <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">
                 <BatchReceipt
-                  components={batch.components}
+                  components={receiptComponents}
                   quantity={batch.quantity}
                   unitSell={batch.projected_unit_sell}
                   projectedCost={batch.projected_cost}
