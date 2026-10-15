@@ -50,6 +50,7 @@ import {
 import {
   planStockUnitChange,
   priceAfterUnitChange,
+  scaleRecipeQuantities,
 } from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -294,6 +295,22 @@ export default function ItemDetailPage({ params }) {
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const changeDraftUnit = (nextUnit) => {
+    const scaled = scaleRecipeQuantities(
+      bomLines,
+      draft?.unit_of_measure,
+      nextUnit
+    );
+    if (!scaled.ok) {
+      setSaveError(scaled.error);
+      toast.error(scaled.error);
+      return;
+    }
+    setBomLines(scaled.lines);
+    setDraftField("unit_of_measure", nextUnit);
+    setSaveError("");
   };
 
   const startEditing = () => {
@@ -1982,9 +1999,7 @@ export default function ItemDetailPage({ params }) {
                         <FieldRow label="Unit of measure">
                           <UnitOfMeasureSelect
                             value={draft.unit_of_measure}
-                            onChange={(e) =>
-                              setDraftField("unit_of_measure", e.target.value)
-                            }
+                            onChange={(e) => changeDraftUnit(e.target.value)}
                             className={`${editInputClass} cursor-pointer`}
                           />
                         </FieldRow>
