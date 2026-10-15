@@ -13,18 +13,16 @@ import {
 } from "@/app/api/apiHandler";
 import BomTreeView from "@/components/BomTreeView";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
+import BatchReceipt from "@/components/BatchReceipt";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
-import { friendlyUnitLabel, formatReadableQuantity } from "@/lib/formatQuantity";
-import { formatMargin, formatMoney, isMakeItem } from "@/lib/pricing";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 const STATUS_STYLES = {
   planned: "bg-nv-paper text-nv-ink/70",
-  in_progress: "bg-nv-cyan text-black",
+  in_progress: "bg-nv-cyan",
   complete: "bg-nv-teal text-black",
   cancelled: "bg-red-600 text-white",
 };
@@ -58,11 +56,11 @@ function FieldRow({ label, value }) {
   );
 }
 
-function SectionCard({ title, accent = "bg-nv-cyan", children }) {
+function SectionCard({ title, accent = "bg-nv-green-dark", children }) {
   return (
     <section className={`${brutalChrome} bg-nv-paper`}>
-      <header className={`border-b-brutal border-black ${accent} px-4 py-2`}>
-        <h2 className="text-sm font-black uppercase tracking-wide text-black">
+      <header className={`border-b-brutal-xs border-black ${accent} px-4 py-2`}>
+        <h2 className="text-sm font-black uppercase tracking-wide">
           {title}
         </h2>
       </header>
@@ -210,6 +208,18 @@ export default function BatchDetailPage({ params }) {
     return map;
   }, [batchItem, catalogItems]);
 
+  const receiptComponents = useMemo(() => {
+    const components = Array.isArray(batch?.components) ? batch.components : [];
+    return components.map((component) => ({
+      ...component,
+      unit_of_measure: allocationQuantityUnit({
+        batchStatus: batch?.status,
+        recordedUnit: component.unit_of_measure,
+        stockUnit: itemById.get(String(component.item_id))?.unit_of_measure,
+      }),
+    }));
+  }, [batch, itemById]);
+
   return (
     <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
@@ -235,7 +245,7 @@ export default function BatchDetailPage({ params }) {
         {!loading && !error && batch && (
           <>
             <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-              <p className="break-all font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+              <p className="break-all font-mono text-xs font-bold uppercase tracking-widest text-white">
                 {batch.sku || `Batch #${batch.id}`}
               </p>
               <h1 className="break-words text-3xl font-black uppercase leading-tight">
@@ -243,18 +253,18 @@ export default function BatchDetailPage({ params }) {
               </h1>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span
-                  className={`border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${STATUS_STYLES[batch.status] ?? STATUS_STYLES.planned}`}
+                  className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${STATUS_STYLES[batch.status] ?? STATUS_STYLES.planned}`}
                 >
                   {statusLabel(batch.status)}
                 </span>
-                <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                <span className="border-brutal-xs border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide">
                   Qty {batch.quantity}
                   {batch.item_unit_of_measure
                     ? ` ${batch.item_unit_of_measure}`
                     : ""}
                 </span>
                 {batch.status === "complete" && (
-                  <span className="border-brutal border-black bg-nv-teal px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                  <span className="border-brutal-xs border-black bg-nv-teal px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
                     Locked · inventory posted
                   </span>
                 )}
@@ -267,7 +277,7 @@ export default function BatchDetailPage({ params }) {
             </header>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-              <SectionCard title="Batch data" accent="bg-nv-lavender">
+              <SectionCard title="Batch data" accent="bg-nv-purple-dark">
                 <FieldRow label="Item" value={batch.item_name} />
                 <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
                   <span className={`shrink-0 ${labelClass}`}>Item link</span>
@@ -286,91 +296,18 @@ export default function BatchDetailPage({ params }) {
                 <FieldRow label="Created" value={formatDate(batch.created_at)} />
               </SectionCard>
 
-              <SectionCard title="Projected economics" accent="bg-nv-teal">
-                <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
-                  Snapshot from batch creation — buy material cost vs finished
-                  sell price. Catalog price changes later do not update this.
-                </p>
-                <FieldRow
-                  label="Material cost"
-                  value={formatMoney(batch.projected_cost)}
+              <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">
+                <BatchReceipt
+                  components={receiptComponents}
+                  quantity={batch.quantity}
+                  unitSell={batch.projected_unit_sell}
+                  projectedCost={batch.projected_cost}
                 />
-                <FieldRow
-                  label="Projected revenue"
-                  value={formatMoney(batch.projected_revenue)}
-                />
-                <FieldRow
-                  label="Projected profit"
-                  value={formatMoney(batch.projected_profit)}
-                />
-                <FieldRow
-                  label="Margin"
-                  value={formatMargin(batch.projected_margin)}
-                />
-                <div className="mt-2 grid gap-x-4 border-t border-black/10 pt-1 sm:grid-cols-2">
-                  <FieldRow
-                    label="Unit cost"
-                    value={formatMoney(batch.projected_unit_cost)}
-                  />
-                  <FieldRow
-                    label="Unit sell"
-                    value={formatMoney(batch.projected_unit_sell)}
-                  />
-                </div>
-                {Array.isArray(batch.components) &&
-                  batch.components.some(
-                    (c) => c.line_cost != null && !isMakeItem(c.make_or_buy)
-                  ) && (
-                    <div className="mt-4 border-t border-black/10 pt-3">
-                      <p className={`${labelClass} mb-2`}>Buy materials</p>
-                      <ul className="space-y-1">
-                        {batch.components
-                          .filter(
-                            (c) =>
-                              !isMakeItem(c.make_or_buy) && c.line_cost != null
-                          )
-                          .map((c) => {
-                            const allocationUnit = allocationQuantityUnit({
-                              batchStatus: batch.status,
-                              recordedUnit: c.unit_of_measure,
-                              stockUnit: itemById.get(String(c.item_id))
-                                ?.unit_of_measure,
-                            });
-                            return (
-                              <li
-                                key={c.id ?? c.item_id}
-                                className="flex items-center justify-between gap-2 text-xs font-semibold"
-                              >
-                                <span className="min-w-0 truncate">
-                                  {c.name}
-                                  <span className="ml-1 font-mono text-[10px] text-nv-ink/50">
-                                    {formatReadableQuantity(
-                                      c.quantity_allocated,
-                                      allocationUnit
-                                    )}
-                                    {c.unit_cost_snapshot != null
-                                      ? ` @ ${formatMoney(c.unit_cost_snapshot)}${
-                                          allocationUnit
-                                            ? ` per ${friendlyUnitLabel(allocationUnit)}`
-                                            : ""
-                                        }`
-                                      : ""}
-                                  </span>
-                                </span>
-                                <span className="shrink-0 font-mono">
-                                  {formatMoney(c.line_cost)}
-                                </span>
-                              </li>
-                            );
-                          })}
-                      </ul>
-                    </div>
-                  )}
               </SectionCard>
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-              <SectionCard title="Actions" accent="bg-nv-lavender">
+              <SectionCard title="Actions" accent="bg-nv-purple-dark">
                 {canMasterComplete && (
                   <div className="space-y-2">
                     <p className="text-[10px] font-medium text-nv-ink/60">
@@ -397,7 +334,7 @@ export default function BatchDetailPage({ params }) {
                             setCompleteError("");
                           }}
                           disabled={completing}
-                          className="flex-1 border-brutal border-black bg-nv-paper px-3 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                          className="flex-1 border-brutal-xs border-black bg-nv-paper px-3 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                         >
                           Go back
                         </button>
@@ -405,7 +342,7 @@ export default function BatchDetailPage({ params }) {
                           type="button"
                           onClick={() => void handleComplete()}
                           disabled={completing || updating || !readyToComplete}
-                          className="flex-1 border-brutal border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          className="flex-1 border-brutal-xs border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                         >
                           {completing ? "Completing…" : "Confirm"}
                         </button>
@@ -424,7 +361,7 @@ export default function BatchDetailPage({ params }) {
                           cancelling ||
                           !readyToComplete
                         }
-                        className="w-full border-brutal border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        className="w-full border-brutal-xs border-black bg-nv-teal px-3 py-2 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                       >
                         Complete batch
                       </button>
@@ -450,7 +387,7 @@ export default function BatchDetailPage({ params }) {
                             setCancelError("");
                           }}
                           disabled={cancelling}
-                          className="flex-1 border-brutal border-black bg-nv-paper px-3 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
+                          className="flex-1 border-brutal-xs border-black bg-nv-paper px-3 py-2 text-[10px] font-black uppercase tracking-wide disabled:opacity-40"
                         >
                           Go back
                         </button>
@@ -458,7 +395,7 @@ export default function BatchDetailPage({ params }) {
                           type="button"
                           onClick={() => void handleCancel()}
                           disabled={cancelling || updating || completing}
-                          className="flex-1 border-brutal border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          className="flex-1 border-brutal-xs border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {cancelling ? "Cancelling…" : "Confirm"}
                         </button>
@@ -472,7 +409,7 @@ export default function BatchDetailPage({ params }) {
                           setConfirmingCancel(true);
                         }}
                         disabled={cancelling || updating || completing}
-                        className="w-full border-brutal border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        className="w-full border-brutal-xs border-black bg-red-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                       >
                         Cancel batch
                       </button>
@@ -487,7 +424,7 @@ export default function BatchDetailPage({ params }) {
                 )}
               </SectionCard>
 
-              <SectionCard title="BOM" accent="bg-nv-cyan">
+              <SectionCard title="BOM" accent="bg-nv-green-dark">
                 {bomLines.length > 0 ? (
                   <>
                     <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
@@ -499,6 +436,7 @@ export default function BatchDetailPage({ params }) {
                       lines={bomLines}
                       itemById={itemById}
                       rootMultiplier={Number(batch.quantity) || 1}
+                      tone="cyan"
                       parentItem={batchItem}
                     />
                   </>
@@ -511,7 +449,7 @@ export default function BatchDetailPage({ params }) {
               </SectionCard>
             </div>
 
-            <SectionCard title="Production phases" accent="bg-nv-teal">
+            <SectionCard title="Production phases" accent="bg-nv-green-dark">
               <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
                 Nested by item — make children first, then this item&apos;s own
                 steps. Use Complete batch above when floor work is done.
@@ -532,6 +470,7 @@ export default function BatchDetailPage({ params }) {
                 </p>
               )}
               <BatchPhaseTracker
+                tone="green"
                 phases={phases}
                 updating={updating || batchLocked || !canWrite}
                 onStatusChange={(phaseId, status) =>

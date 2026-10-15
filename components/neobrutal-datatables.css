@@ -4,13 +4,14 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  --brutal-border: 3px solid #000;
-  --brutal-shadow: var(--shadow-brutal-sm-val);
-  --brutal-shadow-btn: var(--shadow-brutal-btn-val);
+  --brutal-border: 1px solid #000;
+  --brutal-row-line: 1px solid rgb(0 0 0 / 0.1);
+  --brutal-shadow: none;
+  --brutal-shadow-btn: none;
   --brutal-header: var(--nv-violet);
   --brutal-header-fg: #fff;
-  --brutal-row-alt: var(--nv-row-alt);
-  --brutal-accent: var(--nv-cyan);
+  --brutal-row-alt: color-mix(in srgb, var(--nv-violet) 12%, white);
+  --brutal-accent: color-mix(in srgb, var(--nv-violet) 20%, white);
 }
 
 .brutal-dt .dt-container {
@@ -100,8 +101,8 @@
 .brutal-dt table.dataTable thead th {
   background: var(--brutal-header);
   color: var(--nv-text-on-dark);
-  border: var(--brutal-border);
-  border-bottom-width: 4px;
+  border: none;
+  border-bottom: var(--brutal-row-line);
   padding: 0.65rem 0.75rem;
   font-size: 0.7rem;
   font-weight: 800;
@@ -113,7 +114,8 @@
 }
 
 .brutal-dt table.dataTable tbody td {
-  border: var(--brutal-border);
+  border: none;
+  border-bottom: var(--brutal-row-line);
   padding: 0.55rem 0.75rem;
   font-size: 0.875rem;
   vertical-align: middle;
@@ -193,13 +195,11 @@
 }
 
 .brutal-dt .dt-paging-button:hover:not(.disabled):not(.current) {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 0 #000;
+  background: color-mix(in srgb, var(--nv-cyan) 30%, white);
 }
 
 .brutal-dt .dt-paging-button:active:not(.disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--nv-cyan) 50%, white);
 }
 
 .brutal-dt .dt-paging-button.current {
@@ -211,7 +211,7 @@
 .brutal-dt .dt-paging-button.disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  box-shadow: 2px 2px 0 0 #999;
+  box-shadow: none;
   border-color: #666;
   color: #666;
 }

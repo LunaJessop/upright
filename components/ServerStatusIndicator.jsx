@@ -41,7 +41,7 @@ export function ServerStatusIndicator() {
     status === "loading"
       ? "bg-zinc-400 animate-pulse"
       : status === "ok"
-        ? "bg-emerald-500"
+        ? "bg-nv-green-dark"
         : "bg-amber-500";
 
   return (

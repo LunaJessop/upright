@@ -139,7 +139,7 @@ export default function RegisterPlanPage() {
 
         <article className="relative flex h-[calc(100vh-14rem)] w-full max-w-[17.5rem] min-w-0 flex-col border-brutal border-black bg-nv-paper shadow-brutal sm:w-[min(22vw,17.5rem)] sm:min-w-[15.5rem]">
           {plan.badge && (
-            <span className="absolute right-0 top-0 z-10 border-b-brutal border-l-brutal border-black bg-nv-cyan px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn">
+            <span className="absolute right-0 top-0 z-10 border-b-brutal border-l-brutal border-black bg-nv-cyan px-2.5 py-1 text-[10px] font-black uppercase tracking-wide shadow-brutal-btn">
               {plan.badge}
             </span>
           )}
@@ -149,12 +149,12 @@ export default function RegisterPlanPage() {
             </h2>
             <p className="mt-3 flex items-baseline gap-1">
               <span className="text-3xl font-black">{plan.priceLabel}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-white/70">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-white">
                 {plan.cadence}
               </span>
             </p>
             {plan.blurb ? (
-              <p className="mt-2 text-[11px] font-medium leading-snug text-white/85">
+              <p className="mt-2 text-[11px] font-medium leading-snug text-white">
                 {plan.blurb}
               </p>
             ) : null}
