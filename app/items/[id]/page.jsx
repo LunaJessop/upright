@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   DeleteItem,
   GetAllItems,
@@ -14,6 +15,7 @@ import {
   GetRouterPhaseTemplates,
   GetTags,
   GetVendors,
+  ChangeItemUnit,
   UpdateItem,
   UpdateItemInventory,
   UpdateItemInventoryGoal,
@@ -34,6 +36,7 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
+import { brutalChrome, compactInputClass, listClass, rowStripe } from "@/lib/chrome";
 import {
   removeTagById,
   renameTagInList,
@@ -45,14 +48,11 @@ import {
   validateInventoryEdit,
 } from "@/lib/inventoryEdit";
 import {
-  implicitBomReferenceCount,
-  planItemUnitChange,
+  planStockUnitChange,
+  priceAfterUnitChange,
   scaleRecipeQuantities,
 } from "@/lib/itemUnitChange";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
-import { normalizeUnit } from "@/lib/units";
-
-const brutalChrome = "border-brutal border-black shadow-brutal";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 function formatDate(value) {
@@ -90,8 +90,7 @@ function formatDate(value) {
   });
 }
 
-const editInputClass =
-  "w-full border-brutal border-black bg-nv-paper px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-nv-violet";
+const editInputClass = compactInputClass;
 
 function FieldRow({ label, value, children }) {
   return (
@@ -119,13 +118,13 @@ function FieldBlock({ label, value, children }) {
   );
 }
 
-function SectionCard({ title, accent = "bg-nv-cyan", action, children, className = "" }) {
+function SectionCard({ title, accent = "bg-nv-green-dark", action, children, className = "" }) {
   return (
     <section className={`${brutalChrome} bg-nv-paper ${className}`}>
       <header
-        className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal border-black ${accent} px-4 py-2`}
+        className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black ${accent} px-4 py-2`}
       >
-        <h2 className="text-sm font-black uppercase tracking-wide text-black">
+        <h2 className="text-sm font-black uppercase tracking-wide">
           {title}
         </h2>
         {action}
@@ -139,6 +138,10 @@ function formatSkuSource(source) {
   if (source === "purchase") return "Purchase";
   if (source === "production") return "Production";
   return "—";
+}
+
+function batchCountLabel(count) {
+  return `${count} ${count === 1 ? "batch" : "batches"}`;
 }
 
 function itemToDraft(item) {
@@ -221,9 +224,9 @@ function stockStatusLabel(status) {
 }
 
 const STOCK_STATUS_STYLES = {
-  below: "bg-red-600 text-white",
-  above: "bg-nv-violet text-white",
-  on_track: "bg-nv-teal text-black",
+  below: "bg-red-600",
+  above: "bg-nv-purple-dark",
+  on_track: "bg-nv-green-dark",
 };
 
 function formatPlannedDelta(delta, unit) {
@@ -255,6 +258,8 @@ export default function ItemDetailPage({ params }) {
   const [batchQty, setBatchQty] = useState("1");
   const [batchSku, setBatchSku] = useState("");
   const [batchError, setBatchError] = useState("");
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [highlightedBatchId, setHighlightedBatchId] = useState(null);
   const [purchaseLots, setPurchaseLots] = useState([]);
   const [purchaseLotsLoading, setPurchaseLotsLoading] = useState(false);
   const [lotNumber, setLotNumber] = useState("");
@@ -459,57 +464,57 @@ export default function ItemDetailPage({ params }) {
       toast.error(message);
       return;
     }
-    const unitPlan = planItemUnitChange({
-      previousUnit: item.unit_of_measure,
-      nextUnit: draft.unit_of_measure,
-      quantity: inventory?.quantity,
-      plannedDelta: inventory?.planned_delta,
-      goalMin: inventory?.goal_min,
-      goalMax: inventory?.goal_max,
-      purchaseLotCount: purchaseLots.length,
-      productionSkuCount: Array.isArray(item.item_skus)
-        ? item.item_skus.length
-        : 0,
-      implicitBomReferenceCount: implicitBomReferenceCount(catalogItems, id),
-      inventoryKnown: inventory != null,
-      purchaseLotsKnown: isMakeFlag(item.make_or_buy) || !purchaseLotsLoading,
-      canEditGoals,
-    });
-    if (!unitPlan.ok) {
+    const unitPlan = planStockUnitChange(
+      item.unit_of_measure,
+      draft.unit_of_measure
+    );
+    if (unitPlan.action === "reject") {
       setSaveError(unitPlan.error);
+      toast.error(unitPlan.error);
       return;
     }
+    const blankToNull = (value) => {
+      const text = value == null ? "" : String(value).trim();
+      return text === "" ? null : text;
+    };
     setSaving(true);
     setSaveError("");
-    let goalsConverted = false;
+    let unitChangedOnServer = false;
     try {
-      if (unitPlan.goalUpdate) {
-        await UpdateItemInventoryGoal(id, unitPlan.goalUpdate);
-        goalsConverted = true;
+      let changedItem = null;
+      if (unitPlan.action === "change") {
+        changedItem = await ChangeItemUnit(id, unitPlan.unitOfMeasure);
+        unitChangedOnServer = true;
+        if (changedItem?.id) setItem(changedItem);
       }
+      const unitCost = changedItem
+        ? priceAfterUnitChange(
+            item.unit_cost,
+            draft.unit_cost,
+            changedItem.unit_cost,
+            unitPlan.factor
+          )
+        : draft.unit_cost;
+      const unitSellPrice = changedItem
+        ? priceAfterUnitChange(
+            item.unit_sell_price,
+            draft.unit_sell_price,
+            changedItem.unit_sell_price,
+            unitPlan.factor
+          )
+        : draft.unit_sell_price;
       const payload = {
         ...item,
         ...draft,
         name: draft.name.trim(),
         sku: null,
         description: draft.description.trim(),
+        unit_of_measure: unitPlan.unitOfMeasure,
         default_unit_price: isMakeDraft
-          ? draft.unit_sell_price.trim() === ""
-            ? null
-            : draft.unit_sell_price.trim()
-          : draft.unit_cost.trim() === ""
-            ? null
-            : draft.unit_cost.trim(),
-        unit_cost: isMakeDraft
-          ? null
-          : draft.unit_cost.trim() === ""
-            ? null
-            : draft.unit_cost.trim(),
-        unit_sell_price: isMakeDraft
-          ? draft.unit_sell_price.trim() === ""
-            ? null
-            : draft.unit_sell_price.trim()
-          : null,
+          ? blankToNull(unitSellPrice)
+          : blankToNull(unitCost),
+        unit_cost: isMakeDraft ? null : blankToNull(unitCost),
+        unit_sell_price: isMakeDraft ? blankToNull(unitSellPrice) : null,
         vendor:
           isMakeDraft || draft.vendor === "" ? null : Number(draft.vendor),
         bom_items: isMakeDraft
@@ -523,7 +528,6 @@ export default function ItemDetailPage({ params }) {
         tags: tagsForSave(draftTags),
       };
       const updated = await UpdateItem(id, payload);
-      goalsConverted = false;
       setItem(updated && updated.id ? updated : payload);
       const templates = await GetRouterPhaseTemplates().catch(() => []);
       setPhaseTemplates(Array.isArray(templates) ? templates : []);
@@ -535,26 +539,18 @@ export default function ItemDetailPage({ params }) {
       setBomLines([]);
       setRouterPhases([]);
       setBomSelectedIds([]);
-      if (
-        normalizeUnit(item.unit_of_measure) !==
-        normalizeUnit(draft.unit_of_measure)
-      ) {
+      if (unitPlan.action === "change") {
         await loadInventory();
+        if (!isMakeFlag(item.make_or_buy)) await loadPurchaseLots();
       }
       toast.success("Item saved.");
     } catch (err) {
-      if (goalsConverted && unitPlan.previousGoals) {
-        try {
-          await UpdateItemInventoryGoal(id, unitPlan.previousGoals);
-        } catch {
-          const message =
-            "The item did not save, and the inventory goal could not be restored. Check the goal before trying again.";
-          setSaveError(message);
-          toast.error(message);
-          return;
-        }
+      if (unitChangedOnServer) {
+        await loadInventory();
       }
-      const message = err?.message || "Failed to save changes.";
+      const message = unitChangedOnServer
+        ? `The unit changed, but the other edits did not save. ${err?.message || "Failed to save changes."}`
+        : err?.message || "Failed to save changes.";
       setSaveError(message);
       toast.error(message);
     } finally {
@@ -604,12 +600,41 @@ export default function ItemDetailPage({ params }) {
         quantity: qty,
         sku: batchSku.trim(),
       });
+      const updated = await GetItemById(id).catch(() => null);
+      setItem((current) => {
+        const base = updated?.id ? updated : current;
+        if (!base) return current;
+        const skus = Array.isArray(base.item_skus) ? base.item_skus : [];
+        const exists = skus.some(
+          (row) =>
+            String(row.batch_id) === String(batch.id) ||
+            (batch.sku && row.sku === batch.sku)
+        );
+        if (exists) return base;
+        return {
+          ...base,
+          item_skus: [
+            {
+              id: batch.id,
+              sku: batch.sku,
+              source: "production",
+              batch_id: batch.id,
+              created_at: new Date().toISOString(),
+            },
+            ...skus,
+          ],
+        };
+      });
+      setBatchModalOpen(false);
+      setBatchSku("");
+      setBatchQty("1");
+      setHighlightedBatchId(batch.id);
       toast.success("Batch created.");
-      await router.push(`/batches/${batch.id}`);
     } catch (err) {
       const message = err?.message || "Failed to create batch.";
       setBatchError(message);
       toast.error(message);
+    } finally {
       setCreatingBatch(false);
     }
   };
@@ -837,7 +862,26 @@ export default function ItemDetailPage({ params }) {
     setBatchSku("");
     setBatchQty("1");
     setBatchError("");
+    setBatchModalOpen(false);
   };
+
+  useEffect(() => {
+    if (highlightedBatchId == null) return;
+    document
+      .querySelector(`[data-batch-row="${highlightedBatchId}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+    const timer = window.setTimeout(() => setHighlightedBatchId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [highlightedBatchId]);
+
+  useEffect(() => {
+    if (!batchModalOpen) return;
+    const onKey = (event) => {
+      if (event.key === "Escape") setBatchModalOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [batchModalOpen]);
 
   const cancelLotDraft = () => {
     setLotNumber("");
@@ -932,20 +976,24 @@ export default function ItemDetailPage({ params }) {
             <header className={`mb-6 ${brutalChrome} overflow-hidden bg-nv-violet text-white`}>
               <div className="flex flex-wrap items-start justify-between gap-3 p-6 pb-4">
                 <div className="min-w-0 flex-1">
-                  <p className="break-words font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+                  <p className="break-words font-mono text-xs font-bold uppercase tracking-widest text-white">
                     {headerLabel}
                   </p>
                   <h1 className="break-words text-3xl font-black uppercase leading-tight">
                     {item.name}
                   </h1>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="border-brutal border-black bg-nv-cyan px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">
+                    <span
+                      className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                        isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
+                      }`}
+                    >
                       {isMake ? "Make" : "Buy"}
                     </span>
                     <span
-                      className={`border-brutal border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                      className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                         item.active
-                          ? "bg-nv-cyan text-black"
+                          ? "bg-nv-green-dark"
                           : "bg-black/20 text-white"
                       }`}
                     >
@@ -957,14 +1005,14 @@ export default function ItemDetailPage({ params }) {
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="shrink-0 border-brutal border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                    className="shrink-0 border-brutal-xs border-black bg-nv-green-tint px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black"
                   >
                     Edit
                   </button>
                 )}
               </div>
 
-              <div className="border-t-brutal border-black bg-nv-paper p-4 text-nv-ink">
+              <div className="border-t-brutal-xs border-black bg-nv-paper p-4 text-nv-ink">
                 <div className="space-y-1">
                   <FieldBlock label="Description" value={item.description} />
                   {!isMake && (
@@ -983,7 +1031,7 @@ export default function ItemDetailPage({ params }) {
                         {item.tags.map((tag) => (
                           <span
                             key={tag.id ?? tag.name}
-                            className="border-brutal border-black bg-nv-cyan/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                            className="border-brutal-xs border-black bg-nv-purple-dark px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
                           >
                             {tag.name}
                           </span>
@@ -1030,7 +1078,7 @@ export default function ItemDetailPage({ params }) {
             <div className="grid gap-6 lg:grid-cols-2">
               <SectionCard
                 title="Inventory"
-                accent="bg-nv-lavender"
+                accent="bg-nv-purple-dark"
                 action={
                   inventoryEditing ? (
                     confirmingInventoryQty ? null : (
@@ -1039,7 +1087,7 @@ export default function ItemDetailPage({ params }) {
                         type="button"
                         onClick={cancelInventoryEdit}
                         disabled={inventorySaving}
-                        className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                       >
                         Cancel
                       </button>
@@ -1047,7 +1095,7 @@ export default function ItemDetailPage({ params }) {
                         type="button"
                         onClick={() => void saveInventoryEdit(false)}
                         disabled={inventorySaving}
-                        className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                       >
                         {inventorySaving ? "Saving…" : "Save"}
                       </button>
@@ -1058,7 +1106,7 @@ export default function ItemDetailPage({ params }) {
                       type="button"
                       onClick={startInventoryEdit}
                       disabled={!inventory}
-                      className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                      className="border-brutal-xs border-black bg-nv-green-tint px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                     >
                       Edit
                     </button>
@@ -1254,7 +1302,7 @@ export default function ItemDetailPage({ params }) {
               </SectionCard>
 
               {!isMake && (
-                <SectionCard title="Vendor lots" accent="bg-nv-lavender">
+                <SectionCard title="Vendor lots" accent="bg-nv-purple-dark">
                   <p className="mb-3 text-[10px] font-medium leading-snug text-nv-ink/55">
                     Enter the total amount paid for this receive — we divide by
                     qty to set unit cost. Same lot # can be received more than
@@ -1280,7 +1328,7 @@ export default function ItemDetailPage({ params }) {
                             value={lotNumber}
                             onChange={(e) => setLotNumber(e.target.value)}
                             placeholder="Supplier batch / lot"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-20 space-y-1">
@@ -1292,7 +1340,7 @@ export default function ItemDetailPage({ params }) {
                             inputMode="decimal"
                             value={lotQty}
                             onChange={(e) => setLotQty(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-24 space-y-1">
@@ -1305,7 +1353,7 @@ export default function ItemDetailPage({ params }) {
                             value={lotTotalCost}
                             onChange={(e) => setLotTotalCost(e.target.value)}
                             placeholder="0.00"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-36 space-y-1">
@@ -1316,14 +1364,14 @@ export default function ItemDetailPage({ params }) {
                             type="date"
                             value={lotArrivalDate}
                             onChange={(e) => setLotArrivalDate(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <button
                           type="button"
                           onClick={cancelLotDraft}
                           disabled={receivingLot}
-                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                         >
                           Cancel
                         </button>
@@ -1331,7 +1379,7 @@ export default function ItemDetailPage({ params }) {
                           type="button"
                           onClick={() => void handleReceiveLot()}
                           disabled={receivingLot}
-                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                          className="border-brutal-xs border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                         >
                           {receivingLot ? "Receiving…" : "Receive"}
                         </button>
@@ -1346,11 +1394,11 @@ export default function ItemDetailPage({ params }) {
                   )}
 
                   {!purchaseLotsLoading && purchaseLots.length > 0 ? (
-                    <ul className="space-y-2">
-                      {purchaseLots.map((row) => (
+                    <ul className={`${listClass} -mx-4`}>
+                      {purchaseLots.map((row, index) => (
                         <li
                           key={row.id}
-                          className="flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2"
+                          className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2 ${rowStripe(index, "lavender")}`}
                         >
                           <div>
                             <span className="font-mono text-sm font-black">
@@ -1389,7 +1437,7 @@ export default function ItemDetailPage({ params }) {
                                   type="button"
                                   onClick={() => setConfirmingLotId(null)}
                                   disabled={deletingLotId === row.id}
-                                  className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                                  className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                                 >
                                   No
                                 </button>
@@ -1397,7 +1445,7 @@ export default function ItemDetailPage({ params }) {
                                   type="button"
                                   onClick={() => void handleDeleteLot(row.id)}
                                   disabled={deletingLotId === row.id}
-                                  className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                                  className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                                 >
                                   {deletingLotId === row.id
                                     ? "Deleting…"
@@ -1409,7 +1457,7 @@ export default function ItemDetailPage({ params }) {
                                 type="button"
                                 onClick={() => setConfirmingLotId(row.id)}
                                 disabled={deletingLotId != null}
-                                className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 disabled:opacity-40"
+                                className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                               >
                                 Delete
                               </button>
@@ -1429,12 +1477,130 @@ export default function ItemDetailPage({ params }) {
               )}
 
               {isMake && (
-                <SectionCard title="Batches" accent="bg-nv-lavender">
-                  {!editing && canWrite && (
-                    <div className="mb-4 space-y-2 border-b border-black/10 pb-4">
-                      <p className="text-[10px] font-black uppercase tracking-wide">
+                <SectionCard
+                  title="Batches"
+                  accent="bg-nv-purple-dark"
+                  action={
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wide">
+                        {batchCountLabel(lotSkus.length)}
+                      </span>
+                      {!editing && canWrite ? (
+                        <button
+                          type="button"
+                          onClick={() => setBatchModalOpen(true)}
+                          aria-label="New batch"
+                          title="New batch"
+                          className="inline-flex h-7 w-7 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-sm font-black leading-none text-black"
+                        >
+                          +
+                        </button>
+                      ) : null}
+                    </div>
+                  }
+                >
+                  {lotSkus.length > 0 ? (
+                    <div className="-m-4 md:max-h-[60vh] md:overflow-y-auto">
+                      <div className="z-10 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 border-b border-black/10 bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-nv-ink/55 md:sticky md:top-0">
+                        <span>SKU</span>
+                        <span>Source</span>
+                        <span>Date</span>
+                      </div>
+                      <ul className={listClass}>
+                        {lotSkus.map((row, index) => {
+                          const highlighted =
+                            highlightedBatchId != null &&
+                            String(row.batch_id ?? row.id) ===
+                              String(highlightedBatchId);
+                          const content = (
+                            <>
+                              <span className="truncate font-mono text-sm font-black">
+                                {row.sku}
+                              </span>
+                              <span className="truncate text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
+                                {formatSkuSource(row.source)}
+                                {row.batch_id != null ? ` #${row.batch_id}` : ""}
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
+                                {formatDate(row.created_at)}
+                              </span>
+                            </>
+                          );
+                          const rowClass = `grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 hover:bg-nv-lavender/30 ${rowStripe(index, "lavender")}`;
+                          const highlightStyle = highlighted
+                            ? { backgroundColor: "var(--nv-purple-muted)" }
+                            : undefined;
+
+                          if (row.batch_id != null) {
+                            return (
+                              <li
+                                key={row.id}
+                                data-batch-row={row.batch_id}
+                              >
+                                <Link
+                                  href={`/batches/${row.batch_id}`}
+                                  className={rowClass}
+                                  style={highlightStyle}
+                                >
+                                  {content}
+                                </Link>
+                              </li>
+                            );
+                          }
+
+                          return (
+                            <li
+                              key={row.id}
+                              data-batch-row={row.id}
+                              className={rowClass}
+                              style={highlightStyle}
+                            >
+                              {content}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-xs font-medium text-nv-ink/55">
+                      No batches yet.
+                    </p>
+                  )}
+                </SectionCard>
+              )}
+
+              {isMake && batchModalOpen && canWrite
+                ? createPortal(
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close new batch"
+                    className="fixed inset-0 z-40 bg-black/40"
+                    onClick={() => setBatchModalOpen(false)}
+                  />
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="new-batch-title"
+                    className={`fixed left-3 right-3 top-[12vh] z-50 mx-auto flex max-h-[76vh] w-auto max-w-lg flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
+                  >
+                    <header className="flex shrink-0 items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-2">
+                      <h2
+                        id="new-batch-title"
+                        className="text-sm font-black uppercase tracking-wide"
+                      >
                         New batch
-                      </p>
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setBatchModalOpen(false)}
+                        aria-label="Close"
+                        className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black"
+                      >
+                        Close
+                      </button>
+                    </header>
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                       {batchError && (
                         <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
                           {batchError}
@@ -1450,7 +1616,8 @@ export default function ItemDetailPage({ params }) {
                             value={batchSku}
                             onChange={(e) => setBatchSku(e.target.value)}
                             placeholder="Lot / batch number"
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            autoFocus
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
                         <label className="w-20 space-y-1">
@@ -1462,25 +1629,9 @@ export default function ItemDetailPage({ params }) {
                             inputMode="decimal"
                             value={batchQty}
                             onChange={(e) => setBatchQty(e.target.value)}
-                            className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                            className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
                           />
                         </label>
-                        <button
-                          type="button"
-                          onClick={cancelBatchDraft}
-                          disabled={creatingBatch}
-                          className="border-brutal border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleCreateBatch()}
-                          disabled={creatingBatch}
-                          className="border-brutal border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
-                        >
-                          {creatingBatch ? "Creating…" : "Create batch"}
-                        </button>
                       </div>
                       {Array.isArray(item.bom_items) &&
                         item.bom_items.length > 0 &&
@@ -1497,57 +1648,33 @@ export default function ItemDetailPage({ params }) {
                             />
                           </div>
                         )}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelBatchDraft}
+                          disabled={creatingBatch}
+                          className="border-brutal-xs border-black bg-nv-paper px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleCreateBatch()}
+                          disabled={creatingBatch}
+                          className="border-brutal-xs border-black bg-nv-violet px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                        >
+                          {creatingBatch ? "Creating…" : "Create batch"}
+                        </button>
+                      </div>
                     </div>
-                  )}
-
-                  {lotSkus.length > 0 ? (
-                    <ul className="space-y-2">
-                      {lotSkus.map((row) => {
-                        const content = (
-                          <>
-                            <span className="font-mono text-sm font-black">{row.sku}</span>
-                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-nv-ink/60">
-                              <span>{formatSkuSource(row.source)}</span>
-                              {row.batch_id != null && (
-                                <span>Batch #{row.batch_id}</span>
-                              )}
-                              <span>{formatDate(row.created_at)}</span>
-                            </div>
-                          </>
-                        );
-                        const rowClass =
-                          "flex flex-wrap items-center justify-between gap-3 border-brutal border-black bg-nv-lavender/20 px-3 py-2";
-
-                        if (row.batch_id != null) {
-                          return (
-                            <li key={row.id}>
-                              <Link
-                                href={`/batches/${row.batch_id}`}
-                                className={`${rowClass} transition-transform hover:-translate-y-0.5 hover:bg-nv-lavender/40`}
-                              >
-                                {content}
-                              </Link>
-                            </li>
-                          );
-                        }
-
-                        return (
-                          <li key={row.id} className={rowClass}>
-                            {content}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="text-xs font-medium text-nv-ink/55">
-                      No batches yet.
-                    </p>
-                  )}
-                </SectionCard>
-              )}
+                  </div>
+                </>,
+                document.body
+              )
+                : null}
 
               {isMake && (
-                <SectionCard title="BOM" accent="bg-nv-teal">
+                <SectionCard title="BOM" accent="bg-nv-green-dark">
                   {Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
@@ -1558,6 +1685,7 @@ export default function ItemDetailPage({ params }) {
                       <BomTreeView
                         lines={item.bom_items}
                         itemById={itemById}
+                        tone="teal"
                         parentItem={item}
                         onEditItem={
                           canWrite
@@ -1582,14 +1710,14 @@ export default function ItemDetailPage({ params }) {
                 </SectionCard>
               )}
 
-              <SectionCard title="Used In" accent="bg-nv-lavender">
+              <SectionCard title="Used In" accent="bg-nv-purple-dark">
                 {Array.isArray(item.used_in) && item.used_in.length > 0 ? (
-                  <ul className="divide-y divide-black/10 border-brutal border-black">
-                    {item.used_in.map((parent) => (
-                      <li key={parent.id}>
+                  <ul className={`${listClass} -mx-4 -mb-4`}>
+                    {item.used_in.map((parent, index) => (
+                      <li key={parent.id} className={rowStripe(index, "lavender")}>
                         <Link
                           href={`/items/${parent.id}`}
-                          className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-cyan/20"
+                          className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-nv-violet/20"
                         >
                           <span className="min-w-0 break-words">{parent.name}</span>
                           {parent.sku ? (
@@ -1610,7 +1738,7 @@ export default function ItemDetailPage({ params }) {
 
               {isMake && (
                 <div className="lg:col-span-2">
-                  <SectionCard title="Production phases" accent="bg-nv-violet">
+                  <SectionCard title="Production phases" accent="bg-nv-purple-dark">
                     <NestedProductionPhases
                       rootItem={item}
                       itemById={itemById}
@@ -1636,17 +1764,17 @@ export default function ItemDetailPage({ params }) {
                   aria-labelledby="edit-item-title"
                   className={`fixed left-3 right-3 top-[5vh] z-50 mx-auto flex max-h-[90vh] w-auto max-w-3xl flex-col ${brutalChrome} bg-nv-paper sm:left-6 sm:right-6`}
                 >
-                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal border-black bg-nv-cyan px-4 py-2">
+                  <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-2">
                     <h2
                       id="edit-item-title"
-                      className="text-sm font-black uppercase tracking-wide text-black"
+                      className="text-sm font-black uppercase tracking-wide"
                     >
                       Edit item
                     </h2>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {confirmingDelete ? (
                         <>
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-black">
+                          <span className="text-[10px] font-bold uppercase tracking-wide">
                             Delete &quot;{item.name}&quot;?
                           </span>
                           <button
@@ -1656,7 +1784,7 @@ export default function ItemDetailPage({ params }) {
                               setSaveError("");
                             }}
                             disabled={deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                           >
                             No
                           </button>
@@ -1664,7 +1792,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={() => void handleDelete()}
                             disabled={deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {deleting ? "Deleting…" : "Yes, delete"}
                           </button>
@@ -1678,7 +1806,7 @@ export default function ItemDetailPage({ params }) {
                               setSaveError("");
                             }}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             Delete
                           </button>
@@ -1686,7 +1814,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={cancelEditing}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
                           >
                             Cancel
                           </button>
@@ -1694,7 +1822,7 @@ export default function ItemDetailPage({ params }) {
                             type="button"
                             onClick={() => void saveDraft()}
                             disabled={saving || deleting}
-                            className="border-brutal border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
+                            className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                           >
                             {saving ? "Saving…" : "Save"}
                           </button>
@@ -1805,6 +1933,7 @@ export default function ItemDetailPage({ params }) {
                               moveRouterPhase(phaseId, "down")
                             }
                             onReorderPhases={setRouterPhases}
+                            tone="cyan"
                           />
                         </div>
                       )}
@@ -1834,7 +1963,7 @@ export default function ItemDetailPage({ params }) {
                                 href="/settings/vendors"
                                 aria-label="Add vendor"
                                 title="Add vendor"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
                               >
                                 +
                               </Link>
@@ -1860,6 +1989,7 @@ export default function ItemDetailPage({ params }) {
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
                             parentUnitOfMeasure={draft.unit_of_measure}
+                            tone="cyan"
                           />
                         </div>
                       )}

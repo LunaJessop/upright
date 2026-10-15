@@ -1,11 +1,11 @@
-const brutalChrome = "border-brutal border-black shadow-brutal";
+import { brutalChrome } from "@/lib/chrome";
 
 export default function SalesPage() {
   return (
     <div className="min-h-full bg-nv-canvas px-4 py-6 text-nv-ink">
       <div className="mx-auto max-w-4xl">
         <header className={`mb-6 ${brutalChrome} bg-nv-violet p-6 text-white`}>
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white/80">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Sales
           </p>
           <h1 className="text-3xl font-black uppercase leading-tight">Money in & out</h1>

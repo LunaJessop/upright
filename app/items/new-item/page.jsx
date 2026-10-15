@@ -20,9 +20,9 @@ import {
   upsertTagCatalog,
 } from "@/lib/tagCreate";
 
-const brutalChrome = "border-brutal border-black shadow-brutal";
-const inputClass =
-  "w-full border-0 bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none ring-0 placeholder:text-black/40 focus:ring-2 focus:ring-nv-violet border-brutal border-black";
+import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
+
+const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
 
 const UNSET_SELECT = "__unset__";
@@ -174,12 +174,16 @@ function QueuedItemDetails({ item, isSelected, onSelect }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-black">{item.name}</p>
-        <span className="border-brutal border-black bg-nv-cyan/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide">
+        <span
+          className={`border-brutal-xs border-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+            isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
+          }`}
+        >
           {isMake ? "Make" : "Buy"}
         </span>
         <span
-          className={`border-brutal border-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
-            item.active ? "bg-nv-teal/50" : "bg-black/10 text-nv-ink/50"
+          className={`border-brutal-xs border-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+            item.active ? "bg-nv-green-dark" : "bg-black/10 text-nv-ink/50"
           }`}
         >
           {item.active ? "Active" : "Inactive"}
@@ -645,14 +649,14 @@ export default function NewItem() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 lg:flex-row lg:items-start">
         <div className={`w-full shrink-0 lg:max-w-md ${brutalChrome} bg-nv-cyan/25`}>
           <header className="border-b-brutal border-black bg-nv-violet px-4 py-2 text-white">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/80">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white">
               Items
             </p>
             <h1 className="text-xl font-black uppercase leading-tight">
               {isEditingQueue ? "Edit queued item" : "New item"}
             </h1>
             {isEditingQueue && (
-              <p className="mt-1 text-[10px] font-medium text-white/80">
+              <p className="mt-1 text-[10px] font-medium text-white">
                 Changes apply when you save back to the queue.
               </p>
             )}
@@ -746,7 +750,7 @@ export default function NewItem() {
                       href="/settings/vendors"
                       aria-label="Add vendor"
                       title="Add vendor"
-                      className="mb-0 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center border-brutal border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
+                      className="mb-0 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-cyan text-sm font-black leading-none transition-transform hover:-translate-y-0.5"
                     >
                       +
                     </a>
@@ -773,6 +777,7 @@ export default function NewItem() {
                     onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
                     onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
                     onReorderPhases={setRouterPhases}
+                    tone="violet"
                   />
                   <BomRecipeEditor
                     catalogItems={catalogItems}
@@ -786,6 +791,7 @@ export default function NewItem() {
                     parentUnitOfMeasure={
                       unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure
                     }
+                    tone="violet"
                   />
                 </>
               )}
@@ -810,14 +816,14 @@ export default function NewItem() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="border-brutal border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black shadow-brutal-sm transition-transform hover:-translate-y-0.5"
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!canAdd}
-                  className={`border-brutal border-black px-5 py-1.5 text-[10px] font-black uppercase tracking-wide shadow-brutal-sm ${
+                  className={`border-brutal-xs border-black px-5 py-1.5 text-[10px] font-black uppercase tracking-wide ${
                     canAdd
                       ? "bg-nv-violet text-white transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
                       : "cursor-not-allowed bg-black/10 text-black/40 shadow-black/20"
@@ -831,29 +837,29 @@ export default function NewItem() {
         </div>
 
         <div className={`min-w-0 flex-1 ${brutalChrome} bg-nv-paper`}>
-          <header className="border-b-brutal border-black bg-nv-lavender px-4 py-3">
+          <header className="border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-3">
             <h2 className="text-sm font-black uppercase tracking-wide">
               Submission queue ({items.length})
             </h2>
-            <p className="mt-1 text-xs font-medium text-nv-ink/70">
+            <p className="mt-1 text-xs font-medium text-white">
               Fill out the form and add as many items as you need. Click a queued
               item to edit it before submitting.
             </p>
           </header>
 
-          <div className="p-4">
+          <div>
             {items.length > 0 ? (
               <>
-                <ul className="space-y-2">
-                  {items.map((item) => {
+                <ul className={listClass}>
+                  {items.map((item, index) => {
                     const isSelected = editingQueueId === item.id;
                     return (
                       <li
                         key={item.id}
-                        className={`flex items-start justify-between gap-3 border-brutal border-black px-3 py-2.5 transition-colors ${
+                        className={`flex items-start justify-between gap-3 px-4 py-2.5 transition-colors ${
                           isSelected
-                            ? "bg-nv-cyan/35 ring-2 ring-nv-violet ring-offset-1"
-                            : "bg-nv-lavender/15 hover:bg-nv-cyan/20"
+                            ? "bg-nv-violet/20 ring-2 ring-inset ring-nv-violet"
+                            : `${rowStripe(index, "lavender")} hover:bg-nv-lavender/30`
                         }`}
                       >
                         <QueuedItemDetails
@@ -864,7 +870,7 @@ export default function NewItem() {
                         <button
                           type="button"
                           onClick={() => removeQueuedItem(item.id)}
-                          className="shrink-0 border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-red-600 transition-transform hover:-translate-y-0.5"
+                          className="shrink-0 border-brutal-xs border-black bg-red-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
                         >
                           Remove
                         </button>
@@ -872,7 +878,7 @@ export default function NewItem() {
                     );
                   })}
                 </ul>
-                <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t-brutal border-black pt-4">
+                <div className="m-4 flex flex-wrap items-center justify-end gap-3">
                   {submitError && (
                     <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
                       {submitError}
@@ -882,7 +888,7 @@ export default function NewItem() {
                     type="button"
                     onClick={() => void handleSubmitAll()}
                     disabled={submitting}
-                    className="border-brutal border-black bg-nv-violet px-6 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brutal-sm transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
+                    className="border-brutal-xs border-black bg-nv-violet px-6 py-2 text-xs font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {submitting
                       ? "Submitting…"
@@ -891,7 +897,7 @@ export default function NewItem() {
                 </div>
               </>
             ) : (
-              <div className="border-brutal border-dashed border-black/25 bg-nv-canvas/50 px-4 py-8 text-center">
+              <div className="m-4 border-brutal-xs border-dashed border-black/25 bg-nv-canvas/50 px-4 py-8 text-center">
                 <p className="text-xs font-bold uppercase tracking-wide text-nv-ink/45">
                   Queue is empty
                 </p>

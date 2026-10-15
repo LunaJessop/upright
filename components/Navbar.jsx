@@ -11,15 +11,14 @@ import { useToast } from "@/components/Toast";
 import { ROLE_LABELS } from "@/lib/auth";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
+const brutalChromeSm = "border-brutal-sm border-black shadow-brutal-sm";
+const brutalBorderSm = "border-brutal-sm border-black";
 
 const NAV_SECTIONS = [
   {
     id: "items",
     label: "Items",
-    links: [
-      { href: "/items", label: "All items" },
-      { href: "/items/inventory", label: "Inventory" },
-    ],
+    links: [{ href: "/items", label: "All items" }],
   },
   {
     id: "batches",
@@ -40,7 +39,7 @@ function NavDropdown({ section, pathname, isOpen, onToggle, onNavigate }) {
   const sectionActive = section.links.some((link) => pathname === link.href);
 
   return (
-    <div className={`${brutalChrome} bg-nv-paper`}>
+    <div className={`${brutalBorderSm} bg-nv-paper`}>
       <button
         type="button"
         onClick={onToggle}
@@ -136,12 +135,12 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
       <Link
         href="/items"
         onClick={onNavigate}
-        className="flex flex-col items-center gap-2 border-b-brutal border-black bg-nv-violet px-4 py-5 text-white"
+        className="flex flex-row items-center gap-2 border-b-brutal border-black bg-nv-teal/80 px-4 py-5 text-white"
       >
         <Image
           src={uprightLogo}
           alt="Upright logo"
-          className="h-auto w-28"
+          className="h-auto w-18"
           priority
         />
         <p className="text-sm font-black lowercase tracking-wide">upright</p>
@@ -176,13 +175,13 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={onNavigate}
-          className={`${brutalChrome} block px-3 py-2.5 text-xs font-black uppercase tracking-wide bg-nv-paper hover:bg-nv-cyan/20`}
+          className={`${brutalBorderSm} block px-3 py-2.5 text-xs font-black uppercase tracking-wide bg-nv-paper hover:bg-nv-cyan/20`}
         >
           Help
         </a>
       </nav>
 
-      <div className={`mt-auto border-t-brutal border-black ${brutalChrome} bg-nv-paper p-3`}>
+      <div className={`mt-auto border-t-brutal border-black bg-nv-paper p-3`}>
         <Link
           href="/profile"
           onClick={onNavigate}
@@ -193,7 +192,7 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
           }`}
         >
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center border-brutal border-black bg-nv-violet text-xs font-black uppercase text-white shadow-brutal-sm"
+            className="flex h-9 w-9 shrink-0 items-center justify-center border-brutal-xs border-black bg-nv-violet text-xs font-black uppercase text-white"
             aria-hidden
           >
             {(user?.name ?? "U")
@@ -218,7 +217,7 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full border-brutal border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide transition-transform hover:-translate-y-0.5"
+          className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
         >
           Log out
         </button>
@@ -226,7 +225,7 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
           <button
             type="button"
             onClick={() => void handleBilling()}
-            className="mt-2 w-full border-brutal border-black bg-nv-cyan/30 px-2 py-1 text-[10px] font-black uppercase tracking-wide transition-transform hover:-translate-y-0.5"
+            className="mt-2 w-full border-brutal-xs border-black bg-nv-cyan/30 px-2 py-1 text-[10px] font-black uppercase tracking-wide"
           >
             Billing
           </button>

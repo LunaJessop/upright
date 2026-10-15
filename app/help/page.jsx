@@ -21,7 +21,7 @@ export default function HelpPage() {
       <footer className="border-t-brutal border-black bg-nv-violet px-4 py-6 text-white sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between sm:px-2">
           <p className="text-xs font-black lowercase tracking-wide">upright</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-white/70">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-white">
             Get your business up and to the right
           </p>
         </div>
