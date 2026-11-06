@@ -37,6 +37,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
 import { brutalChrome, compactInputClass, listClass, rowStripe } from "@/lib/chrome";
+import { sortByText } from "@/lib/optionOrder";
 import {
   removeTagById,
   renameTagInList,
@@ -1950,7 +1951,7 @@ export default function ItemDetailPage({ params }) {
                                 className={`${editInputClass} cursor-pointer`}
                               >
                                 <option value="">—</option>
-                                {vendors.map((vendor) => (
+                                {sortByText(vendors, (vendor) => vendor.name).map((vendor) => (
                                   <option
                                     key={vendor.id}
                                     value={String(vendor.id)}

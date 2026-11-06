@@ -21,6 +21,7 @@ import {
 } from "@/lib/tagCreate";
 
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { sortByText } from "@/lib/optionOrder";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -740,9 +741,9 @@ export default function NewItem() {
                       title="Vendor"
                       value={vendor}
                       setValue={setVendor}
-                      options={vendors.map((v) => ({
-                        value: String(v.id),
-                        label: v.name,
+                      options={sortByText(vendors, (vendor) => vendor.name).map((vendor) => ({
+                        value: String(vendor.id),
+                        label: vendor.name,
                       }))}
                       className="min-w-0 flex-1"
                     />

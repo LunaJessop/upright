@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { sortByText } from "@/lib/optionOrder";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -74,7 +75,7 @@ export default function RouterPhaseEditor({
                 className={`${inputClass} max-w-[12rem] cursor-pointer py-1 text-[10px]`}
               >
                 <option value="">Add phase…</option>
-                {phaseTemplates.map((template) => (
+                {sortByText(phaseTemplates, (template) => template.name).map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.name}
                   </option>

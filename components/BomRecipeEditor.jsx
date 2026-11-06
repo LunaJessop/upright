@@ -6,6 +6,7 @@ import { formatQuantity, friendlyUnitLabel } from "@/lib/formatQuantity";
 import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { sortByText } from "@/lib/optionOrder";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -94,7 +95,15 @@ export function MultiSelectDropdown({
   defaultOpen = false,
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [query, setQuery] = useState("");
   const containerRef = useRef(null);
+  const sortedOptions = sortByText(options, (option) => option?.label);
+  const needle = query.trim().toLowerCase();
+  const visibleOptions = needle
+    ? sortedOptions.filter((option) =>
+        String(option?.label ?? "").toLowerCase().includes(needle)
+      )
+    : sortedOptions;
 
   useEffect(() => {
     if (!open) return;
@@ -131,7 +140,12 @@ export function MultiSelectDropdown({
         <span className={labelClass}>{title}</span>
         <button
           type="button"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() =>
+            setOpen((current) => {
+              if (current) setQuery("");
+              return !current;
+            })
+          }
           aria-expanded={open}
           aria-haspopup="listbox"
           className={`${inputClass} flex w-full cursor-pointer items-center justify-between text-left`}
@@ -145,12 +159,26 @@ export function MultiSelectDropdown({
         </button>
       </label>
       {open ? (
+        <div className="absolute z-20 mt-1 w-full border-brutal-xs border-black bg-nv-paper">
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Type to filter"
+            aria-label={`Filter ${title.toLowerCase()}`}
+            className="w-full border-b border-black/10 bg-nv-paper px-2 py-1.5 text-xs font-semibold outline-none placeholder:text-black/40"
+          />
         <ul
-          className={`absolute z-20 mt-1 max-h-40 w-full overflow-y-auto border-brutal-xs border-black bg-nv-paper ${listClass}`}
+          className={`max-h-40 w-full overflow-y-auto ${listClass}`}
           role="listbox"
           aria-multiselectable="true"
         >
-          {options.map((option, index) => {
+          {visibleOptions.length === 0 ? (
+            <li className="px-2 py-1.5 text-[10px] font-medium text-nv-ink/50">
+              No matches
+            </li>
+          ) : null}
+          {visibleOptions.map((option, index) => {
             const checked = selectedValues.includes(option.value);
             return (
               <li key={option.value} className={checked ? "bg-nv-cyan/20" : rowStripe(index, tone)}>
@@ -174,6 +202,7 @@ export function MultiSelectDropdown({
             );
           })}
         </ul>
+        </div>
       ) : null}
     </div>
   );
