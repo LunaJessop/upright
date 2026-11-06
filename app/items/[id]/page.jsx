@@ -1675,7 +1675,28 @@ export default function ItemDetailPage({ params }) {
                 : null}
 
               {isMake && (
-                <SectionCard title="BOM" accent="bg-nv-green-dark">
+                <SectionCard
+                  title="BOM"
+                  accent="bg-nv-green-dark"
+                  action={
+                    canWrite ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          startEditing();
+                          window.setTimeout(() => {
+                            document
+                              .getElementById("edit-bom")
+                              ?.scrollIntoView({ block: "center" });
+                          }, 50);
+                        }}
+                        className="shrink-0 border-brutal-xs border-black bg-nv-green-tint px-3 py-1 text-[10px] font-black uppercase tracking-wide text-black"
+                      >
+                        Edit
+                      </button>
+                    ) : null
+                  }
+                >
                   {Array.isArray(item.bom_items) && item.bom_items.length > 0 ? (
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
