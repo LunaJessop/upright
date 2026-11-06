@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CreateRouterPhaseTemplate,
   DeleteRouterPhaseTemplate,
@@ -24,6 +24,9 @@ export default function SettingsPhasesPage() {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [highlightForm, setHighlightForm] = useState(false);
+  const formRef = useRef(null);
+  const nameRef = useRef(null);
 
   const loadPhases = useCallback(async () => {
     setLoading(true);
@@ -41,6 +44,20 @@ export default function SettingsPhasesPage() {
   useEffect(() => {
     void loadPhases();
   }, [loadPhases]);
+
+  useEffect(() => {
+    if (!editingId) return;
+    const frame = requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameRef.current?.focus({ preventScroll: true });
+      setHighlightForm(true);
+    });
+    const timer = window.setTimeout(() => setHighlightForm(false), 1600);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [editingId]);
 
   const startEdit = (phase) => {
     setEditingId(phase.id);
@@ -123,7 +140,12 @@ export default function SettingsPhasesPage() {
         </header>
 
         {canWrite ? (
-        <section className={`mb-6 ${brutalChrome} bg-nv-paper p-5`}>
+        <section
+          ref={formRef}
+          className={`mb-6 scroll-mt-16 ${brutalChrome} bg-nv-paper p-5 ${
+            highlightForm ? "ring-4 ring-nv-violet ring-offset-2" : ""
+          }`}
+        >
           <h2 className="mb-3 text-sm font-black uppercase tracking-wide">
             {editingId ? "Edit phase" : "Add phase"}
           </h2>
@@ -131,6 +153,8 @@ export default function SettingsPhasesPage() {
             <label className="block space-y-1">
               <span className={labelClass}>Name</span>
               <input
+                id="phase-name"
+                ref={nameRef}
                 type="text"
                 required
                 value={form.name}
