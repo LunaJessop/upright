@@ -14,6 +14,8 @@ import { clearLoginRedirect, loginHref, safeNextPath } from "@/lib/auth";
 const PUBLIC_PATHS = new Set([
   "/",
   "/login",
+  "/forgot-password",
+  "/reset-password",
   "/auth",
   "/register",
   "/register/plan",

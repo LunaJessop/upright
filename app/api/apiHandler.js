@@ -78,6 +78,32 @@ export const checkHealth = async ({ signal } = {}) => {
   return response.json();
 };
 
+export const requestPasswordReset = async (email) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Could not send reset email (${response.status})`);
+  }
+  return data;
+};
+
+export const resetPassword = async ({ token, password }) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Could not reset password (${response.status})`);
+  }
+  return data;
+};
+
 export const loginUser = async (email, password) => {
   const response = await apiFetch(`${getBaseUrl()}/api/auth/login`, {
     method: "POST",
