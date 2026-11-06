@@ -8,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
 import BomTreeView from "@/components/BomTreeView";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { sortByText } from "@/lib/optionOrder";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { formatMargin, formatMoney } from "@/lib/pricing";
 
@@ -417,7 +418,7 @@ export default function BatchesPage() {
                   className={`${inputClass} cursor-pointer`}
                 >
                   <option value="">Select item</option>
-                  {makeItems.map((item) => (
+                  {sortByText(makeItems, (item) => item.name).map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                     </option>

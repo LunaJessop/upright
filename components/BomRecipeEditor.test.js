@@ -27,6 +27,8 @@ test("an open component dropdown stripes rows with the tone it receives", () => 
   );
 
   assert.match(html, /QA TEST Jojoba/);
+  assert.match(html, /Type to filter/);
+  assert.ok(html.indexOf("QA TEST Face Oil") < html.indexOf("QA TEST Jojoba"));
   assert.match(html, /bg-nv-violet\/15/);
   assert.doesNotMatch(html, /bg-nv-cyan\/15/);
 });
@@ -48,6 +50,7 @@ test("the recipe editor opens its component list without a missing tone", () => 
   );
 
   assert.match(html, /QA TEST Jojoba/);
+  assert.ok(html.indexOf("QA TEST Face Oil") < html.indexOf("QA TEST Jojoba"));
   assert.match(html, /bg-nv-cyan\/15/);
   assert.match(html, /Add/);
 });
