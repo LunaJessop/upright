@@ -11,6 +11,9 @@ import { brutalChrome, inputClass } from "@/lib/chrome";
 const FALLBACK_MESSAGE =
   "If an account exists for that email, we sent a reset link.";
 
+const SPAM_HINT =
+  "Don't see it in a few minutes? Check your spam or junk folder.";
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -54,7 +57,12 @@ export default function ForgotPasswordPage() {
 
           {message ? (
             <div className="space-y-4 p-6">
-              <p className="text-sm font-semibold leading-relaxed">{message}</p>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold leading-relaxed">{message}</p>
+                <p className="text-[10px] font-medium leading-relaxed text-nv-ink/55">
+                  {SPAM_HINT}
+                </p>
+              </div>
               <Link
                 href="/login"
                 className="block border-brutal-xs border-black bg-nv-violet px-4 py-2 text-center text-xs font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
