@@ -29,7 +29,7 @@ export default function LandingPage() {
 
         <div className="relative mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl flex-col justify-center px-5 py-16 sm:px-8 sm:py-20">
           <p className="landing-fade landing-delay-1 mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-nv-ink/55">
-            Operations software for small businesses
+            Operations software for handmakers
           </p>
           <h1 className="landing-fade landing-delay-2 max-w-3xl text-5xl font-black uppercase leading-[0.95] tracking-tight sm:text-7xl">
             upright
@@ -38,7 +38,7 @@ export default function LandingPage() {
             Get your business up and to the right
           </p>
           <p className="landing-fade landing-delay-4 mt-5 max-w-lg text-sm font-medium leading-relaxed text-nv-ink/70 sm:text-base">
-            Built for small businesses that make and sell things. Track items,
+            Built for handmakers. Track items,
             recipes, and batches in one place — so inventory, production, and
             sales stay aligned without enterprise software overhead.
           </p>
@@ -76,27 +76,27 @@ export default function LandingPage() {
               About us
             </p>
             <h2 className="mt-3 text-3xl font-black uppercase leading-tight sm:text-4xl">
-              Built for small businesses that want clarity
+              Built for handmakers who want clarity
             </h2>
           </div>
           <div className="space-y-5 text-sm font-medium leading-relaxed text-nv-ink/75 sm:text-base">
             <p>
-              Upright started from a simple frustration: small product
-              businesses juggle spreadsheets, sticky notes, and half-connected
+              Upright started from a simple frustration: handmakers
+              juggle spreadsheets, sticky notes, and half-connected
               tools while trying to keep production moving. Enterprise platforms
               are overkill — and still leave you guessing. We built Upright to
-              give small teams one operational source of truth — items, bills of
+              give handmakers one operational source of truth — items, bills of
               materials, batches, and sales — without the bloat.
             </p>
             <p>
-              We believe good software for small businesses should feel direct.
+              We believe good software for handmakers should feel direct.
               No endless setup wizards, no mystery dashboards, no features you
               will never use. Just clear workflows that help you know what you
               have, what you can make, and what needs to ship next.
             </p>
             <p>
-              Whether you are a solo founder running your first production line
-              or a small crew coordinating inventory and fulfillment, Upright is
+              Whether you are a handmaker working alone or with a small crew
+              coordinating inventory and fulfillment, Upright is
               here to help you get your business up and to the right.
             </p>
           </div>
