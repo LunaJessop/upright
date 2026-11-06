@@ -10,7 +10,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
-import { scaleRecipeQuantities } from "@/lib/itemUnitChange";
+import { isCrossKindUnitChange, scaleRecipeQuantities } from "@/lib/itemUnitChange";
 import {
   removeTagById,
   removeTagFromItems,
@@ -399,7 +399,14 @@ export default function NewItem() {
   const [editingQueueId, setEditingQueueId] = useState(null);
 
   const changeUnitOfMeasure = (nextUnit) => {
-    const scaled = scaleRecipeQuantities(bomLines, unitOfMeasure, nextUnit);
+    const fromUnit = unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure;
+    const toUnit = !nextUnit || nextUnit === UNSET_SELECT ? "" : nextUnit;
+    if (isCrossKindUnitChange(fromUnit, toUnit)) {
+      setUnitOfMeasure(nextUnit);
+      setFormError("");
+      return;
+    }
+    const scaled = scaleRecipeQuantities(bomLines, fromUnit, toUnit);
     if (!scaled.ok) {
       setFormError(scaled.error);
       toast.error(scaled.error);
