@@ -369,15 +369,29 @@ export const CreateItem = async (item) => {
   return data;
 };
 
-export const ChangeItemUnit = async (id, unitOfMeasure) => {
+export const ChangeItemUnit = async (id, unitOfMeasure, options = {}) => {
+  const extra =
+    unitOfMeasure != null && typeof unitOfMeasure === "object"
+      ? unitOfMeasure
+      : options;
+  const unit =
+    unitOfMeasure != null && typeof unitOfMeasure === "object"
+      ? unitOfMeasure.unitOfMeasure
+      : unitOfMeasure;
+  const body = { unit_of_measure: unit };
+  if (extra.factor != null && extra.factor !== "") body.factor = extra.factor;
+  if (extra.dryRun) body.dryRun = true;
   const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/change-unit`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ unit_of_measure: unitOfMeasure }),
+    body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error ?? `Could not change unit (${response.status})`);
+    const error = new Error(data?.error ?? `Could not change unit (${response.status})`);
+    error.code = data?.code ?? null;
+    error.details = data;
+    throw error;
   }
   return data;
 };
