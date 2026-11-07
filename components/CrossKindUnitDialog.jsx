@@ -12,9 +12,9 @@ function PreviewGroup({ title, rows }) {
         {title}
       </p>
       <ul className="divide-y divide-black/10">
-        {rows.map((row) => (
+        {rows.map((row, index) => (
           <li
-            key={`${title}-${row.label}`}
+            key={row.key ?? `${title}-${index}-${row.label}`}
             className="flex items-baseline justify-between gap-3 py-1 text-xs font-semibold"
           >
             <span className="min-w-0 truncate">{row.label}</span>
