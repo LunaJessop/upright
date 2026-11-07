@@ -50,6 +50,7 @@ import {
 } from "@/lib/inventoryEdit";
 import {
   isCrossKindUnitChange,
+  itemEditorEscapeAction,
   planStockUnitChange,
   priceAfterCrossKindChange,
   priceAfterUnitChange,
@@ -353,18 +354,8 @@ export default function ItemDetailPage({ params }) {
     setSaveError("");
     setConfirmingDelete(false);
     setDeleting(false);
+    setCrossKind(null);
   };
-
-  useEffect(() => {
-    if (!editing) return;
-    const onKeyDown = (event) => {
-      if (event.key === "Escape" && !saving && !deleting) {
-        cancelEditing();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editing, saving, deleting]);
 
   const addSelectedBomLines = () => {
     if (bomSelectedIds.length === 0) {
@@ -613,6 +604,31 @@ export default function ItemDetailPage({ params }) {
     setCrossKind(null);
   };
 
+  const escapeActionRef = useRef(null);
+  escapeActionRef.current = () => {
+    const action = itemEditorEscapeAction({
+      busy: saving || deleting,
+      unitDialogOpen: crossKind != null,
+    });
+    if (action === "ignore") return;
+    if (action === "dismiss-unit-dialog") {
+      cancelCrossKind();
+      return;
+    }
+    cancelEditing();
+  };
+
+  useEffect(() => {
+    if (!editing) return;
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      escapeActionRef.current?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editing]);
+
   const previewCrossKind = async () => {
     if (!crossKind) return;
     if (!String(crossKind.factorInput ?? "").trim()) {
@@ -654,7 +670,7 @@ export default function ItemDetailPage({ params }) {
   };
 
   const confirmCrossKind = async () => {
-    if (!crossKind?.preview) return;
+    if (!crossKind?.preview || !draft) return;
     const factor = Number(crossKind.factorInput);
     setCrossKind((prev) => ({ ...prev, busy: true }));
     setSaving(true);
