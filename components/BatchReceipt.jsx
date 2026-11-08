@@ -1,4 +1,5 @@
 import { buildBatchReceipt } from "@/lib/batchReceipt";
+import { groupByPhaseName } from "@/lib/recipePhase";
 
 function ReceiptLine({ title, detail, amount }) {
   return (
@@ -12,6 +13,25 @@ function ReceiptLine({ title, detail, amount }) {
       ) : null}
     </div>
   );
+}
+
+function MaterialLines({ lines }) {
+  const grouped = groupByPhaseName(lines, (line) => line.phaseName);
+  if (!grouped.grouped) {
+    return lines.map((line) => (
+      <ReceiptLine key={line.key} title={line.title} detail={line.detail} amount={line.amount} />
+    ));
+  }
+  return grouped.groups.map((group) => (
+    <div key={group.name}>
+      <p className="border-y border-black/10 bg-nv-green-muted px-2 py-1 text-[10px] font-black uppercase tracking-wide">
+        {group.name}
+      </p>
+      {group.rows.map((line) => (
+        <ReceiptLine key={line.key} title={line.title} detail={line.detail} amount={line.amount} />
+      ))}
+    </div>
+  ));
 }
 
 function ReceiptTitle({ children }) {
@@ -30,14 +50,7 @@ export default function BatchReceipt({ components, quantity, unitSell, projected
     <div>
       <ReceiptTitle>Buy materials</ReceiptTitle>
       {receipt.materialLines.length > 0 ? (
-        receipt.materialLines.map((line) => (
-          <ReceiptLine
-            key={line.key}
-            title={line.title}
-            detail={line.detail}
-            amount={line.amount}
-          />
-        ))
+        <MaterialLines lines={receipt.materialLines} />
       ) : (
         <ReceiptLine title="No buy materials" detail="" amount="" />
       )}
