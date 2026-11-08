@@ -158,7 +158,7 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
                 : "bg-nv-paper hover:bg-nv-cyan/20"
             }`}
           >
-            Admin · Clients
+            Admin
           </Link>
         )}
         {NAV_SECTIONS.map((section) => (
