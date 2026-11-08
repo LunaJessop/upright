@@ -58,6 +58,7 @@ const PROTECTED_PREFIXES = [
   "/client",
   "/sales",
   "/styles",
+  "/setup",
 ];
 
 function isProtectedAppPath(pathname) {

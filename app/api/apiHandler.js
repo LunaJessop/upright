@@ -314,6 +314,23 @@ export const startAdminImpersonation = (customerId, userId, reason) =>
     "Failed to start view-as-user"
   );
 
+export const getOnboardingTemplates = () =>
+  getAdminJson("/api/onboarding/templates", "Failed to load starter packs");
+
+export const getOnboardingStatus = () =>
+  getAdminJson("/api/onboarding/status", "Failed to load setup status");
+
+export const applyOnboardingTemplate = async ({ templateKey, include }) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/onboarding/apply`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ templateKey, include }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, "Failed to set up the shop");
+  return data;
+};
+
 export const endAdminImpersonation = async () => {
   const response = await apiFetch(`${getBaseUrl()}/api/admin/impersonation/end`, {
     method: "POST",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
@@ -229,6 +230,8 @@ export default function ItemsPage() {
             </div>
           </div>
         </header>
+
+        <SetupChecklist />
 
         <section className={`${brutalChrome} bg-nv-paper`}>
           <div className="space-y-3 border-b-brutal-xs border-black bg-nv-cyan/30 p-3 sm:p-4">
