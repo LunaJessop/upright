@@ -22,6 +22,7 @@ import {
 
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
+import { phaseIdForPayload } from "@/lib/recipePhase";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -129,6 +130,7 @@ function formToItem(form, id, vendors = []) {
           component_item_id: Number(line.itemId),
           quantity: line.quantity,
           unit_of_measure: line.unitOfMeasure || null,
+          phase_id: phaseIdForPayload(line.phaseId),
         }))
       : [],
     router_phases: isMake
@@ -253,6 +255,8 @@ function queuedItemToFormFields(item, bomLineIdRef, routerPhaseIdRef) {
           itemId: String(line.component_item_id),
           quantity: String(line.quantity ?? "1"),
           unitOfMeasure: line.unit_of_measure ?? "",
+          phaseId: line.phase_id == null || line.phase_id === "" ? "" : String(line.phase_id),
+          phaseName: line.phase_name == null ? "" : String(line.phase_name),
         };
       })
     : [];
@@ -454,6 +458,8 @@ export default function NewItem() {
         itemId,
         quantity: "1",
         unitOfMeasure: catalogItem?.unit_of_measure ?? "",
+        phaseId: "",
+        phaseName: "",
       };
     });
 
@@ -476,6 +482,21 @@ export default function NewItem() {
     setBomLines((prev) =>
       prev.map((line) =>
         line.id === lineId ? { ...line, unitOfMeasure } : line
+      )
+    );
+  };
+
+  const updateBomLinePhase = (lineId, phaseId) => {
+    const phase = phaseTemplates.find((row) => String(row.id) === String(phaseId));
+    setBomLines((prev) =>
+      prev.map((line) =>
+        line.id === lineId
+          ? {
+              ...line,
+              phaseId,
+              phaseName: phase?.name ?? (phaseId ? line.phaseName : ""),
+            }
+          : line
       )
     );
   };
@@ -796,6 +817,8 @@ export default function NewItem() {
                     onRemoveLine={removeBomLine}
                     onUpdateLineQuantity={updateBomLineQuantity}
                     onUpdateLineUnit={updateBomLineUnit}
+                    onUpdateLinePhase={updateBomLinePhase}
+                    phaseTemplates={phaseTemplates}
                     parentUnitOfMeasure={
                       unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure
                     }

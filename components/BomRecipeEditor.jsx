@@ -7,6 +7,7 @@ import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
+import { phaseChoices, UNSET_PHASE_LABEL } from "@/lib/recipePhase";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -217,6 +218,8 @@ export default function BomRecipeEditor({
   onRemoveLine,
   onUpdateLineQuantity,
   onUpdateLineUnit,
+  onUpdateLinePhase,
+  phaseTemplates = [],
   parentUnitOfMeasure = "",
   tone = "cyan",
   defaultOpen = false,
@@ -315,6 +318,24 @@ export default function BomRecipeEditor({
                       ))}
                     </select>
                   ) : null}
+                  <label className="flex items-center gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                      Used in phase
+                    </span>
+                    <select
+                      aria-label="Used in phase"
+                      value={line.phaseId ? String(line.phaseId) : ""}
+                      onChange={(event) => onUpdateLinePhase?.(line.id, event.target.value)}
+                      className="max-w-[10rem] border-brutal-xs border-black bg-nv-paper px-1.5 py-1 text-[10px] font-semibold outline-none focus:ring-2 focus:ring-nv-violet"
+                    >
+                      <option value="">{UNSET_PHASE_LABEL}</option>
+                      {phaseChoices(phaseTemplates, line).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </li>
             );

@@ -62,6 +62,7 @@ import {
 import { previewCrossKindWithDraft } from "@/lib/crossKindPreview";
 import CrossKindUnitDialog from "@/components/CrossKindUnitDialog";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
+import { phaseIdForPayload } from "@/lib/recipePhase";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 function formatDate(value) {
@@ -192,6 +193,8 @@ function itemToBomLines(item, startId) {
     itemId: String(line.component_item_id),
     quantity: String(line.quantity ?? "1"),
     unitOfMeasure: line.unit_of_measure ?? "",
+    phaseId: line.phase_id == null || line.phase_id === "" ? "" : String(line.phase_id),
+    phaseName: line.phase_name == null ? "" : String(line.phase_name),
   }));
 }
 
@@ -382,6 +385,8 @@ export default function ItemDetailPage({ params }) {
         itemId,
         quantity: "1",
         unitOfMeasure: catalogItem?.unit_of_measure ?? "",
+        phaseId: "",
+        phaseName: "",
       };
     });
     setBomLines((prev) => [...prev, ...newLines]);
@@ -403,6 +408,21 @@ export default function ItemDetailPage({ params }) {
     setBomLines((prev) =>
       prev.map((line) =>
         line.id === lineId ? { ...line, unitOfMeasure } : line
+      )
+    );
+  };
+
+  const updateBomLinePhase = (lineId, phaseId) => {
+    const phase = phaseTemplates.find((row) => String(row.id) === String(phaseId));
+    setBomLines((prev) =>
+      prev.map((line) =>
+        line.id === lineId
+          ? {
+              ...line,
+              phaseId,
+              phaseName: phase?.name ?? (phaseId ? line.phaseName : ""),
+            }
+          : line
       )
     );
   };
@@ -508,6 +528,7 @@ export default function ItemDetailPage({ params }) {
             component_item_id: Number(line.itemId),
             quantity: line.quantity,
             unit_of_measure: line.unitOfMeasure || null,
+            phase_id: phaseIdForPayload(line.phaseId),
           }))
         : [],
       router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
@@ -2229,6 +2250,8 @@ export default function ItemDetailPage({ params }) {
                             onRemoveLine={removeBomLine}
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
+                            onUpdateLinePhase={updateBomLinePhase}
+                            phaseTemplates={phaseTemplates}
                             parentUnitOfMeasure={recipeParentUnitWhileEditing(
                               item?.unit_of_measure,
                               draft.unit_of_measure
