@@ -9,6 +9,7 @@ import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { ROLE_LABELS } from "@/lib/auth";
+import ChangelogLink from "@/components/ChangelogLink";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
 const brutalChromeSm = "border-brutal-sm border-black shadow-brutal-sm";
@@ -214,6 +215,11 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
             </span>
           </span>
         </Link>
+        <ChangelogLink
+          onClick={onNavigate}
+          className="mb-2 inline-flex w-full items-center justify-between border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+          dotClassName="inline-block h-2 w-2 shrink-0 rounded-full bg-nv-violet"
+        />
         <button
           type="button"
           onClick={handleLogout}

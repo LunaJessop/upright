@@ -22,6 +22,7 @@ const PUBLIC_PATHS = new Set([
   "/register/success",
   "/register/payment",
   "/help",
+  "/changelog",
   "/terms",
   "/privacy",
 ]);
