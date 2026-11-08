@@ -1,22 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
-import { getAdminCustomer } from "@/app/api/apiHandler";
+import { use, useCallback, useEffect, useState } from "react";
+import {
+  extendAdminGrace,
+  getAdminCustomer,
+  getAdminCustomerBilling,
+  resendAdminInvite,
+  sendAdminPasswordReset,
+  setAdminCustomerActive,
+  setAdminMemberActive,
+} from "@/app/api/apiHandler";
+import AdminActivityPanel from "@/components/AdminActivityPanel";
+import AdminBillingPanel from "@/components/AdminBillingPanel";
+import AdminConfirmDialog from "@/components/AdminConfirmDialog";
 import AdminFrame, {
   AdminReadOnlyBadge,
   AdminStatusBadge,
   formatAdminDate,
 } from "@/components/AdminFrame";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/Toast";
 import { isForbiddenError, memberSection, sectionShowing } from "@/lib/adminCustomers";
-import { brutalChrome, rowStripe } from "@/lib/chrome";
+import {
+  customerActiveConfirm,
+  graceConfirm,
+  graceDaysError,
+  inviteConfirm,
+  memberActiveConfirm,
+  passwordResetConfirm,
+} from "@/lib/adminOps";
+import { brutalChrome, deleteButtonClass, inputClass, rowStripe } from "@/lib/chrome";
 import { ROLE_LABELS } from "@/lib/auth";
 
 function cell(value) {
   if (value == null || value === "") return "—";
   return String(value);
 }
+
+const quietButton =
+  "border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide text-black";
+const dangerButton = `${deleteButtonClass} px-2 py-1 text-[10px] font-black uppercase tracking-wide`;
 
 function RecordSection({ title, tone, showing, columns, rows, empty }) {
   const header = tone === "green" ? "bg-nv-green-dark" : "bg-nv-purple-dark";
@@ -64,10 +88,19 @@ function RecordSection({ title, tone, showing, columns, rows, empty }) {
 export default function AdminCustomerPage({ params }) {
   const { id } = use(params);
   const { isPlatformAdmin, loading: authLoading } = useAuth();
+  const toast = useToast();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [forbidden, setForbidden] = useState(false);
+  const [billing, setBilling] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingError, setBillingError] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
+  const [graceDays, setGraceDays] = useState("14");
+  const [graceError, setGraceError] = useState("");
+  const [confirm, setConfirm] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isPlatformAdmin) return;
@@ -94,13 +127,70 @@ export default function AdminCustomerPage({ params }) {
     };
   }, [authLoading, id, isPlatformAdmin]);
 
+  const refresh = useCallback(async () => {
+    const data = await getAdminCustomer(id);
+    setPayload(data);
+    setReloadToken((current) => current + 1);
+  }, [id]);
+
+  useEffect(() => {
+    if (authLoading || !isPlatformAdmin) return;
+    let cancelled = false;
+    setBillingLoading(true);
+    setBillingError("");
+    getAdminCustomerBilling(id)
+      .then((data) => {
+        if (!cancelled) setBilling(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setBilling(null);
+        if (isForbiddenError(err)) setForbidden(true);
+        else setBillingError(err?.message || "Failed to load billing.");
+      })
+      .finally(() => {
+        if (!cancelled) setBillingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, id, isPlatformAdmin, reloadToken]);
+
+  function ask(next) {
+    setConfirm(next);
+  }
+
+  async function runConfirm() {
+    if (!confirm) return;
+    setBusy(true);
+    try {
+      const message = await confirm.run();
+      toast.success(message);
+      setConfirm(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err?.message || "That action failed.");
+      setConfirm(null);
+      if (err?.code === "GRACE_NOT_APPLICABLE") {
+        try {
+          await refresh();
+        } catch {
+          // The toast already explains the failure.
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const customer = payload?.customer;
   const members = memberSection(customer);
+  const shopActive = customer?.active !== false;
 
   return (
     <AdminFrame
       title={customer?.name || "Customer"}
-      lede="Read-only. Nothing on this page changes the shop."
+      lede="Account changes ask you to confirm before anything is sent or turned off."
       forbidden={forbidden}
       actions={
         <Link
@@ -164,6 +254,80 @@ export default function AdminCustomerPage({ params }) {
             </dl>
           </section>
 
+          <section className={`mt-4 ${brutalChrome} bg-nv-paper`}>
+            <h2 className="border-b-brutal-xs border-black bg-nv-purple-dark px-3 py-2 text-sm font-black uppercase tracking-wide">
+              Account
+            </h2>
+            <div className="flex flex-wrap items-end gap-3 px-3 py-3">
+              <button
+                type="button"
+                onClick={() =>
+                  ask({
+                    title: shopActive ? "Deactivate shop" : "Activate shop",
+                    message: customerActiveConfirm(customer, !shopActive),
+                    confirmLabel: shopActive ? "Deactivate" : "Activate",
+                    danger: shopActive,
+                    run: async () => {
+                      await setAdminCustomerActive(id, !shopActive);
+                      return shopActive
+                        ? `${customer.name} was deactivated.`
+                        : `${customer.name} was activated.`;
+                    },
+                  })
+                }
+                className={shopActive ? dangerButton : quietButton}
+              >
+                {shopActive ? "Deactivate shop" : "Activate shop"}
+              </button>
+              {customer.subscription_status === "past_due" ? (
+                <form
+                  className="flex flex-wrap items-end gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const problem = graceDaysError(Number(graceDays));
+                    setGraceError(problem || "");
+                    if (problem) return;
+                    const days = Number(graceDays);
+                    ask({
+                      title: "Extend grace",
+                      message: graceConfirm(customer, days),
+                      confirmLabel: "Extend grace",
+                      danger: false,
+                      run: async () => {
+                        await extendAdminGrace(id, days);
+                        return `Billing grace for ${customer.name} was extended by ${days} days.`;
+                      },
+                    });
+                  }}
+                >
+                  <label>
+                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                      Extra grace days
+                    </span>
+                    <input
+                      id="grace-days"
+                      inputMode="numeric"
+                      value={graceDays}
+                      onChange={(event) => setGraceDays(event.target.value)}
+                      className={`${inputClass} w-24`}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="border-brutal-xs border-black bg-nv-green-dark px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+                  >
+                    Extend grace
+                  </button>
+                </form>
+              ) : null}
+            </div>
+            {graceError ? (
+              <p className="px-3 pb-3 text-sm font-semibold text-red-700">{graceError}</p>
+            ) : null}
+          </section>
+
+          <AdminBillingPanel billing={billing} loading={billingLoading} error={billingError} />
+
           <RecordSection
             title="Members"
             tone="purple"
@@ -179,6 +343,71 @@ export default function AdminCustomerPage({ params }) {
                 render: (row) => ROLE_LABELS[row.role] || cell(row.role),
               },
               { key: "active", label: "Active", render: (row) => (row.active ? "Yes" : "No") },
+              {
+                key: "actions",
+                label: "Actions",
+                render: (row) => {
+                  const turningOn = row.active === false;
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        className={quietButton}
+                        onClick={() =>
+                          ask({
+                            title: "Send password reset",
+                            message: passwordResetConfirm(row),
+                            confirmLabel: "Send reset",
+                            run: async () => {
+                              await sendAdminPasswordReset(id, row.id);
+                              return `Password reset email sent to ${row.email}.`;
+                            },
+                          })
+                        }
+                      >
+                        Reset password
+                      </button>
+                      <button
+                        type="button"
+                        className={quietButton}
+                        onClick={() =>
+                          ask({
+                            title: "Resend welcome",
+                            message: inviteConfirm(row),
+                            confirmLabel: "Resend welcome",
+                            run: async () => {
+                              await resendAdminInvite(id, row.id);
+                              return `Welcome email sent to ${row.email}.`;
+                            },
+                          })
+                        }
+                      >
+                        Resend welcome
+                      </button>
+                      <button
+                        type="button"
+                        className={turningOn ? quietButton : dangerButton}
+                        onClick={() =>
+                          ask({
+                            title: turningOn ? "Activate person" : "Deactivate person",
+                            message: memberActiveConfirm(row, turningOn),
+                            confirmLabel: turningOn ? "Activate" : "Deactivate",
+                            danger: !turningOn,
+                            run: async () => {
+                              await setAdminMemberActive(id, row.id, turningOn);
+                              return turningOn
+                                ? `${row.name} was activated.`
+                                : `${row.name} was deactivated.`;
+                            },
+                          })
+                        }
+                      >
+                        {turningOn ? "Activate" : "Deactivate"}
+                      </button>
+                    </div>
+                  );
+                },
+              },
             ]}
           />
           <RecordSection
@@ -241,7 +470,25 @@ export default function AdminCustomerPage({ params }) {
               },
             ]}
           />
+          <AdminActivityPanel
+            customerId={id}
+            reloadToken={reloadToken}
+            onForbidden={() => setForbidden(true)}
+          />
         </>
+      ) : null}
+      {confirm ? (
+        <AdminConfirmDialog
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          danger={confirm.danger}
+          busy={busy}
+          onCancel={() => {
+            if (!busy) setConfirm(null);
+          }}
+          onConfirm={() => void runConfirm()}
+        />
       ) : null}
     </AdminFrame>
   );

@@ -1,20 +1,18 @@
 "use client";
 
+import { useState } from "react";
+import AdminActivityPanel from "@/components/AdminActivityPanel";
 import AdminFrame from "@/components/AdminFrame";
-import { brutalChrome } from "@/lib/chrome";
 
 export default function AdminActivityPage() {
+  const [forbidden, setForbidden] = useState(false);
   return (
     <AdminFrame
       title="Activity"
-      lede="A later view of what shops have been doing."
+      lede="Sign-ins, emails, and admin actions. Choose a type to narrow the list."
+      forbidden={forbidden}
     >
-      <div className={`mt-4 ${brutalChrome} bg-nv-paper px-4 py-5`}>
-        <h2 className="text-sm font-black uppercase">Not ready yet</h2>
-        <p className="mt-2 text-sm font-medium text-nv-ink/70">
-          Activity will show recent shop events here. There is nothing to review yet.
-        </p>
-      </div>
+      <AdminActivityPanel onForbidden={() => setForbidden(true)} />
     </AdminFrame>
   );
 }
