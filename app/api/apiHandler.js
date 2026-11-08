@@ -6,6 +6,7 @@ import {
   requestLoginRedirect,
   setStoredToken,
 } from "@/lib/auth";
+import { customerListQuery } from "@/lib/adminCustomers";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -69,6 +70,12 @@ async function apiFetch(url, options) {
 async function parseError(response, fallback) {
   const data = await response.json().catch(() => null);
   return data?.error ?? `${fallback} (${response.status})`;
+}
+
+function httpError(response, data, fallback) {
+  const error = new Error(data?.error ?? `${fallback} (${response.status})`);
+  error.status = response.status;
+  return error;
 }
 
 export const checkHealth = async ({ signal } = {}) => {
@@ -183,7 +190,31 @@ export const getAdminClients = async () => {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error ?? `Failed to load clients (${response.status})`);
+    throw httpError(response, data, "Failed to load clients");
+  }
+  return data;
+};
+
+export const listAdminCustomers = async ({ q = "", limit = 25, offset = 0 } = {}) => {
+  const qs = customerListQuery({ q, limit, offset });
+  const response = await apiFetch(`${getBaseUrl()}/api/admin/customers?${qs}`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load customers");
+  }
+  return data;
+};
+
+export const getAdminCustomer = async (id) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/admin/customers/${encodeURIComponent(id)}`,
+    { headers: authHeaders() }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load customer");
   }
   return data;
 };
