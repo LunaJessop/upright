@@ -50,10 +50,12 @@ export default function ChangelogList() {
       {versions.map((group) => (
         <section key={group.version} className="space-y-4">
           <h2 className="border-b-brutal-xs border-black bg-nv-green-dark px-4 py-2 text-sm font-black uppercase tracking-wide">
-            {group.upcoming ? `v${group.version} · Upcoming` : `v${group.version}`}
+            {group.upcoming
+              ? `v${group.version} · Upcoming`
+              : `v${group.version} · ${formatChangelogDate(group.entries[0].date)}`}
           </h2>
           {group.entries.map((entry) => (
-            <article key={entry.date} className={`${brutalChrome} bg-nv-paper`}>
+            <article key={`${entry.date}-${entry.title}`} className={`${brutalChrome} bg-nv-paper`}>
               <header className="border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-3">
                 <p className="font-mono text-[10px] font-bold uppercase tracking-widest">
                   {formatChangelogDate(entry.date)}
