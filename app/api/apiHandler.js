@@ -6,6 +6,8 @@ import {
   requestLoginRedirect,
   setStoredToken,
 } from "@/lib/auth";
+import { customerListQuery } from "@/lib/adminCustomers";
+import { activityQuery, auditQuery } from "@/lib/adminOps";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -36,10 +38,16 @@ function bearerTokenFrom(headers) {
 }
 
 let onUnauthorized = null;
+let onImpersonationReadOnly = null;
 
 /** Registered by AuthProvider so a 401 drops React session state and routes to /login. */
 export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
+}
+
+/** Registered while viewing as a user so a blocked write shows one friendly toast. */
+export function setImpersonationReadOnlyHandler(handler) {
+  onImpersonationReadOnly = handler;
 }
 
 function expireSession(sentToken) {
@@ -62,6 +70,9 @@ async function apiFetch(url, options) {
   const response = await fetch(url, options);
   if (response.status === 401) {
     expireSession(sentToken);
+  } else if (response.status === 403 && onImpersonationReadOnly) {
+    const data = await response.clone().json().catch(() => null);
+    if (data?.code === "IMPERSONATION_READ_ONLY") onImpersonationReadOnly();
   }
   return response;
 }
@@ -69,6 +80,13 @@ async function apiFetch(url, options) {
 async function parseError(response, fallback) {
   const data = await response.json().catch(() => null);
   return data?.error ?? `${fallback} (${response.status})`;
+}
+
+function httpError(response, data, fallback) {
+  const error = new Error(data?.error ?? `${fallback} (${response.status})`);
+  error.status = response.status;
+  error.code = data?.code ?? null;
+  return error;
 }
 
 export const checkHealth = async ({ signal } = {}) => {
@@ -183,8 +201,144 @@ export const getAdminClients = async () => {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error ?? `Failed to load clients (${response.status})`);
+    throw httpError(response, data, "Failed to load clients");
   }
+  return data;
+};
+
+export const listAdminCustomers = async ({ q = "", limit = 25, offset = 0 } = {}) => {
+  const qs = customerListQuery({ q, limit, offset });
+  const response = await apiFetch(`${getBaseUrl()}/api/admin/customers?${qs}`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load customers");
+  }
+  return data;
+};
+
+export const getAdminCustomer = async (id) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/admin/customers/${encodeURIComponent(id)}`,
+    { headers: authHeaders() }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load customer");
+  }
+  return data;
+};
+
+async function getAdminJson(path, fallback) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`, { headers: authHeaders() });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, fallback);
+  return data;
+}
+
+async function postAdminJson(path, body, fallback) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ confirm: true, ...body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, fallback);
+  return data;
+}
+
+export const listAdminActivity = async (query = {}) => {
+  const qs = activityQuery(query);
+  return getAdminJson(`/api/admin/activity?${qs}`, "Failed to load activity");
+};
+
+export const getAdminCustomerActivity = async (id, query = {}) => {
+  const qs = activityQuery(query);
+  return getAdminJson(
+    `/api/admin/customers/${encodeURIComponent(id)}/activity?${qs}`,
+    "Failed to load activity"
+  );
+};
+
+export const listAdminAudit = async (query = {}) => {
+  const qs = auditQuery(query);
+  return getAdminJson(`/api/admin/audit?${qs}`, "Failed to load audit log");
+};
+
+export const getAdminCustomerBilling = async (id) =>
+  getAdminJson(
+    `/api/admin/customers/${encodeURIComponent(id)}/billing`,
+    "Failed to load billing"
+  );
+
+export const sendAdminPasswordReset = (customerId, userId) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/password-reset`,
+    {},
+    "Failed to send password reset"
+  );
+
+export const resendAdminInvite = (customerId, userId) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/invite`,
+    {},
+    "Failed to resend invite"
+  );
+
+export const setAdminMemberActive = (customerId, userId, active) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/active`,
+    { active },
+    "Failed to update user"
+  );
+
+export const setAdminCustomerActive = (customerId, active) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/active`,
+    { active },
+    "Failed to update customer"
+  );
+
+export const extendAdminGrace = (customerId, days) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/grace`,
+    { days },
+    "Failed to extend grace"
+  );
+
+export const startAdminImpersonation = (customerId, userId, reason) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/impersonate`,
+    { reason },
+    "Failed to start view-as-user"
+  );
+
+export const getOnboardingTemplates = () =>
+  getAdminJson("/api/onboarding/templates", "Failed to load starter packs");
+
+export const getOnboardingStatus = () =>
+  getAdminJson("/api/onboarding/status", "Failed to load setup status");
+
+export const applyOnboardingTemplate = async ({ templateKey, include }) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/onboarding/apply`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ templateKey, include }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, "Failed to set up the shop");
+  return data;
+};
+
+export const endAdminImpersonation = async () => {
+  const response = await apiFetch(`${getBaseUrl()}/api/admin/impersonation/end`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({}),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, "Failed to end view-as-user");
   return data;
 };
 

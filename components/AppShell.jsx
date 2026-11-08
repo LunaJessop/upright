@@ -3,6 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
+import ViewAsBanner from "@/components/ViewAsBanner";
+import ViewAsGuard from "@/components/ViewAsGuard";
 import BillingWall from "@/components/BillingWall";
 import PastDueBanner from "@/components/PastDueBanner";
 import ReadOnlyBanner from "@/components/ReadOnlyBanner";
@@ -22,6 +24,7 @@ const PUBLIC_PATHS = new Set([
   "/register/success",
   "/register/payment",
   "/help",
+  "/changelog",
   "/terms",
   "/privacy",
 ]);
@@ -55,6 +58,7 @@ const PROTECTED_PREFIXES = [
   "/client",
   "/sales",
   "/styles",
+  "/setup",
 ];
 
 function isProtectedAppPath(pathname) {
@@ -160,6 +164,7 @@ function MobileNavDrawer({ open, onDismiss, onClose }) {
 
 function AppFrame({ children, banners = null, mainClassName = "" }) {
   const pathname = usePathname();
+  const { impersonating } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
   const menuButtonRef = useRef(null);
 
@@ -189,7 +194,9 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col">
+    <div className={`flex min-h-screen min-w-0 flex-col ${impersonating ? "upright-view-as" : ""}`}>
+      <ViewAsBanner />
+      <ViewAsGuard />
       {banners}
       <div className="flex min-h-0 min-w-0 flex-1">
         <div className="hidden shrink-0 md:flex">
@@ -232,7 +239,7 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
 function AppShellInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, hasAppAccess, hasReadAccess, isPlatformAdmin } =
+  const { user, loading, hasAppAccess, hasReadAccess, isPlatformAdmin, impersonating } =
     useAuth();
   const isPublic = isPublicPath(pathname);
   const helpPath = isHelpPath(pathname);
@@ -317,7 +324,7 @@ function AppShellInner({ children }) {
 
   // Platform admins can open /admin even if their own tenant is unpaid.
   if (isAdminPath) {
-    if (!isPlatformAdmin) {
+    if (!isPlatformAdmin && !impersonating) {
       return null;
     }
     return <AppFrame>{children}</AppFrame>;

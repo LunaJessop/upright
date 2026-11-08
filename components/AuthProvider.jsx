@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  endAdminImpersonation,
   getMe,
   loginUser,
   logoutUser,
@@ -23,17 +24,22 @@ import {
   loginHref,
   setStoredToken,
 } from "@/lib/auth";
+import { clearViewAsStash, readViewAsReturn, viewAsExpired } from "@/lib/viewAs";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [impersonating, setImpersonating] = useState(null);
+  const [stoppingViewAs, setStoppingViewAs] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
     setStoredToken(null);
+    clearViewAsStash();
     setUser(null);
+    setImpersonating(null);
     resetAnalytics();
   }, []);
 
@@ -57,6 +63,8 @@ export function AuthProvider({ children }) {
     try {
       const session = await getMe();
       setUser(session.user);
+      setImpersonating(session.impersonating ?? null);
+      if (!session.impersonating) clearViewAsStash();
       identifyAnalyticsUser(session.user);
       return session.user;
     } catch {
@@ -97,6 +105,42 @@ export function AuthProvider({ children }) {
     []
   );
 
+  const stopViewAs = useCallback(async () => {
+    const returnTo = readViewAsReturn();
+    setStoppingViewAs(true);
+    try {
+      const data = await endAdminImpersonation();
+      if (!data?.token) throw new Error("Missing admin token");
+      clearViewAsStash();
+      setStoredToken(data.token);
+      const session = await getMe();
+      setUser(session.user);
+      setImpersonating(null);
+      identifyAnalyticsUser(session.user);
+      router.push(returnTo);
+    } catch {
+      clearSession();
+      router.replace("/login");
+    } finally {
+      setStoppingViewAs(false);
+    }
+  }, [clearSession, router]);
+
+  useEffect(() => {
+    if (!impersonating?.expires_at) return undefined;
+    if (viewAsExpired(impersonating.expires_at)) {
+      clearSession();
+      router.replace("/login");
+      return undefined;
+    }
+    const ends = new Date(impersonating.expires_at).getTime();
+    const timer = setTimeout(() => {
+      clearSession();
+      router.replace("/login");
+    }, Math.max(0, ends - Date.now()));
+    return () => clearTimeout(timer);
+  }, [impersonating, clearSession, router]);
+
   const logout = useCallback(() => {
     // logoutUser reads the bearer token synchronously before this clears it.
     // Do not wait on the response: a slow or failed revoke must not block logout.
@@ -112,6 +156,9 @@ export function AuthProvider({ children }) {
       register,
       logout,
       refreshSession,
+      impersonating,
+      stopViewAs,
+      stoppingViewAs,
       isAuthenticated: Boolean(user),
       hasAppAccess: Boolean(user?.has_app_access),
       hasReadAccess: Boolean(
@@ -126,7 +173,7 @@ export function AuthProvider({ children }) {
       subscriptionStatus: user?.subscription_status ?? null,
       graceDaysRemaining: user?.grace_days_remaining ?? null,
     }),
-    [user, loading, login, register, logout, refreshSession]
+    [user, impersonating, loading, login, register, logout, refreshSession, stopViewAs, stoppingViewAs]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

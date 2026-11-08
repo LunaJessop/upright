@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HelpGuide from "@/components/HelpGuide";
 import PublicSiteHeader from "@/components/PublicSiteHeader";
 
@@ -24,6 +25,14 @@ export default function HelpPage() {
           <p className="text-[10px] font-medium uppercase tracking-wide text-white">
             Get your business up and to the right
           </p>
+          <nav aria-label="Legal" className="flex flex-wrap gap-x-4 gap-y-2">
+            <Link href="/terms" className="text-[10px] font-black uppercase tracking-wide text-white hover:underline">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="text-[10px] font-black uppercase tracking-wide text-white hover:underline">
+              Privacy Policy
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

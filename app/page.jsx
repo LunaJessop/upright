@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import uprightLogo from "@/app/assets/upright-logo.png";
 import PublicSiteHeader from "@/components/PublicSiteHeader";
+import ChangelogLink from "@/components/ChangelogLink";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function LandingPage() {
@@ -124,6 +125,10 @@ export default function LandingPage() {
               >
                 Help
               </Link>
+              <ChangelogLink
+                className="inline-flex items-center gap-1.5 border-brutal border-black bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+                dotClassName="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-white"
+              />
               <Link
                 href="/auth"
                 className="border-brutal border-black bg-nv-paper px-4 py-2 text-[10px] font-black uppercase tracking-wide text-nv-ink shadow-brutal-btn transition-transform hover:-translate-y-0.5"
