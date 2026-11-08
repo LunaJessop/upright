@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ChangelogLink from "@/components/ChangelogLink";
 
 export default function SiteFooter() {
@@ -7,6 +8,18 @@ export default function SiteFooter() {
         className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white"
         dotClassName="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-white"
       />
+      <Link
+        href="/terms"
+        className="text-[10px] font-bold uppercase tracking-widest text-white hover:underline"
+      >
+        Terms
+      </Link>
+      <Link
+        href="/privacy"
+        className="text-[10px] font-bold uppercase tracking-widest text-white hover:underline"
+      >
+        Privacy
+      </Link>
       <p className="text-[10px] font-bold uppercase tracking-widest text-white">
         © {new Date().getFullYear()} Upright
       </p>
