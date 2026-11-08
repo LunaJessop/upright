@@ -54,9 +54,12 @@ import {
   planStockUnitChange,
   priceAfterCrossKindChange,
   priceAfterUnitChange,
+  recipeParentUnitWhileEditing,
+  scaledFormAfterCrossKindChange,
   scaleOwnRecipeForCrossKind,
   scaleRecipeQuantities,
 } from "@/lib/itemUnitChange";
+import { previewCrossKindWithDraft } from "@/lib/crossKindPreview";
 import CrossKindUnitDialog from "@/components/CrossKindUnitDialog";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
@@ -440,62 +443,66 @@ export default function ItemDetailPage({ params }) {
     });
   };
 
-  const persistDraft = async ({ unitPlan, changedItem, lines }) => {
-    const isMakeDraft = draft.make_or_buy === "make";
+  const persistDraft = async ({ unitPlan, changedItem, lines, draftSnapshot }) => {
+    const source = draftSnapshot ?? draft;
+    const isMakeDraft = source.make_or_buy === "make";
     const blankToNull = (value) => {
       const text = value == null ? "" : String(value).trim();
       return text === "" ? null : text;
     };
     const crossFactor = unitPlan.crossFactor;
-    const unitCost =
-      unitPlan.action === "change" && changedItem
+    const alreadyScaled = unitPlan.alreadyScaled === true;
+    const unitCost = alreadyScaled
+      ? source.unit_cost
+      : unitPlan.action === "change" && changedItem
         ? priceAfterUnitChange(
             item.unit_cost,
-            draft.unit_cost,
+            source.unit_cost,
             changedItem.unit_cost,
             unitPlan.factor
           )
         : unitPlan.action === "cross" && changedItem && crossFactor
           ? priceAfterCrossKindChange(
               item.unit_cost,
-              draft.unit_cost,
+              source.unit_cost,
               changedItem.unit_cost,
               crossFactor
             )
-          : draft.unit_cost;
-    const unitSellPrice =
-      unitPlan.action === "change" && changedItem
+          : source.unit_cost;
+    const unitSellPrice = alreadyScaled
+      ? source.unit_sell_price
+      : unitPlan.action === "change" && changedItem
         ? priceAfterUnitChange(
             item.unit_sell_price,
-            draft.unit_sell_price,
+            source.unit_sell_price,
             changedItem.unit_sell_price,
             unitPlan.factor
           )
         : unitPlan.action === "cross" && changedItem && crossFactor
           ? priceAfterCrossKindChange(
               item.unit_sell_price,
-              draft.unit_sell_price,
+              source.unit_sell_price,
               changedItem.unit_sell_price,
               crossFactor
             )
-          : draft.unit_sell_price;
+          : source.unit_sell_price;
     const recipeLines =
-      unitPlan.action === "cross" && crossFactor
+      !alreadyScaled && unitPlan.action === "cross" && crossFactor
         ? scaleOwnRecipeForCrossKind(lines, crossFactor)
         : lines;
     const payload = {
       ...item,
-      ...draft,
-      name: draft.name.trim(),
+      ...source,
+      name: source.name.trim(),
       sku: null,
-      description: draft.description.trim(),
+      description: source.description.trim(),
       unit_of_measure: unitPlan.unitOfMeasure,
       default_unit_price: isMakeDraft
         ? blankToNull(unitSellPrice)
         : blankToNull(unitCost),
       unit_cost: isMakeDraft ? null : blankToNull(unitCost),
       unit_sell_price: isMakeDraft ? blankToNull(unitSellPrice) : null,
-      vendor: isMakeDraft || draft.vendor === "" ? null : Number(draft.vendor),
+      vendor: isMakeDraft || source.vendor === "" ? null : Number(source.vendor),
       bom_items: isMakeDraft
         ? recipeLines.map((line) => ({
             component_item_id: Number(line.itemId),
@@ -645,10 +652,26 @@ export default function ItemDetailPage({ params }) {
         factor: crossKind.factorInput,
         dryRun: true,
       });
+      const namedLines = bomLines.map((line) => {
+        const catalogItem = catalogItems.find(
+          (row) => String(row.id) === String(line.itemId)
+        );
+        return {
+          ...line,
+          componentName: catalogItem?.name || "",
+        };
+      });
+      const shown = previewCrossKindWithDraft(preview, {
+        savedUnitCost: item?.unit_cost,
+        savedUnitSellPrice: item?.unit_sell_price,
+        draft,
+        lines: namedLines,
+        factor: preview?.factor,
+      });
       setCrossKind((prev) => ({
         ...prev,
         busy: false,
-        preview,
+        preview: shown,
         factorError: "",
       }));
     } catch (err) {
@@ -672,6 +695,18 @@ export default function ItemDetailPage({ params }) {
   const confirmCrossKind = async () => {
     if (!crossKind?.preview || !draft) return;
     const factor = Number(crossKind.factorInput);
+    if (!Number.isFinite(factor) || factor <= 0) {
+      setCrossKind((prev) =>
+        prev
+          ? {
+              ...prev,
+              preview: null,
+              factorError: "Enter a number greater than zero.",
+            }
+          : prev
+      );
+      return;
+    }
     setCrossKind((prev) => ({ ...prev, busy: true }));
     setSaving(true);
     let unitChangedOnServer = false;
@@ -681,18 +716,32 @@ export default function ItemDetailPage({ params }) {
         factor,
       });
       unitChangedOnServer = true;
+      const scaled = scaledFormAfterCrossKindChange({
+        savedUnitCost: item?.unit_cost,
+        savedUnitSellPrice: item?.unit_sell_price,
+        draft,
+        lines: bomLines,
+        convertedUnitCost: changedItem?.unit_cost,
+        convertedUnitSellPrice: changedItem?.unit_sell_price,
+        factor,
+        unitOfMeasure: crossKind.unitOfMeasure,
+      });
       if (changedItem?.id) setItem(changedItem);
+      setDraft(scaled.draft);
+      setBomLines(scaled.lines);
       await persistDraft({
         unitPlan: {
           action: "cross",
           unitOfMeasure: crossKind.unitOfMeasure,
           crossFactor: factor,
+          alreadyScaled: true,
         },
         changedItem,
-        lines: bomLines,
+        lines: scaled.lines,
+        draftSnapshot: scaled.draft,
       });
     } catch (err) {
-      if (err?.code === "INVALID_CONVERSION_FACTOR") {
+      if (!unitChangedOnServer && err?.code === "INVALID_CONVERSION_FACTOR") {
         setCrossKind((prev) => ({
           ...prev,
           busy: false,
@@ -701,15 +750,17 @@ export default function ItemDetailPage({ params }) {
         }));
         return;
       }
-      if (unitChangedOnServer) {
-        await loadInventory();
-      }
       const message = unitChangedOnServer
         ? `The unit changed, but the other edits did not save. ${err?.message || "Failed to save changes."}`
         : err?.message || "Could not change the unit.";
       setSaveError(message);
       toast.error(message);
-      setCrossKind((prev) => (prev ? { ...prev, busy: false } : prev));
+      if (unitChangedOnServer) {
+        setCrossKind(null);
+        await loadInventory();
+      } else {
+        setCrossKind((prev) => (prev ? { ...prev, busy: false } : prev));
+      }
     } finally {
       setSaving(false);
     }
@@ -2178,7 +2229,10 @@ export default function ItemDetailPage({ params }) {
                             onRemoveLine={removeBomLine}
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
-                            parentUnitOfMeasure={draft.unit_of_measure}
+                            parentUnitOfMeasure={recipeParentUnitWhileEditing(
+                              item?.unit_of_measure,
+                              draft.unit_of_measure
+                            )}
                             tone="cyan"
                           />
                         </div>
