@@ -7,6 +7,7 @@ import {
   setStoredToken,
 } from "@/lib/auth";
 import { customerListQuery } from "@/lib/adminCustomers";
+import { activityQuery, auditQuery } from "@/lib/adminOps";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -75,6 +76,7 @@ async function parseError(response, fallback) {
 function httpError(response, data, fallback) {
   const error = new Error(data?.error ?? `${fallback} (${response.status})`);
   error.status = response.status;
+  error.code = data?.code ?? null;
   return error;
 }
 
@@ -218,6 +220,83 @@ export const getAdminCustomer = async (id) => {
   }
   return data;
 };
+
+async function getAdminJson(path, fallback) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`, { headers: authHeaders() });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, fallback);
+  return data;
+}
+
+async function postAdminJson(path, body, fallback) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ confirm: true, ...body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, fallback);
+  return data;
+}
+
+export const listAdminActivity = async (query = {}) => {
+  const qs = activityQuery(query);
+  return getAdminJson(`/api/admin/activity?${qs}`, "Failed to load activity");
+};
+
+export const getAdminCustomerActivity = async (id, query = {}) => {
+  const qs = activityQuery(query);
+  return getAdminJson(
+    `/api/admin/customers/${encodeURIComponent(id)}/activity?${qs}`,
+    "Failed to load activity"
+  );
+};
+
+export const listAdminAudit = async (query = {}) => {
+  const qs = auditQuery(query);
+  return getAdminJson(`/api/admin/audit?${qs}`, "Failed to load audit log");
+};
+
+export const getAdminCustomerBilling = async (id) =>
+  getAdminJson(
+    `/api/admin/customers/${encodeURIComponent(id)}/billing`,
+    "Failed to load billing"
+  );
+
+export const sendAdminPasswordReset = (customerId, userId) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/password-reset`,
+    {},
+    "Failed to send password reset"
+  );
+
+export const resendAdminInvite = (customerId, userId) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/invite`,
+    {},
+    "Failed to resend invite"
+  );
+
+export const setAdminMemberActive = (customerId, userId, active) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/active`,
+    { active },
+    "Failed to update user"
+  );
+
+export const setAdminCustomerActive = (customerId, active) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/active`,
+    { active },
+    "Failed to update customer"
+  );
+
+export const extendAdminGrace = (customerId, days) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/grace`,
+    { days },
+    "Failed to extend grace"
+  );
 
 export const createClientUser = async ({ name, email, password, role }) => {
   const response = await apiFetch(`${getBaseUrl()}/api/client/users`, {
