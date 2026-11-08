@@ -38,10 +38,16 @@ function bearerTokenFrom(headers) {
 }
 
 let onUnauthorized = null;
+let onImpersonationReadOnly = null;
 
 /** Registered by AuthProvider so a 401 drops React session state and routes to /login. */
 export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
+}
+
+/** Registered while viewing as a user so a blocked write shows one friendly toast. */
+export function setImpersonationReadOnlyHandler(handler) {
+  onImpersonationReadOnly = handler;
 }
 
 function expireSession(sentToken) {
@@ -64,6 +70,9 @@ async function apiFetch(url, options) {
   const response = await fetch(url, options);
   if (response.status === 401) {
     expireSession(sentToken);
+  } else if (response.status === 403 && onImpersonationReadOnly) {
+    const data = await response.clone().json().catch(() => null);
+    if (data?.code === "IMPERSONATION_READ_ONLY") onImpersonationReadOnly();
   }
   return response;
 }
@@ -297,6 +306,24 @@ export const extendAdminGrace = (customerId, days) =>
     { days },
     "Failed to extend grace"
   );
+
+export const startAdminImpersonation = (customerId, userId, reason) =>
+  postAdminJson(
+    `/api/admin/customers/${encodeURIComponent(customerId)}/users/${encodeURIComponent(userId)}/impersonate`,
+    { reason },
+    "Failed to start view-as-user"
+  );
+
+export const endAdminImpersonation = async () => {
+  const response = await apiFetch(`${getBaseUrl()}/api/admin/impersonation/end`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({}),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw httpError(response, data, "Failed to end view-as-user");
+  return data;
+};
 
 export const createClientUser = async ({ name, email, password, role }) => {
   const response = await apiFetch(`${getBaseUrl()}/api/client/users`, {
