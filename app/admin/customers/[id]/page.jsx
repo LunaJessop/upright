@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import {
   extendAdminGrace,
@@ -10,6 +11,7 @@ import {
   sendAdminPasswordReset,
   setAdminCustomerActive,
   setAdminMemberActive,
+  startAdminImpersonation,
 } from "@/app/api/apiHandler";
 import AdminActivityPanel from "@/components/AdminActivityPanel";
 import AdminBillingPanel from "@/components/AdminBillingPanel";
@@ -31,7 +33,13 @@ import {
   passwordResetConfirm,
 } from "@/lib/adminOps";
 import { brutalChrome, deleteButtonClass, inputClass, rowStripe } from "@/lib/chrome";
-import { ROLE_LABELS } from "@/lib/auth";
+import { ROLE_LABELS, getStoredToken, setStoredToken } from "@/lib/auth";
+import {
+  canViewAsMember,
+  stashAdminSession,
+  viewAsConfirm,
+  viewAsReasonError,
+} from "@/lib/viewAs";
 
 function cell(value) {
   if (value == null || value === "") return "—";
@@ -87,7 +95,8 @@ function RecordSection({ title, tone, showing, columns, rows, empty }) {
 
 export default function AdminCustomerPage({ params }) {
   const { id } = use(params);
-  const { isPlatformAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { user, isPlatformAdmin, loading: authLoading, refreshSession } = useAuth();
   const toast = useToast();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,6 +109,7 @@ export default function AdminCustomerPage({ params }) {
   const [graceDays, setGraceDays] = useState("14");
   const [graceError, setGraceError] = useState("");
   const [confirm, setConfirm] = useState(null);
+  const [viewReason, setViewReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -157,6 +167,7 @@ export default function AdminCustomerPage({ params }) {
   }, [authLoading, id, isPlatformAdmin, reloadToken]);
 
   function ask(next) {
+    setViewReason("");
     setConfirm(next);
   }
 
@@ -164,10 +175,10 @@ export default function AdminCustomerPage({ params }) {
     if (!confirm) return;
     setBusy(true);
     try {
-      const message = await confirm.run();
+      const message = await confirm.run(viewReason);
       toast.success(message);
       setConfirm(null);
-      await refresh();
+      if (!confirm.skipRefresh) await refresh();
     } catch (err) {
       toast.error(err?.message || "That action failed.");
       setConfirm(null);
@@ -350,6 +361,35 @@ export default function AdminCustomerPage({ params }) {
                   const turningOn = row.active === false;
                   return (
                     <div className="flex flex-wrap gap-1">
+                      {canViewAsMember(row, user) ? (
+                        <button
+                          type="button"
+                          className={quietButton}
+                          onClick={() =>
+                            ask({
+                              title: "View as user",
+                              message: viewAsConfirm(row),
+                              confirmLabel: "View as user",
+                              needsReason: true,
+                              skipRefresh: true,
+                              run: async (reason) => {
+                                const problem = viewAsReasonError(reason);
+                                if (problem) throw new Error(problem);
+                                const data = await startAdminImpersonation(id, row.id, reason.trim());
+                                if (!data?.token) throw new Error("Could not start the view.");
+                                stashAdminSession(getStoredToken(), `/admin/customers/${id}`);
+                                setStoredToken(data.token);
+                                const nextUser = await refreshSession();
+                                if (!nextUser) throw new Error("Could not open the view.");
+                                router.push("/items");
+                                return `Viewing as ${row.email}.`;
+                              },
+                            })
+                          }
+                        >
+                          View as
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className={quietButton}
@@ -484,11 +524,32 @@ export default function AdminCustomerPage({ params }) {
           confirmLabel={confirm.confirmLabel}
           danger={confirm.danger}
           busy={busy}
+          confirmDisabled={confirm.needsReason && Boolean(viewAsReasonError(viewReason))}
           onCancel={() => {
             if (!busy) setConfirm(null);
           }}
           onConfirm={() => void runConfirm()}
-        />
+        >
+          {confirm.needsReason ? (
+            <label className="mt-3 block">
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
+                Reason
+              </span>
+              <textarea
+                id="view-as-reason"
+                value={viewReason}
+                onChange={(event) => setViewReason(event.target.value)}
+                rows={3}
+                className={inputClass}
+              />
+              {viewReason.trim().length > 500 ? (
+                <span className="mt-1 block text-xs font-semibold text-red-700">
+                  Keep the reason under 500 characters.
+                </span>
+              ) : null}
+            </label>
+          ) : null}
+        </AdminConfirmDialog>
       ) : null}
     </AdminFrame>
   );

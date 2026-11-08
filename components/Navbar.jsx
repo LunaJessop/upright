@@ -9,6 +9,7 @@ import { createBillingPortal } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { ROLE_LABELS } from "@/lib/auth";
+import { VIEW_AS_TOOLTIP } from "@/lib/viewAs";
 import ChangelogLink from "@/components/ChangelogLink";
 
 const brutalChrome = "border-brutal border-black shadow-brutal-sm";
@@ -86,19 +87,21 @@ function NavDropdown({ section, pathname, isOpen, onToggle, onNavigate }) {
 export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isPlatformAdmin } = useAuth();
+  const { user, logout, isPlatformAdmin, impersonating } = useAuth();
   const toast = useToast();
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((s) => [s.id, true]))
   );
 
   const handleLogout = () => {
+    if (impersonating) return;
     onNavigate?.();
     logout();
     router.replace("/");
   };
 
   const handleBilling = async () => {
+    if (impersonating) return;
     try {
       const { portalUrl } = await createBillingPortal();
       window.location.href = portalUrl;
@@ -223,7 +226,11 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+          aria-disabled={impersonating ? "true" : undefined}
+          title={impersonating ? VIEW_AS_TOOLTIP : undefined}
+          className={`w-full border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+            impersonating ? "cursor-not-allowed opacity-45" : ""
+          }`}
         >
           Log out
         </button>
@@ -231,7 +238,11 @@ export default function Navbar({ onNavigate, onClose, closeButtonRef }) {
           <button
             type="button"
             onClick={() => void handleBilling()}
-            className="mt-2 w-full border-brutal-xs border-black bg-nv-cyan/30 px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+            aria-disabled={impersonating ? "true" : undefined}
+            title={impersonating ? VIEW_AS_TOOLTIP : undefined}
+            className={`mt-2 w-full border-brutal-xs border-black bg-nv-cyan/30 px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+              impersonating ? "cursor-not-allowed opacity-45" : ""
+            }`}
           >
             Billing
           </button>

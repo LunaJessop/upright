@@ -192,6 +192,11 @@ body {
   }
 }
 
+.upright-view-as [data-view-as-blocked="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 /*
  * Buttons and inputs use the 1px border token. Outer frames and headings
  * keep border-brutal (3px) because they are not buttons. Unlayered so this

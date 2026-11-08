@@ -9,8 +9,10 @@ export default function AdminConfirmDialog({
   confirmLabel,
   danger = false,
   busy = false,
+  confirmDisabled = false,
   onCancel,
   onConfirm,
+  children,
 }) {
   useEffect(() => {
     function onKey(event) {
@@ -32,6 +34,7 @@ export default function AdminConfirmDialog({
           {title}
         </h2>
         <p className="mt-2 text-sm font-medium leading-relaxed">{message}</p>
+        {children}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button
             type="button"
@@ -44,7 +47,7 @@ export default function AdminConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40 ${
               danger
                 ? deleteButtonClass
