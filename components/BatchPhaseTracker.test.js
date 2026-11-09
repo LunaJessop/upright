@@ -38,7 +38,8 @@ test("a phase lists its ingredients beside play and complete", () => {
     })
   );
   const melt = html.slice(html.indexOf(">Melt<"), html.indexOf(">Pour<"));
-  assert.match(melt, /<ul[^>]*aria-label="Ingredients for Melt"/);
+  assert.match(melt, /<ul[^>]*aria-label="Ingredients for Melt"[^>]*class="[^"]*pl-4/);
+  assert.match(melt, /text-left[^"]*"[^>]*>Olive oil/);
   assert.match(melt, /class="[^"]*text-right[^"]*"/);
   assert.match(melt, /0/);
   assert.match(melt, /\/ 12 fl oz/);
