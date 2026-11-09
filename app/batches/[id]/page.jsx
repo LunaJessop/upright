@@ -17,6 +17,7 @@ import BatchReceipt from "@/components/BatchReceipt";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
+import { applyProgressSave } from "@/lib/batchProgress";
 import { brutalChrome } from "@/lib/chrome";
 const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
@@ -79,7 +80,7 @@ function phasesReadyToComplete(phases) {
 export default function BatchDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
-  const { canWrite } = useAuth();
+  const { canWrite, impersonating } = useAuth();
   const toast = useToast();
   const [batch, setBatch] = useState(null);
   const [catalogItems, setCatalogItems] = useState([]);
@@ -473,6 +474,11 @@ export default function BatchDetailPage({ params }) {
                 tone="green"
                 phases={phases}
                 components={receiptComponents}
+                batchId={batch.id}
+                canEditProgress={Boolean(canWrite) && !impersonating && !batchLocked}
+                onProgressSaved={(result) => {
+                  setBatch((current) => applyProgressSave(current, result));
+                }}
                 updating={updating || batchLocked || !canWrite}
                 onStatusChange={(phaseId, status) =>
                   void handlePhaseStatus(phaseId, status)

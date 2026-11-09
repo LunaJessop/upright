@@ -1,10 +1,12 @@
 "use client";
 
+import IngredientProgress from "./IngredientProgress.jsx";
 import { listClass, nestedHeaderClass, rowStripe } from "@/lib/chrome";
 import {
   associateBatchPhaseIngredients,
   unassignedIngredientNote,
 } from "@/lib/batchPhaseIngredients";
+import { applyProgressSave } from "@/lib/batchProgress";
 
 const STATUS_STYLES = {
   pending: "text-nv-ink/40",
@@ -164,20 +166,30 @@ export function currentPhaseLabel(phases) {
   return "All phases done";
 }
 
-function IngredientList({ label, ingredients, notes = false }) {
+function IngredientList({
+  label,
+  ingredients,
+  notes = false,
+  batchId,
+  canEdit,
+  onSaved,
+}) {
   if (!ingredients?.length) return null;
   return (
-    <ul aria-label={label} className="mt-2 space-y-1">
+    <ul aria-label={label} className="mt-2 space-y-2">
       {ingredients.map((ingredient) => (
-        <li key={ingredient.key} className="text-sm font-medium leading-snug text-nv-ink">
-          {ingredient.name}
-          {ingredient.quantity ? (
-            <span className="font-semibold text-nv-ink/70"> — {ingredient.quantity}</span>
-          ) : null}
+        <li key={ingredient.key} className="text-right">
+          <p className="text-sm font-medium text-nv-ink">{ingredient.name}</p>
+          <IngredientProgress
+            batchId={batchId}
+            ingredient={ingredient}
+            canEdit={canEdit}
+            onSaved={onSaved}
+          />
           {notes ? (
-            <span className="mt-0.5 block text-xs font-medium text-nv-ink/60">
+            <p className="text-xs font-medium text-nv-ink/60">
               {unassignedIngredientNote(ingredient)}
-            </span>
+            </p>
           ) : null}
         </li>
       ))}
@@ -192,6 +204,9 @@ function PhaseRow({
   updating,
   onStatusChange,
   tone = "green",
+  batchId,
+  canEditProgress,
+  onProgressSaved,
 }) {
   const isRunning = phase.status === "in_progress";
   const isComplete = phase.status === "complete";
@@ -215,7 +230,13 @@ function PhaseRow({
             </p>
           ) : null}
           {ingredients.length > 0 ? (
-            <IngredientList label={`Ingredients for ${phase.name}`} ingredients={ingredients} />
+            <IngredientList
+              label={`Ingredients for ${phase.name}`}
+              ingredients={ingredients}
+              batchId={batchId}
+              canEdit={canEditProgress}
+              onSaved={onProgressSaved}
+            />
           ) : (
             <p className="mt-2 text-xs font-medium text-nv-ink/55">No ingredients for this step.</p>
           )}
@@ -280,12 +301,17 @@ function PhaseRow({
   );
 }
 
+export { applyProgressSave };
+
 export default function BatchPhaseTracker({
   phases,
   components = [],
   updating,
   onStatusChange,
   tone = "green",
+  batchId,
+  canEditProgress = false,
+  onProgressSaved,
 }) {
   const groups = groupPhasesByItem(phases);
   const { byPhaseId, unassigned } = associateBatchPhaseIngredients(phases, components);
@@ -325,6 +351,9 @@ export default function BatchPhaseTracker({
                 updating={updating}
                 onStatusChange={onStatusChange}
                 tone={tone}
+                batchId={batchId}
+                canEditProgress={canEditProgress}
+                onProgressSaved={onProgressSaved}
               />
             ))}
           </ol>
@@ -342,6 +371,9 @@ export default function BatchPhaseTracker({
             label="Ingredients not on one step"
             ingredients={unassigned}
             notes
+            batchId={batchId}
+            canEdit={canEditProgress}
+            onSaved={onProgressSaved}
           />
         </section>
       ) : null}
