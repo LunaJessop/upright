@@ -7,29 +7,30 @@ import {
   formatChangelogDate,
   newestChangelogDate,
 } from "@/lib/changelog";
-import { brutalChrome, rowStripe } from "@/lib/chrome";
 
-function BulletList({ label, tone, items }) {
-  if (!items.length) return null;
-  const header = tone === "green" ? "bg-nv-green-dark" : "bg-nv-purple-dark";
-  const stripe = tone === "green" ? "green" : "purple";
-  return (
-    <div>
-      <h4 className={`${header} px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}>
-        {label}
-      </h4>
-      <ul>
-        {items.map((item, index) => (
-          <li
-            key={item}
-            className={`px-3 py-2 text-sm font-medium leading-relaxed ${rowStripe(index, stripe)}`}
-          >
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function versionDateGroups() {
+  const groups = [];
+  for (const version of changelogVersions()) {
+    for (const entry of version.entries) {
+      const last = groups[groups.length - 1];
+      if (!last || last.version !== version.version || last.date !== entry.date) {
+        groups.push({
+          version: version.version,
+          upcoming: version.upcoming,
+          date: entry.date,
+          entries: [entry],
+        });
+      } else {
+        last.entries.push(entry);
+      }
+    }
+  }
+  return groups;
+}
+
+function heading(group) {
+  if (group.upcoming) return `v${group.version} · Upcoming`;
+  return `v${group.version} · ${formatChangelogDate(group.date)}`;
 }
 
 export default function ChangelogList() {
@@ -43,29 +44,26 @@ export default function ChangelogList() {
     }
   }, []);
 
-  const versions = changelogVersions();
-
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
-      {versions.map((group) => (
-        <section key={group.version} className="space-y-4">
-          <h2 className="border-b-brutal-xs border-black bg-nv-green-dark px-4 py-2 text-sm font-black uppercase tracking-wide">
-            {group.upcoming
-              ? `v${group.version} · Upcoming`
-              : `v${group.version} · ${formatChangelogDate(group.entries[0].date)}`}
-          </h2>
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+      <p className="text-sm font-medium text-nv-ink/70">What's new</p>
+      {versionDateGroups().map((group) => (
+        <section key={`${group.version}-${group.date}`} className="mt-10">
+          <h1 className="scroll-mt-20 text-2xl font-black leading-tight text-nv-ink sm:text-3xl">
+            {heading(group)}
+          </h1>
           {group.entries.map((entry) => (
-            <article key={`${entry.date}-${entry.title}`} className={`${brutalChrome} bg-nv-paper`}>
-              <header className="border-b-brutal-xs border-black bg-nv-purple-dark px-4 py-3">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest">
-                  {formatChangelogDate(entry.date)}
-                </p>
-                <h3 className="mt-1 text-lg font-black uppercase leading-tight">
-                  {entry.title}
-                </h3>
-              </header>
-              <BulletList label="New" tone="green" items={entry.new} />
-              <BulletList label="Fixed" tone="purple" items={entry.fixed} />
+            <article key={`${entry.date}-${entry.title}`} className="mt-8">
+              <h2 className="scroll-mt-20 text-lg font-bold leading-snug text-nv-ink sm:text-xl">
+                {entry.title}
+              </h2>
+              <div className="mt-3 space-y-3">
+                {[...entry.new, ...entry.fixed].map((line) => (
+                  <p key={line} className="text-base leading-relaxed text-nv-ink">
+                    {line}
+                  </p>
+                ))}
+              </div>
             </article>
           ))}
         </section>
