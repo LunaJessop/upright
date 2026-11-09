@@ -168,6 +168,7 @@ export function currentPhaseLabel(phases) {
 
 function IngredientList({
   label,
+  ariaLabel,
   ingredients,
   notes = false,
   batchId,
@@ -176,11 +177,13 @@ function IngredientList({
 }) {
   if (!ingredients?.length) return null;
   return (
-    <ul aria-label={label} className="mt-2 space-y-2 pl-4 sm:pl-6">
+    <div className="mt-2 pl-4 sm:pl-6">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-nv-ink/60">{label}</p>
+      <ul aria-label={ariaLabel || label} className="mt-1 list-disc space-y-2 pl-4">
       {ingredients.map((ingredient) => (
         <li key={ingredient.key}>
           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-            <p className="min-w-0 flex-1 basis-36 break-words text-left text-sm font-medium leading-snug text-nv-ink">
+            <p className="min-w-0 flex-1 basis-36 break-words text-left text-xs font-medium leading-snug text-nv-ink">
               {ingredient.name}
             </p>
             <div className="ml-auto shrink-0">
@@ -199,7 +202,8 @@ function IngredientList({
           ) : null}
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 
@@ -231,13 +235,14 @@ function PhaseRow({
             <StatusIcon status={phase.status} />
           </div>
           {phase.description ? (
-            <p className="mt-1 text-xs font-medium text-nv-ink/70">
+            <p className="mt-1 text-xs font-normal leading-relaxed text-nv-ink/70">
               {phase.description}
             </p>
           ) : null}
           {ingredients.length > 0 ? (
             <IngredientList
-              label={`Ingredients for ${phase.name}`}
+              label="Ingredients"
+              ariaLabel={`Ingredients for ${phase.name}`}
               ingredients={ingredients}
               batchId={batchId}
               canEdit={canEditProgress}
@@ -370,11 +375,12 @@ export default function BatchPhaseTracker({
           <h3 className="text-xs font-black uppercase tracking-wide text-nv-ink">
             Not on one step
           </h3>
-          <p className="mt-1 text-xs font-medium leading-relaxed text-nv-ink/70">
+          <p className="mt-1 text-xs font-normal leading-relaxed text-nv-ink/70">
             These ingredients stay listed once. They are not copied onto every step.
           </p>
           <IngredientList
-            label="Ingredients not on one step"
+            label="Ingredients"
+            ariaLabel="Ingredients not on one step"
             ingredients={unassigned}
             notes
             batchId={batchId}

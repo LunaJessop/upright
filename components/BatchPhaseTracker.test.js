@@ -4,8 +4,16 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import BatchPhaseTracker from "./BatchPhaseTracker.jsx";
 
-const phases = [
-  { id: 1, name: "Melt", status: "pending", source_item_id: 4, source_item_name: "Soap", source_item_qty: 2 },
+  const phases = [
+  {
+    id: 1,
+    name: "Melt",
+    description: "Melt the oils.",
+    status: "pending",
+    source_item_id: 4,
+    source_item_name: "Soap",
+    source_item_qty: 2,
+  },
   { id: 2, name: "Pour", status: "pending", source_item_id: 4, source_item_name: "Soap", source_item_qty: 2 },
 ];
 
@@ -38,8 +46,10 @@ test("a phase lists its ingredients beside play and complete", () => {
     })
   );
   const melt = html.slice(html.indexOf(">Melt<"), html.indexOf(">Pour<"));
-  assert.match(melt, /<ul[^>]*aria-label="Ingredients for Melt"[^>]*class="[^"]*pl-4/);
-  assert.match(melt, /text-left[^"]*"[^>]*>Olive oil/);
+  assert.match(melt, />Ingredients</);
+  assert.match(melt, /<ul[^>]*aria-label="Ingredients for Melt"[^>]*class="[^"]*list-disc/);
+  assert.match(melt, /font-normal[^"]*"[^>]*>Melt the oils\./);
+  assert.match(melt, /text-xs font-medium[^"]*"[^>]*>Olive oil/);
   assert.match(melt, /class="[^"]*text-right[^"]*"/);
   assert.match(melt, /0/);
   assert.match(melt, /\/ 12 fl oz/);
@@ -81,6 +91,7 @@ test("play and complete stay available when a step has no ingredients", () => {
     })
   );
   assert.match(html, /No ingredients for this step/);
+  assert.doesNotMatch(html, />Ingredients</);
   assert.match(html, /aria-label="Stop \/ reset"/);
   assert.match(html, /aria-label="Complete"/);
   assert.doesNotMatch(html, /Ingredients not on one step/);
