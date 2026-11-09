@@ -591,10 +591,11 @@ async function photoError(response, fallback) {
   throw error;
 }
 
-export const GetItemPhoto = async (id) => {
+export const GetItemPhoto = async (id, { signal } = {}) => {
   const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
     headers: authHeaders(),
     cache: "no-store",
+    signal,
   });
   if (!response.ok) {
     await photoError(response, PHOTO_MESSAGES.load);

@@ -89,6 +89,22 @@ describe("item photo requests", () => {
     assert.equal(blob.size, 3);
   });
 
+  it("can abort a photo read that belongs to an item the user already left", async () => {
+    ensureStorage();
+    setStoredToken("token-1");
+    const controller = new AbortController();
+    globalThis.fetch = async (_url, options) => {
+      assert.equal(options.signal, controller.signal);
+      assert.equal(options.cache, "no-store");
+      return new Response(Uint8Array.from([1]), {
+        status: 200,
+        headers: { "Content-Type": "image/webp" },
+      });
+    };
+    const blob = await GetItemPhoto(4, { signal: controller.signal });
+    assert.equal(blob.size, 1);
+  });
+
   it("clears the photo on delete", async () => {
     ensureStorage();
     setStoredToken("token-1");
