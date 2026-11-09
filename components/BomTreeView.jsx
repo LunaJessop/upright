@@ -152,11 +152,6 @@ function BomTreeNode({
                   Buy
                 </span>
               )}
-              {typeof line.phase_name === "string" && line.phase_name.trim() ? (
-                <span className="border-brutal-xs border-black bg-nv-purple-muted px-1 py-px text-[9px] font-black uppercase tracking-wide">
-                  {line.phase_name.trim()}
-                </span>
-              ) : null}
             </div>
 
             {readout.details.length > 0 && (

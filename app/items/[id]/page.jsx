@@ -1943,8 +1943,7 @@ export default function ItemDetailPage({ params }) {
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
                         For just one. Amounts use the unit they were entered
-                        in. Expand make components to see nested materials and
-                        their phases.
+                        in. Expand make components to see nested materials.
                       </p>
                       <BomTreeView
                         lines={item.bom_items}
