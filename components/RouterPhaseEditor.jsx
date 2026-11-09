@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
+import { phaseIngredientPlan } from "@/lib/phaseAssignment";
+import { HeldAssignments, PhaseIngredients } from "./PhaseIngredients.jsx";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -37,6 +39,9 @@ function reorderList(list, fromIndex, toIndex) {
 export default function RouterPhaseEditor({
   phases,
   phaseTemplates = [],
+  bomLines = [],
+  catalogItems = [],
+  onSetLinePhase,
   onAddFromTemplate,
   onRemovePhase,
   onMoveUp,
@@ -46,6 +51,9 @@ export default function RouterPhaseEditor({
 }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
+  const [openPhaseId, setOpenPhaseId] = useState(null);
+  const plan = phaseIngredientPlan(phases, bomLines, phaseTemplates);
+  const uniqueTargets = plan.resolved.filter((phase) => plan.editable.get(phase.id));
 
   const handleReorder = (fromIndex, toIndex) => {
     if (!onReorderPhases) return;
@@ -202,6 +210,16 @@ export default function RouterPhaseEditor({
                     ) : null}
                   </div>
                 )}
+                <PhaseIngredients
+                  phase={plan.resolved[index]}
+                  lines={plan.assigned.get(phase.id) || []}
+                  choices={bomLines}
+                  catalogItems={catalogItems}
+                  editable={plan.editable.get(phase.id)}
+                  open={openPhaseId === phase.id}
+                  onToggle={() => setOpenPhaseId((current) => (current === phase.id ? null : phase.id))}
+                  onSetLinePhase={onSetLinePhase}
+                />
               </li>
             );
           })}
@@ -226,6 +244,12 @@ export default function RouterPhaseEditor({
           )}
         </p>
       )}
+      <HeldAssignments
+        held={plan.held}
+        targets={uniqueTargets}
+        catalogItems={catalogItems}
+        onSetLinePhase={onSetLinePhase}
+      />
     </div>
   );
 }

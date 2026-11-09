@@ -55,7 +55,7 @@ test("the recipe editor opens its component list without a missing tone", () => 
   assert.match(html, /Add/);
 });
 
-test("each recipe row can leave the phase unset or pick a company phase", () => {
+test("a recipe row keeps quantity editing and does not pick a phase", () => {
   const html = renderToStaticMarkup(
     createElement(BomRecipeEditor, {
       catalogItems: catalog,
@@ -68,16 +68,11 @@ test("each recipe row can leave the phase unset or pick a company phase", () => 
       onRemoveLine: noop,
       onUpdateLineQuantity: noop,
       onUpdateLineUnit: noop,
-      phaseTemplates: [
-        { id: 2, name: "Pour" },
-        { id: 1, name: "Blend" },
-      ],
       tone: "cyan",
     })
   );
 
-  assert.match(html, /Used in phase/);
-  assert.match(html, /Any \/ not set/);
-  assert.match(html, /Blend/);
-  assert.match(html, /Pour/);
+  assert.match(html, /QA TEST Jojoba/);
+  assert.match(html, /aria-label="BOM unit of measure"/);
+  assert.doesNotMatch(html, /Used in phase/);
 });

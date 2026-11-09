@@ -441,6 +441,7 @@ export default function ItemDetailPage({ params }) {
         description: template.description ?? "",
         estimated_minutes:
           template.estimated_minutes == null ? "" : String(template.estimated_minutes),
+        libraryPhaseId: template.id == null ? "" : String(template.id),
       },
     ]);
   };
@@ -2199,6 +2200,9 @@ export default function ItemDetailPage({ params }) {
                           <RouterPhaseEditor
                             phases={routerPhases}
                             phaseTemplates={phaseTemplates}
+                            bomLines={bomLines}
+                            catalogItems={catalogItems}
+                            onSetLinePhase={updateBomLinePhase}
                             onAddFromTemplate={addRouterPhaseFromTemplate}
                             onRemovePhase={removeRouterPhase}
                             onMoveUp={(phaseId) =>
@@ -2263,8 +2267,6 @@ export default function ItemDetailPage({ params }) {
                             onRemoveLine={removeBomLine}
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
-                            onUpdateLinePhase={updateBomLinePhase}
-                            phaseTemplates={phaseTemplates}
                             parentUnitOfMeasure={recipeParentUnitWhileEditing(
                               item?.unit_of_measure,
                               draft.unit_of_measure
