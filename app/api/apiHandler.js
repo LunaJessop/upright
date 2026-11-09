@@ -8,6 +8,12 @@ import {
 } from "@/lib/auth";
 import { customerListQuery } from "@/lib/adminCustomers";
 import { activityQuery, auditQuery } from "@/lib/adminOps";
+import {
+  ItemPhotoError,
+  PHOTO_MESSAGES,
+  photoContentType,
+  photoMetadata,
+} from "@/lib/itemPhoto";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -575,6 +581,72 @@ export const DeleteItem = async (id) => {
   return true;
 };
 
+async function photoError(response, fallback) {
+  if (response.status === 413) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.tooLargeStored, "PHOTO_TOO_LARGE");
+  }
+  const data = await response.json().catch(() => null);
+  const error = new ItemPhotoError(data?.error ?? fallback, data?.code ?? null);
+  error.status = response.status;
+  throw error;
+}
+
+export const GetItemPhoto = async (id, { signal } = {}) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    headers: authHeaders(),
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) {
+    await photoError(response, PHOTO_MESSAGES.load);
+  }
+  return response.blob();
+};
+
+export const UploadItemPhoto = async (id, file) => {
+  const contentType = photoContentType(file);
+  if (!contentType) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.invalid, "PHOTO_INVALID");
+  }
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": contentType }),
+    body: file,
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 413) {
+      throw new ItemPhotoError(PHOTO_MESSAGES.tooLargeStored, "PHOTO_TOO_LARGE");
+    }
+    const error = new ItemPhotoError(
+      data?.error ?? PHOTO_MESSAGES.store,
+      data?.code ?? null
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return { photo: photoMetadata(data?.photo) };
+};
+
+export const DeleteItemPhoto = async (id) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    method: "DELETE",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new ItemPhotoError(
+      data?.error ?? PHOTO_MESSAGES.remove,
+      data?.code ?? null
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return { photo: null };
+};
+
 export const GetAllBatches = async () => {
   const response = await apiFetch(`${getBaseUrl()}/api/batches`, {
     headers: authHeaders(),
@@ -789,6 +861,32 @@ export const CompleteBatch = async (batchId) => {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(data?.error ?? `Complete batch failed (${response.status})`);
+  }
+  return data;
+};
+
+export const SaveBatchComponentProgress = async (
+  batchId,
+  componentId,
+  { batchPhaseId = null, quantityEntered } = {}
+) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/batches/${batchId}/components/${componentId}/progress`,
+    {
+      method: "PUT",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        batch_phase_id: batchPhaseId ?? null,
+        quantity_entered: quantityEntered,
+      }),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(data?.error ?? `Could not save progress (${response.status})`);
+    error.status = response.status;
+    error.code = data?.code ?? null;
+    throw error;
   }
   return data;
 };

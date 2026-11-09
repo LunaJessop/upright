@@ -513,6 +513,7 @@ export default function NewItem() {
         description: template.description ?? "",
         estimated_minutes:
           template.estimated_minutes == null ? "" : String(template.estimated_minutes),
+        libraryPhaseId: template.id == null ? "" : String(template.id),
       },
     ]);
   };
@@ -689,6 +690,9 @@ export default function NewItem() {
                 Changes apply when you save back to the queue.
               </p>
             )}
+            <p className="mt-1 text-[10px] font-medium text-white">
+              You can add a photo after this item is saved.
+            </p>
           </header>
 
           <form
@@ -801,6 +805,9 @@ export default function NewItem() {
                   <RouterPhaseEditor
                     phases={routerPhases}
                     phaseTemplates={phaseTemplates}
+                    bomLines={bomLines}
+                    catalogItems={catalogItems}
+                    onSetLinePhase={updateBomLinePhase}
                     onAddFromTemplate={addRouterPhaseFromTemplate}
                     onRemovePhase={removeRouterPhase}
                     onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
@@ -817,8 +824,6 @@ export default function NewItem() {
                     onRemoveLine={removeBomLine}
                     onUpdateLineQuantity={updateBomLineQuantity}
                     onUpdateLineUnit={updateBomLineUnit}
-                    onUpdateLinePhase={updateBomLinePhase}
-                    phaseTemplates={phaseTemplates}
                     parentUnitOfMeasure={
                       unitOfMeasure === UNSET_SELECT ? "" : unitOfMeasure
                     }

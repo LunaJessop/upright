@@ -25,6 +25,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import ItemPhoto from "@/components/ItemPhoto";
 import BomTreeView from "@/components/BomTreeView";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import QuantityChangeConfirm, {
@@ -37,6 +38,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
 import { brutalChrome, compactInputClass, listClass, rowStripe } from "@/lib/chrome";
+import { applyItemPhoto } from "@/lib/itemPhoto";
 import { sortByText } from "@/lib/optionOrder";
 import {
   removeTagById,
@@ -439,6 +441,7 @@ export default function ItemDetailPage({ params }) {
         description: template.description ?? "",
         estimated_minutes:
           template.estimated_minutes == null ? "" : String(template.estimated_minutes),
+        libraryPhaseId: template.id == null ? "" : String(template.id),
       },
     ]);
   };
@@ -1304,6 +1307,18 @@ export default function ItemDetailPage({ params }) {
               </div>
             </header>
 
+            <div className="mb-6">
+              <ItemPhoto
+                itemId={item.id}
+                itemName={item.name}
+                photo={item.photo ?? null}
+                canWrite={canWrite}
+                onPhotoChange={(nextPhoto) => {
+                  setItem((current) => applyItemPhoto(current, nextPhoto));
+                }}
+              />
+            </div>
+
             <div className="grid gap-6 lg:grid-cols-2">
               <SectionCard
                 title="Inventory"
@@ -1929,8 +1944,7 @@ export default function ItemDetailPage({ params }) {
                     <>
                       <p className="mb-3 text-[10px] font-medium text-nv-ink/55">
                         For just one. Amounts use the unit they were entered
-                        in. Expand make components to see nested materials and
-                        their phases.
+                        in. Expand make components to see nested materials.
                       </p>
                       <BomTreeView
                         lines={item.bom_items}
@@ -2186,6 +2200,9 @@ export default function ItemDetailPage({ params }) {
                           <RouterPhaseEditor
                             phases={routerPhases}
                             phaseTemplates={phaseTemplates}
+                            bomLines={bomLines}
+                            catalogItems={catalogItems}
+                            onSetLinePhase={updateBomLinePhase}
                             onAddFromTemplate={addRouterPhaseFromTemplate}
                             onRemovePhase={removeRouterPhase}
                             onMoveUp={(phaseId) =>
@@ -2250,8 +2267,6 @@ export default function ItemDetailPage({ params }) {
                             onRemoveLine={removeBomLine}
                             onUpdateLineQuantity={updateBomLineQuantity}
                             onUpdateLineUnit={updateBomLineUnit}
-                            onUpdateLinePhase={updateBomLinePhase}
-                            phaseTemplates={phaseTemplates}
                             parentUnitOfMeasure={recipeParentUnitWhileEditing(
                               item?.unit_of_measure,
                               draft.unit_of_measure
