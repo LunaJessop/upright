@@ -472,6 +472,7 @@ export default function BatchDetailPage({ params }) {
               <BatchPhaseTracker
                 tone="green"
                 phases={phases}
+                components={receiptComponents}
                 updating={updating || batchLocked || !canWrite}
                 onStatusChange={(phaseId, status) =>
                   void handlePhaseStatus(phaseId, status)

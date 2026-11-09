@@ -1,6 +1,10 @@
 "use client";
 
 import { listClass, nestedHeaderClass, rowStripe } from "@/lib/chrome";
+import {
+  associateBatchPhaseIngredients,
+  unassignedIngredientNote,
+} from "@/lib/batchPhaseIngredients";
 
 const STATUS_STYLES = {
   pending: "text-nv-ink/40",
@@ -160,7 +164,35 @@ export function currentPhaseLabel(phases) {
   return "All phases done";
 }
 
-function PhaseRow({ phase, displaySequence, updating, onStatusChange, tone = "green" }) {
+function IngredientList({ label, ingredients, notes = false }) {
+  if (!ingredients?.length) return null;
+  return (
+    <ul aria-label={label} className="mt-2 space-y-1">
+      {ingredients.map((ingredient) => (
+        <li key={ingredient.key} className="text-sm font-medium leading-snug text-nv-ink">
+          {ingredient.name}
+          {ingredient.quantity ? (
+            <span className="font-semibold text-nv-ink/70"> — {ingredient.quantity}</span>
+          ) : null}
+          {notes ? (
+            <span className="mt-0.5 block text-xs font-medium text-nv-ink/60">
+              {unassignedIngredientNote(ingredient)}
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PhaseRow({
+  phase,
+  ingredients = [],
+  displaySequence,
+  updating,
+  onStatusChange,
+  tone = "green",
+}) {
   const isRunning = phase.status === "in_progress";
   const isComplete = phase.status === "complete";
   const isCancelled = phase.status === "skipped";
@@ -182,6 +214,11 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange, tone = "gr
               {phase.description}
             </p>
           ) : null}
+          {ingredients.length > 0 ? (
+            <IngredientList label={`Ingredients for ${phase.name}`} ingredients={ingredients} />
+          ) : (
+            <p className="mt-2 text-xs font-medium text-nv-ink/55">No ingredients for this step.</p>
+          )}
           {!isClosed && (
             <div className="mt-2">
               <button
@@ -245,11 +282,13 @@ function PhaseRow({ phase, displaySequence, updating, onStatusChange, tone = "gr
 
 export default function BatchPhaseTracker({
   phases,
+  components = [],
   updating,
   onStatusChange,
   tone = "green",
 }) {
   const groups = groupPhasesByItem(phases);
+  const { byPhaseId, unassigned } = associateBatchPhaseIngredients(phases, components);
 
   if (groups.length === 0) {
     return (
@@ -281,6 +320,7 @@ export default function BatchPhaseTracker({
               <PhaseRow
                 key={phase.id}
                 phase={phase}
+                ingredients={byPhaseId.get(phase.id) ?? []}
                 displaySequence={index + 1}
                 updating={updating}
                 onStatusChange={onStatusChange}
@@ -290,6 +330,21 @@ export default function BatchPhaseTracker({
           </ol>
         </section>
       ))}
+      {unassigned.length > 0 ? (
+        <section>
+          <h3 className="text-xs font-black uppercase tracking-wide text-nv-ink">
+            Not on one step
+          </h3>
+          <p className="mt-1 text-xs font-medium leading-relaxed text-nv-ink/70">
+            These ingredients stay listed once. They are not copied onto every step.
+          </p>
+          <IngredientList
+            label="Ingredients not on one step"
+            ingredients={unassigned}
+            notes
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
