@@ -865,6 +865,32 @@ export const CompleteBatch = async (batchId) => {
   return data;
 };
 
+export const SaveBatchComponentProgress = async (
+  batchId,
+  componentId,
+  { batchPhaseId = null, quantityEntered } = {}
+) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/batches/${batchId}/components/${componentId}/progress`,
+    {
+      method: "PUT",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        batch_phase_id: batchPhaseId ?? null,
+        quantity_entered: quantityEntered,
+      }),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(data?.error ?? `Could not save progress (${response.status})`);
+    error.status = response.status;
+    error.code = data?.code ?? null;
+    throw error;
+  }
+  return data;
+};
+
 export const UpdateBatchPhase = async (batchId, phaseId, status) => {
   const response = await apiFetch(
     `${getBaseUrl()}/api/batches/${batchId}/phases/${phaseId}`,

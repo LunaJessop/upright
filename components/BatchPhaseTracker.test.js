@@ -39,7 +39,10 @@ test("a phase lists its ingredients beside play and complete", () => {
   );
   const melt = html.slice(html.indexOf(">Melt<"), html.indexOf(">Pour<"));
   assert.match(melt, /<ul[^>]*aria-label="Ingredients for Melt"/);
-  assert.match(melt, /<li[^>]*>Olive oil<span[^>]*> — 12 fl oz<\/span><\/li>/);
+  assert.match(melt, /class="[^"]*text-right[^"]*"/);
+  assert.match(melt, /0/);
+  assert.match(melt, /\/ 12 fl oz/);
+  assert.doesNotMatch(melt, /<input/);
   assert.doesNotMatch(melt, /Lye/);
   assert.match(melt, /aria-label="Start"/);
   assert.match(melt, /aria-label="Complete"/);
@@ -47,6 +50,24 @@ test("a phase lists its ingredients beside play and complete", () => {
   assert.match(html, /Lye/);
   assert.match(html, /Not assigned to a phase/);
   assert.doesNotMatch(html, /bg-nv-purple-muted/);
+});
+
+test("an open batch can type the amount added for that step", () => {
+  const html = renderToStaticMarkup(
+    createElement(BatchPhaseTracker, {
+      phases,
+      components,
+      batchId: 7,
+      canEditProgress: true,
+      updating: false,
+      onStatusChange() {},
+    })
+  );
+  assert.match(html, /aria-label="Olive oil added"/);
+  assert.match(html, /value="0"/);
+  assert.match(html, /aria-label="Start"/);
+  assert.match(html, /aria-label="Complete"/);
+  assert.doesNotMatch(html, /Saved/);
 });
 
 test("play and complete stay available when a step has no ingredients", () => {
