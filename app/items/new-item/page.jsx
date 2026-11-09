@@ -689,6 +689,9 @@ export default function NewItem() {
                 Changes apply when you save back to the queue.
               </p>
             )}
+            <p className="mt-1 text-[10px] font-medium text-white">
+              You can add a photo after this item is saved.
+            </p>
           </header>
 
           <form

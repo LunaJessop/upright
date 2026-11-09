@@ -8,6 +8,12 @@ import {
 } from "@/lib/auth";
 import { customerListQuery } from "@/lib/adminCustomers";
 import { activityQuery, auditQuery } from "@/lib/adminOps";
+import {
+  ItemPhotoError,
+  PHOTO_MESSAGES,
+  photoContentType,
+  photoMetadata,
+} from "@/lib/itemPhoto";
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -573,6 +579,72 @@ export const DeleteItem = async (id) => {
     throw new Error(data?.error ?? `Delete failed (${response.status})`);
   }
   return true;
+};
+
+async function photoError(response, fallback) {
+  if (response.status === 413) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.tooLargeStored, "PHOTO_TOO_LARGE");
+  }
+  const data = await response.json().catch(() => null);
+  const error = new ItemPhotoError(data?.error ?? fallback, data?.code ?? null);
+  error.status = response.status;
+  throw error;
+}
+
+export const GetItemPhoto = async (id, { signal } = {}) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    headers: authHeaders(),
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) {
+    await photoError(response, PHOTO_MESSAGES.load);
+  }
+  return response.blob();
+};
+
+export const UploadItemPhoto = async (id, file) => {
+  const contentType = photoContentType(file);
+  if (!contentType) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.invalid, "PHOTO_INVALID");
+  }
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": contentType }),
+    body: file,
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 413) {
+      throw new ItemPhotoError(PHOTO_MESSAGES.tooLargeStored, "PHOTO_TOO_LARGE");
+    }
+    const error = new ItemPhotoError(
+      data?.error ?? PHOTO_MESSAGES.store,
+      data?.code ?? null
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return { photo: photoMetadata(data?.photo) };
+};
+
+export const DeleteItemPhoto = async (id) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/items/${id}/photo`, {
+    method: "DELETE",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new ItemPhotoError(
+      data?.error ?? PHOTO_MESSAGES.remove,
+      data?.code ?? null
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return { photo: null };
 };
 
 export const GetAllBatches = async () => {

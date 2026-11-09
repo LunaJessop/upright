@@ -25,6 +25,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import ItemPhoto from "@/components/ItemPhoto";
 import BomTreeView from "@/components/BomTreeView";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import QuantityChangeConfirm, {
@@ -37,6 +38,7 @@ import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { ROLE_RANK } from "@/lib/auth";
 import { brutalChrome, compactInputClass, listClass, rowStripe } from "@/lib/chrome";
+import { applyItemPhoto } from "@/lib/itemPhoto";
 import { sortByText } from "@/lib/optionOrder";
 import {
   removeTagById,
@@ -1303,6 +1305,18 @@ export default function ItemDetailPage({ params }) {
                 </div>
               </div>
             </header>
+
+            <div className="mb-6">
+              <ItemPhoto
+                itemId={item.id}
+                itemName={item.name}
+                photo={item.photo ?? null}
+                canWrite={canWrite}
+                onPhotoChange={(nextPhoto) => {
+                  setItem((current) => applyItemPhoto(current, nextPhoto));
+                }}
+              />
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <SectionCard
