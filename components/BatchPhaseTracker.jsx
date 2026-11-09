@@ -176,18 +176,24 @@ function IngredientList({
 }) {
   if (!ingredients?.length) return null;
   return (
-    <ul aria-label={label} className="mt-2 space-y-2">
+    <ul aria-label={label} className="mt-2 space-y-2 pl-4 sm:pl-6">
       {ingredients.map((ingredient) => (
-        <li key={ingredient.key} className="text-right">
-          <p className="text-sm font-medium text-nv-ink">{ingredient.name}</p>
-          <IngredientProgress
-            batchId={batchId}
-            ingredient={ingredient}
-            canEdit={canEdit}
-            onSaved={onSaved}
-          />
+        <li key={ingredient.key}>
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <p className="min-w-0 flex-1 basis-36 break-words text-left text-sm font-medium leading-snug text-nv-ink">
+              {ingredient.name}
+            </p>
+            <div className="ml-auto shrink-0">
+              <IngredientProgress
+                batchId={batchId}
+                ingredient={ingredient}
+                canEdit={canEdit}
+                onSaved={onSaved}
+              />
+            </div>
+          </div>
           {notes ? (
-            <p className="text-xs font-medium text-nv-ink/60">
+            <p className="text-left text-xs font-medium text-nv-ink/60">
               {unassignedIngredientNote(ingredient)}
             </p>
           ) : null}
