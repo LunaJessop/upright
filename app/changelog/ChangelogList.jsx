@@ -49,7 +49,7 @@ export default function ChangelogList() {
       <p className="text-sm font-medium text-nv-ink/70">What's new</p>
       {versionDateGroups().map((group) => (
         <section key={`${group.version}-${group.date}`} className="mt-10">
-          <h1 className="scroll-mt-20 text-2xl font-black leading-tight text-nv-ink sm:text-3xl">
+          <h1 className="scroll-mt-20 border-b-brutal-xs border-black bg-nv-green-dark px-4 py-2 text-sm font-black uppercase tracking-wide sm:text-base">
             {heading(group)}
           </h1>
           {group.entries.map((entry) => (

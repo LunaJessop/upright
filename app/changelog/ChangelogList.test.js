@@ -4,10 +4,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ChangelogList from "./ChangelogList.jsx";
 
-test("what's new reads as a document, not a stack of cards", () => {
+test("what's new uses a green version heading and plain update text", () => {
   const html = renderToStaticMarkup(createElement(ChangelogList));
 
-  assert.match(html, /<h1[^>]*>v0\.5 · November 8, 2026<\/h1>/);
+  assert.match(
+    html,
+    /<h1[^>]*bg-nv-green-dark[^>]*>v0\.5 · November 8, 2026<\/h1>/
+  );
   assert.match(html, /<h2[^>]*>A shop can start without a spreadsheet<\/h2>/);
   assert.match(
     html,
@@ -15,5 +18,5 @@ test("what's new reads as a document, not a stack of cards", () => {
   );
   assert.match(html, /<p[^>]*>Security and reliability improvements\.<\/p>/);
   assert.doesNotMatch(html, /Upcoming/);
-  assert.doesNotMatch(html, /border-brutal|shadow-brutal|bg-nv-purple-dark|bg-nv-green-dark|bg-nv-paper/);
+  assert.doesNotMatch(html, /shadow-brutal|bg-nv-paper|bg-nv-purple-dark/);
 });
