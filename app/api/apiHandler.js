@@ -11,6 +11,7 @@ import { activityQuery, auditQuery } from "@/lib/adminOps";
 import {
   ItemPhotoError,
   PHOTO_MESSAGES,
+  itemPhotoThumbPath,
   photoContentType,
   photoMetadata,
 } from "@/lib/itemPhoto";
@@ -633,6 +634,31 @@ export const GetItemPhoto = async (id, { signal } = {}) => {
     await photoError(response, PHOTO_MESSAGES.load);
   }
   return response.blob();
+};
+
+/**
+ * The items list uses the small photo. The browser may reuse it for a few
+ * minutes. version is on the address so a replaced photo shows up inside
+ * that window. The full photo stays uncached and is not requested here.
+ */
+export const GetItemPhotoThumb = async (id, { version, signal } = {}) => {
+  const path = itemPhotoThumbPath(id, { version });
+  if (!path) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.load, "PHOTO_INVALID");
+  }
+  const response = await apiFetch(`${getBaseUrl()}${path}`, {
+    headers: authHeaders(),
+    cache: "default",
+    signal,
+  });
+  if (!response.ok) {
+    await photoError(response, PHOTO_MESSAGES.load);
+  }
+  const blob = await response.blob();
+  if (!blob || blob.size < 1) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.load, "PHOTO_INVALID");
+  }
+  return blob;
 };
 
 export const UploadItemPhoto = async (id, file) => {

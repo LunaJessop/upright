@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import ItemPhotoThumb from "@/components/ItemPhotoThumb";
 import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
+import { itemHasListPhoto } from "@/lib/itemPhoto";
 import { formatMoney, isMakeItem, itemDisplayPrice } from "@/lib/pricing";
 
 const ITEM_CSV_HEADERS = [
@@ -64,13 +66,15 @@ function ItemListRow({ item, index }) {
           ? unit
           : null;
 
+  const showPhoto = itemHasListPhoto(item);
+
   return (
     <li>
       <Link
         href={`/items/${item.id}`}
         className={`block min-w-0 px-2.5 py-2 transition-colors hover:bg-nv-violet/20 sm:px-3 ${rowStripe(index)}`}
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <h3 className="truncate text-sm font-black uppercase leading-tight tracking-tight text-nv-ink">
@@ -109,22 +113,25 @@ function ItemListRow({ item, index }) {
             ) : null}
           </div>
 
-              <div className="flex max-w-[46%] shrink-0 flex-col items-end gap-1 self-center text-right">
-                {priceUnit ? (
-                  <>
-                    <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
-                      {priceLabel}
-                    </span>
-                    <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
-                      {priceUnit}
-                    </span>
-                  </>
-                ) : (
-                  <span className="font-mono text-[10px] font-bold text-nv-ink/35">
-                    —
+          <div className="flex max-w-[50%] shrink-0 items-center justify-end gap-1.5 sm:max-w-[46%] sm:gap-2">
+            <div className="flex min-w-0 flex-col items-end gap-1 text-right">
+              {priceUnit ? (
+                <>
+                  <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
+                    {priceLabel}
                   </span>
-                )}
-              </div>
+                  <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
+                    {priceUnit}
+                  </span>
+                </>
+              ) : (
+                <span className="font-mono text-[10px] font-bold text-nv-ink/35">
+                  —
+                </span>
+              )}
+            </div>
+            {showPhoto ? <ItemPhotoThumb itemId={item.id} photo={item.photo} /> : null}
+          </div>
         </div>
       </Link>
     </li>
