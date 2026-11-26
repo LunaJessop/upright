@@ -235,7 +235,13 @@ export default function ItemDetailPage({ params }) {
               </SectionCard>
 
               {isMake && (
-                <ProductionPhasesSection item={item} itemById={itemById} />
+                <ProductionPhasesSection
+                  item={item}
+                  itemById={itemById}
+                  canWrite={canWrite}
+                  onStartEdit={(focus) => editor.startEditing(undefined, focus)}
+                  onPhaseRevealed={editor.notePhaseRevealed}
+                />
               )}
             </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -39,6 +39,15 @@ import {
 } from "@/lib/itemUnitChange";
 import { sortByText } from "@/lib/optionOrder";
 import { isMakeItem as isMakeFlag } from "@/lib/pricing";
+import {
+  PHASE_EDITOR_HIGHLIGHT_CLASS,
+  PHASE_EDITOR_ID,
+  PHASE_HIGHLIGHT_MS,
+  phaseEditorKey,
+  phaseKeyFromSearch,
+  prefersReducedMotion,
+  revealPhaseEditor,
+} from "@/lib/phaseEditorFocus";
 import { phaseIdForPayload } from "@/lib/recipePhase";
 import {
   removeTagById,
@@ -72,8 +81,11 @@ export function useItemEditor({
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [routerPhases, setRouterPhases] = useState([]);
   const [crossKind, setCrossKind] = useState(null);
+  const [phaseFocus, setPhaseFocus] = useState(null);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
+  const editingRef = useRef(false);
+  const pendingPhaseEditRef = useRef(false);
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -100,9 +112,10 @@ export function useItemEditor({
     setSaveError("");
   };
 
-  const startEditing = (source) => {
+  const startEditing = (source, focus) => {
     const row = source ?? item;
     if (!row) return;
+    pendingPhaseEditRef.current = focus?.focusId === PHASE_EDITOR_ID;
     setDraft(itemToDraft(row));
     setDraftTags(
       Array.isArray(row.tags)
@@ -118,10 +131,19 @@ export function useItemEditor({
     routerPhaseIdRef.current += (row.router_phases?.length ?? 0) + 1;
     setBomSelectedIds([]);
     setSaveError("");
+    editingRef.current = true;
     setEditing(true);
   };
 
+  const notePhaseRevealed = useCallback((phaseKey) => {
+    if (!editingRef.current) return;
+    setPhaseFocus({ phaseKey: phaseKey || "", token: Date.now() });
+  }, []);
+
   const cancelEditing = () => {
+    editingRef.current = false;
+    pendingPhaseEditRef.current = false;
+    setPhaseFocus(null);
     setEditing(false);
     setDraft(null);
     setDraftTags([]);
@@ -580,11 +602,27 @@ export function useItemEditor({
   };
 
   useEffect(() => {
+    if (!phaseFocus) return;
+    const timer = window.setTimeout(() => setPhaseFocus(null), PHASE_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [phaseFocus]);
+
+  useEffect(() => {
     if (!editing || typeof window === "undefined") return;
     const hash = window.location.hash.replace(/^#/, "");
-    if (hash !== "edit-bom" && hash !== "edit-stock-unit") return;
-    document.getElementById(hash)?.scrollIntoView({ block: "center" });
-  }, [editing]);
+    if (hash === "edit-bom" || hash === "edit-stock-unit") {
+      document.getElementById(hash)?.scrollIntoView({ block: "center" });
+      return;
+    }
+    if (hash !== PHASE_EDITOR_ID || pendingPhaseEditRef.current) return;
+    const phaseKey = phaseKeyFromSearch(window.location.search);
+    const reducedMotion = prefersReducedMotion(window);
+    const timer = window.setTimeout(() => {
+      const result = revealPhaseEditor(document, { phaseKey, reducedMotion });
+      if (result.ok) notePhaseRevealed(result.phaseMatched ? phaseKey : "");
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [editing, notePhaseRevealed]);
 
   return {
     editing,
@@ -602,6 +640,8 @@ export function useItemEditor({
     setBomSelectedIds,
     routerPhases,
     setRouterPhases,
+    phaseFocus,
+    notePhaseRevealed,
     crossKind,
     setCrossKind,
     setDraft,
@@ -651,6 +691,7 @@ export default function EditItemModal({
     setBomSelectedIds,
     routerPhases,
     setRouterPhases,
+    phaseFocus,
     crossKind,
     setCrossKind,
     setDraft,
@@ -856,12 +897,24 @@ export default function EditItemModal({
                 </FieldRow>
 
                 {draft.make_or_buy === "make" && (
-                  <div className="border-b border-black/10 py-3">
+                  <div
+                    id={PHASE_EDITOR_ID}
+                    className={`border-b border-black/10 py-3 ${
+                      phaseFocus &&
+                      !routerPhases.some(
+                        (_, index) => phaseEditorKey(item.id, index) === phaseFocus.phaseKey
+                      )
+                        ? PHASE_EDITOR_HIGHLIGHT_CLASS
+                        : ""
+                    }`}
+                  >
                     <RouterPhaseEditor
                       phases={routerPhases}
                       phaseTemplates={phaseTemplates}
                       bomLines={bomLines}
                       catalogItems={catalogItems}
+                      itemId={item.id}
+                      highlightPhaseKey={phaseFocus?.phaseKey || ""}
                       onSetLinePhase={updateBomLinePhase}
                       onAddFromTemplate={addRouterPhaseFromTemplate}
                       onRemovePhase={removeRouterPhase}
