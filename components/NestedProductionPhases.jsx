@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { listClass, nestedHeaderClass, rowStripe } from "@/lib/chrome";
+import { phaseEditAction } from "@/lib/phaseEditorFocus";
 
 function isMakeItem(item) {
   if (!item) return false;
@@ -49,7 +50,32 @@ export function buildNestedProductionGroups(rootItem, itemById) {
   return groups;
 }
 
-export default function NestedProductionPhases({ rootItem, itemById }) {
+const editButtonClass =
+  "shrink-0 border-brutal-xs border-black bg-nv-green-tint px-2 py-1 text-[10px] font-black uppercase tracking-wide text-black";
+
+function PhaseEditControl({ action, phaseName, onEditItem }) {
+  if (!action) return null;
+  const label = `Edit ${phaseName || "phase"}`;
+  if (action.kind === "navigate") {
+    return (
+      <Link href={action.href} aria-label={label} className={editButtonClass}>
+        Edit
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={() => onEditItem(action.focusId, action.phaseKey)}
+      className={editButtonClass}
+    >
+      Edit
+    </button>
+  );
+}
+
+export default function NestedProductionPhases({ rootItem, itemById, onEditItem }) {
   const groups = buildNestedProductionGroups(rootItem, itemById);
 
   if (groups.length === 0) {
@@ -83,25 +109,35 @@ export default function NestedProductionPhases({ rootItem, itemById }) {
             )}
           </header>
           <ol className={listClass}>
-            {group.phases.map((phase, index) => (
-              <li
-                key={phase.id ?? `${group.itemId}-${index}`}
-                className={`flex gap-2 px-3 py-2 text-xs font-semibold ${rowStripe(index, "violet")}`}
-              >
-                <span className="font-mono font-black text-nv-violet">
-                  {index + 1}.
-                </span>
-                <span>
-                  {phase.name}
-                  {phase.description ? (
-                    <span className="font-medium text-nv-ink/55">
-                      {" "}
-                      — {phase.description}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
+            {group.phases.map((phase, index) => {
+              const editAction = onEditItem
+                ? phaseEditAction(rootItem.id, group.itemId, index)
+                : null;
+              return (
+                <li
+                  key={phase.id ?? `${group.itemId}-${index}`}
+                  className={`flex items-start gap-2 px-3 py-2 text-xs font-semibold ${rowStripe(index, "violet")}`}
+                >
+                  <span className="font-mono font-black text-nv-violet">
+                    {index + 1}.
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {phase.name}
+                    {phase.description ? (
+                      <span className="font-medium text-nv-ink/55">
+                        {" "}
+                        — {phase.description}
+                      </span>
+                    ) : null}
+                  </span>
+                  <PhaseEditControl
+                    action={editAction}
+                    phaseName={phase.name}
+                    onEditItem={onEditItem}
+                  />
+                </li>
+              );
+            })}
           </ol>
         </section>
       ))}

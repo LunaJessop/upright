@@ -5,6 +5,10 @@ import { useState } from "react";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIngredientPlan } from "@/lib/phaseAssignment";
+import {
+  PHASE_EDITOR_HIGHLIGHT_CLASS,
+  phaseEditorKey,
+} from "@/lib/phaseEditorFocus";
 import { HeldAssignments, PhaseIngredients } from "./PhaseIngredients.jsx";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
@@ -47,6 +51,8 @@ export default function RouterPhaseEditor({
   onMoveUp,
   onMoveDown,
   onReorderPhases,
+  itemId = null,
+  highlightPhaseKey = "",
   tone = "cyan",
 }) {
   const [dragIndex, setDragIndex] = useState(null);
@@ -111,10 +117,15 @@ export default function RouterPhaseEditor({
           {phases.map((phase, index) => {
             const isDragging = dragIndex === index;
             const isOver = overIndex === index && dragIndex !== index;
+            const phaseKey = phaseEditorKey(itemId, index);
+            const highlighted =
+              Boolean(highlightPhaseKey) && phaseKey === highlightPhaseKey;
 
             return (
               <li
                 key={phase.id}
+                data-phase-key={phaseKey || undefined}
+                tabIndex={phaseKey ? -1 : undefined}
                 draggable={Boolean(onReorderPhases)}
                 onDragStart={(e) => {
                   if (!onReorderPhases) return;
@@ -146,7 +157,9 @@ export default function RouterPhaseEditor({
                 }}
                 className={`space-y-2 px-2 py-2 ${rowStripe(index, tone)} ${
                   isDragging ? "opacity-50" : ""
-                } ${isOver ? "ring-2 ring-nv-violet" : ""} ${
+                } ${isOver && !highlighted ? "ring-2 ring-nv-violet" : ""} ${
+                  highlighted ? PHASE_EDITOR_HIGHLIGHT_CLASS : ""
+                } ${
                   onReorderPhases ? "cursor-grab active:cursor-grabbing" : ""
                 }`}
               >

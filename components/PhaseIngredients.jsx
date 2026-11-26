@@ -47,6 +47,7 @@ export function PhaseIngredients({
         <div className="space-y-2">
           <button
             type="button"
+            data-phase-field=""
             aria-expanded={open ? "true" : "false"}
             onClick={onToggle}
             className="border-brutal-xs border-black bg-nv-paper px-2 py-1 text-[10px] font-black uppercase tracking-wide"
