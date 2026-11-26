@@ -9,7 +9,7 @@ import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetRouters, GetTags, GetVendors } from "@/app/api/apiHandler";
 import { isCrossKindUnitChange, scaleRecipeQuantities } from "@/lib/itemUnitChange";
 import {
   removeTagById,
@@ -23,6 +23,7 @@ import {
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIdForPayload } from "@/lib/recipePhase";
+import { routerRecordId, startItemFromRouter, withSourceRouter } from "@/lib/routerApply";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -42,6 +43,8 @@ const INITIAL_FORM = {
   bomLines: [],
   routerPhases: [],
   tags: [],
+  sourceRouterId: null,
+  sourceRouterName: "",
 };
 
 function FreeInput({
@@ -110,7 +113,7 @@ function formToItem(form, id, vendors = []) {
   const vendorId =
     isMake || form.vendor === UNSET_SELECT ? null : Number(form.vendor);
   const vendorMatch = vendors.find((v) => Number(v.id) === vendorId);
-  return {
+  const item = {
     id,
     name: form.name,
     sku: null,
@@ -148,6 +151,9 @@ function formToItem(form, id, vendors = []) {
       : [],
     tags: tagsForSave(form.tags),
   };
+  const withRouter = isMake ? withSourceRouter(item, form.sourceRouterId) : item;
+  if (!isMake || !form.sourceRouterName) return withRouter;
+  return { ...withRouter, source_router_name: form.sourceRouterName };
 }
 
 function isQueuedItemMake(item) {
@@ -299,6 +305,9 @@ function queuedItemToFormFields(item, bomLineIdRef, routerPhaseIdRef) {
     vendor: item.vendor == null ? UNSET_SELECT : String(item.vendor),
     bomLines,
     routerPhases,
+    sourceRouterId: routerRecordId(item.source_router_id),
+    sourceRouterName:
+      typeof item.source_router_name === "string" ? item.source_router_name : "",
     tags: Array.isArray(item.tags)
       ? item.tags.map((tag) => ({
           ...(tag.id != null ? { id: Number(tag.id) } : {}),
@@ -349,6 +358,7 @@ export default function NewItem() {
   const routerPhaseIdRef = useRef(1);
   const [catalogItems, setCatalogItems] = useState([]);
   const [phaseTemplates, setPhaseTemplates] = useState([]);
+  const [routers, setRouters] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [tagCatalog, setTagCatalog] = useState([]);
   const [catalogError, setCatalogError] = useState(false);
@@ -369,11 +379,13 @@ export default function NewItem() {
       try {
         const rows = await GetAllItems();
         const templates = await GetRouterPhaseTemplates().catch(() => []);
+        const routerRows = await GetRouters().catch(() => []);
         const vendorRows = await GetVendors().catch(() => []);
         const tagRows = await GetTags().catch(() => []);
         if (!cancelled) {
           setCatalogItems(Array.isArray(rows) ? rows.filter((row) => row.active) : []);
           setPhaseTemplates(Array.isArray(templates) ? templates : []);
+          setRouters(Array.isArray(routerRows) ? routerRows : []);
           setVendors(Array.isArray(vendorRows) ? vendorRows : []);
           setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
           setCatalogError(false);
@@ -397,6 +409,8 @@ export default function NewItem() {
   const [vendor, setVendor] = useState(INITIAL_FORM.vendor);
   const [bomLines, setBomLines] = useState(INITIAL_FORM.bomLines);
   const [routerPhases, setRouterPhases] = useState(INITIAL_FORM.routerPhases);
+  const [sourceRouterId, setSourceRouterId] = useState(INITIAL_FORM.sourceRouterId);
+  const [sourceRouterName, setSourceRouterName] = useState(INITIAL_FORM.sourceRouterName);
   const [tags, setTags] = useState(INITIAL_FORM.tags);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [formError, setFormError] = useState("");
@@ -526,6 +540,22 @@ export default function NewItem() {
     );
   };
 
+  const startFromRouter = (companyRouter, mode) => {
+    const result = startItemFromRouter({
+      phases: routerPhases,
+      bomLines,
+      router: companyRouter,
+      mode,
+      startId: routerPhaseIdRef.current,
+    });
+    if (!result.applied) return;
+    routerPhaseIdRef.current = result.nextId;
+    setRouterPhases(result.phases);
+    setSourceRouterId(result.sourceRouterId);
+    setSourceRouterName(result.sourceRouterName);
+    setFormError("");
+  };
+
   const moveRouterPhase = (phaseId, direction) => {
     setRouterPhases((prev) => {
       const index = prev.findIndex((phase) => phase.id === phaseId);
@@ -551,6 +581,8 @@ export default function NewItem() {
     bomLines,
     routerPhases,
     tags,
+    sourceRouterId,
+    sourceRouterName,
   };
 
   const canAdd = isFormComplete(form);
@@ -568,6 +600,8 @@ export default function NewItem() {
     setVendor(fields.vendor);
     setBomLines(fields.bomLines);
     setRouterPhases(fields.routerPhases);
+    setSourceRouterId(fields.sourceRouterId ?? null);
+    setSourceRouterName(fields.sourceRouterName ?? "");
     setTags(fields.tags ?? []);
     setBomSelectedIds([]);
   };
@@ -586,6 +620,8 @@ export default function NewItem() {
     setVendor(INITIAL_FORM.vendor);
     setBomLines(INITIAL_FORM.bomLines);
     setRouterPhases(INITIAL_FORM.routerPhases);
+    setSourceRouterId(INITIAL_FORM.sourceRouterId);
+    setSourceRouterName(INITIAL_FORM.sourceRouterName);
     setTags(INITIAL_FORM.tags);
     setBomSelectedIds([]);
   };
@@ -604,7 +640,7 @@ export default function NewItem() {
       let firstError = "";
       for (const queuedItem of items) {
         // Strip the local queue id — the DB assigns its own
-        const { id: _localId, ...payload } = queuedItem;
+        const { id: _localId, source_router_name: _routerName, ...payload } = queuedItem;
         try {
           await CreateItem(payload);
         } catch (err) {
@@ -813,6 +849,9 @@ export default function NewItem() {
                     onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
                     onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
                     onReorderPhases={setRouterPhases}
+                    routers={routers}
+                    startedFromName={sourceRouterName}
+                    onStartFromRouter={startFromRouter}
                     tone="violet"
                   />
                   <BomRecipeEditor

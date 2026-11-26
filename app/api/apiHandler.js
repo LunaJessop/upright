@@ -760,6 +760,54 @@ export const DeleteRouterPhaseTemplate = async (id) => {
   return true;
 };
 
+export const GetRouters = async () => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to load routers"));
+  }
+  return response.json();
+};
+
+export const CreateRouter = async (router) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(router),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Create router failed (${response.status})`);
+  }
+  return data;
+};
+
+export const UpdateRouter = async (id, router) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers/${id}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(router),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Update router failed (${response.status})`);
+  }
+  return data;
+};
+
+export const DeleteRouter = async (id) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Delete router failed (${response.status})`);
+  }
+  return true;
+};
+
 export const GetVendors = async () => {
   const response = await apiFetch(`${getBaseUrl()}/api/vendors`, {
     headers: authHeaders(),

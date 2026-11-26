@@ -228,6 +228,10 @@ export default function SettingsVendorsPage() {
             <Link href="/settings/phases" className="underline">
               Phases
             </Link>
+            {" and "}
+            <Link href="/settings/routers" className="underline">
+              Routers
+            </Link>
           </p>
 
           {loading && (

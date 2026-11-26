@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
     label: "Business Settings",
     links: [
       { href: "/settings/phases", label: "Phases" },
+      { href: "/settings/routers", label: "Routers" },
       { href: "/settings/vendors", label: "Vendors" },
     ],
   },

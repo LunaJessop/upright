@@ -50,6 +50,11 @@ import {
 } from "@/lib/phaseEditorFocus";
 import { phaseIdForPayload } from "@/lib/recipePhase";
 import {
+  displayStartedFromName,
+  startItemFromRouter,
+  withSourceRouter,
+} from "@/lib/routerApply";
+import {
   removeTagById,
   renameTagInList,
   tagsForSave,
@@ -80,6 +85,7 @@ export function useItemEditor({
   const [bomLines, setBomLines] = useState([]);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [routerPhases, setRouterPhases] = useState([]);
+  const [sourceRouterChoice, setSourceRouterChoice] = useState(null);
   const [crossKind, setCrossKind] = useState(null);
   const [phaseFocus, setPhaseFocus] = useState(null);
   const bomLineIdRef = useRef(1);
@@ -129,6 +135,7 @@ export function useItemEditor({
     bomLineIdRef.current += (row.bom_items?.length ?? 0) + 1;
     setRouterPhases(itemToRouterPhases(row, routerPhaseIdRef.current));
     routerPhaseIdRef.current += (row.router_phases?.length ?? 0) + 1;
+    setSourceRouterChoice(null);
     setBomSelectedIds([]);
     setSaveError("");
     editingRef.current = true;
@@ -149,6 +156,7 @@ export function useItemEditor({
     setDraftTags([]);
     setBomLines([]);
     setRouterPhases([]);
+    setSourceRouterChoice(null);
     setBomSelectedIds([]);
     setSaveError("");
     setConfirmingDelete(false);
@@ -245,6 +253,24 @@ export function useItemEditor({
     );
   };
 
+  const startFromRouter = (companyRouter, mode) => {
+    const result = startItemFromRouter({
+      phases: routerPhases,
+      bomLines,
+      router: companyRouter,
+      mode,
+      startId: routerPhaseIdRef.current,
+    });
+    if (!result.applied) return;
+    routerPhaseIdRef.current = result.nextId;
+    setRouterPhases(result.phases);
+    setSourceRouterChoice({
+      id: result.sourceRouterId,
+      name: result.sourceRouterName,
+    });
+    setSaveError("");
+  };
+
   const moveRouterPhase = (phaseId, direction) => {
     setRouterPhases((prev) => {
       const index = prev.findIndex((phase) => phase.id === phaseId);
@@ -328,8 +354,11 @@ export function useItemEditor({
       router_phases: isMakeDraft ? routerPhasesToPayload(routerPhases) : [],
       tags: tagsForSave(draftTags),
     };
-    const updated = await UpdateItem(id, payload);
-    setItem(updated && updated.id ? updated : payload);
+    const payloadWithRouter = isMakeDraft
+      ? withSourceRouter(payload, sourceRouterChoice?.id)
+      : payload;
+    const updated = await UpdateItem(id, payloadWithRouter);
+    setItem(updated && updated.id ? updated : payloadWithRouter);
     const templates = await GetRouterPhaseTemplates().catch(() => []);
     setPhaseTemplates(Array.isArray(templates) ? templates : []);
     const tagRows = await GetTags().catch(() => []);
@@ -339,6 +368,7 @@ export function useItemEditor({
     setDraftTags([]);
     setBomLines([]);
     setRouterPhases([]);
+    setSourceRouterChoice(null);
     setBomSelectedIds([]);
     setCrossKind(null);
     if (unitPlan.action === "change" || unitPlan.action === "cross") {
@@ -657,6 +687,8 @@ export function useItemEditor({
     addRouterPhaseFromTemplate,
     removeRouterPhase,
     moveRouterPhase,
+    sourceRouterChoice,
+    startFromRouter,
     saveDraft,
     previewCrossKind,
     confirmCrossKind,
@@ -671,6 +703,7 @@ export default function EditItemModal({
   catalogItems,
   phaseTemplates,
   vendors,
+  routers = [],
   tagCatalog,
   setTagCatalog,
   setItem,
@@ -706,6 +739,8 @@ export default function EditItemModal({
     addRouterPhaseFromTemplate,
     removeRouterPhase,
     moveRouterPhase,
+    sourceRouterChoice,
+    startFromRouter,
     saveDraft,
     previewCrossKind,
     confirmCrossKind,
@@ -921,6 +956,13 @@ export default function EditItemModal({
                       onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
                       onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
                       onReorderPhases={setRouterPhases}
+                      routers={routers}
+                      startedFromName={displayStartedFromName({
+                        choice: sourceRouterChoice,
+                        savedId: item.source_router_id,
+                        routers,
+                      })}
+                      onStartFromRouter={startFromRouter}
                       tone="cyan"
                     />
                   </div>
