@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BrutalSwitch from "@/components/BrutalSwitch";
+import HelpIcon from "@/components/HelpIcon";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import ItemPhotoField from "@/components/ItemPhotoField";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/tagCreate";
 
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIdForPayload } from "@/lib/recipePhase";
 import {
@@ -840,15 +842,18 @@ export default function NewItem() {
               />
             </div>
             <div className="col-span-2 flex flex-col items-start gap-2">
-              <BrutalSwitch
-                ariaLabel="Make or buy"
-                value={makeOrBuy}
-                setValue={handleMakeOrBuyChange}
-                offValue={false}
-                onValue={true}
-                offLabel="Buy"
-                onLabel="Make"
-              />
+              <div className="flex items-center gap-2">
+                <BrutalSwitch
+                  ariaLabel="Make or buy"
+                  value={makeOrBuy}
+                  setValue={handleMakeOrBuyChange}
+                  offValue={false}
+                  onValue={true}
+                  offLabel="Buy"
+                  onLabel="Make"
+                />
+                <HelpIcon text={HELP_TEXT.makeVsBuy} label={HELP_LABELS.makeVsBuy} />
+              </div>
               {!makeOrBuy && (
                 <div className="w-full space-y-1">
                   <div className="flex items-end gap-1.5">

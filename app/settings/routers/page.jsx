@@ -10,8 +10,10 @@ import {
   UpdateRouter,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import HelpIcon from "@/components/HelpIcon";
 import { useToast } from "@/components/Toast";
 import { brutalChrome, inputClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import {
   companyRouterPayload,
   moveDraftPhase,
@@ -176,7 +178,10 @@ export default function SettingsRoutersPage() {
           <p className="font-mono text-xs font-bold uppercase tracking-widest text-white">
             Business Settings
           </p>
-          <h1 className="text-3xl font-black uppercase leading-tight">Routers</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-black uppercase leading-tight">
+            <span>Routers</span>
+            <HelpIcon text={HELP_TEXT.routers} label={HELP_LABELS.routers} />
+          </h1>
           <p className="mt-2 text-sm font-medium text-white/90">
             Named lists of production phases. Starting an item from a router
             copies the phases onto that item. Later edits stay on the item, and

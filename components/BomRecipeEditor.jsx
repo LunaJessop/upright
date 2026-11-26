@@ -5,7 +5,9 @@ import { UNIT_OF_MEASURE_OPTIONS } from "@/app/items/unitOfMeasureOptions";
 import { formatQuantity, friendlyUnitLabel } from "@/lib/formatQuantity";
 import { compatibleUnits, normalizeUnit } from "@/lib/units";
 
+import HelpIcon from "@/components/HelpIcon";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { sortByText } from "@/lib/optionOrder";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
@@ -229,7 +231,10 @@ export default function BomRecipeEditor({
 
   return (
     <div className="w-full space-y-2 bg-nv-paper">
-      <p className={labelClass}>Recipe (BOM)</p>
+      <p className={`inline-flex items-center gap-1 ${labelClass}`}>
+        Recipe (BOM)
+        <HelpIcon text={HELP_TEXT.bom} label={HELP_LABELS.bom} />
+      </p>
 
       <div className="space-y-2">
         <MultiSelectDropdown

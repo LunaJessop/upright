@@ -24,6 +24,8 @@ import {
   prepareManualTransaction,
   projectOnHand,
 } from "@/lib/inventoryTransaction";
+import HelpIcon from "@/components/HelpIcon";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { editInputClass, labelClass, SectionCard } from "./ItemDetailChrome";
 import {
   InventoryCardActions,
@@ -441,7 +443,12 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
                 />
               </label>
               {canEditGoals ? (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <span className={`inline-flex items-center gap-1 ${labelClass}`}>
+                    Goal
+                    <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
+                  </span>
+                  <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block space-y-1">
                     <span className={labelClass}>
                       Min
@@ -474,10 +481,12 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
                       placeholder="Optional"
                     />
                   </label>
+                  </div>
                 </div>
               ) : (
-                <p className="text-[10px] font-medium text-nv-ink/55">
+                <p className="inline-flex items-center gap-1 text-[10px] font-medium text-nv-ink/55">
                   Goal range can be set by admins and founders.
+                  <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
                 </p>
               )}
               {inventoryError && (
@@ -524,7 +533,10 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
               </div>
               <div className="border-b border-black/10 py-2.5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className={`shrink-0 ${labelClass}`}>Planned QTY</span>
+                  <span className={`inline-flex shrink-0 items-center gap-1 ${labelClass}`}>
+                    Planned QTY
+                    <HelpIcon text={HELP_TEXT.plannedQty} label={HELP_LABELS.plannedQty} />
+                  </span>
                   <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                     <span className="text-sm font-semibold tabular-nums">
                       <AnimatedNumber
@@ -555,7 +567,10 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 py-2.5">
-                <span className={labelClass}>Goal</span>
+                <span className={`inline-flex items-center gap-1 ${labelClass}`}>
+                  Goal
+                  <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
+                </span>
                 <span className="text-sm font-semibold">
                   {inventory.goal_min != null && inventory.goal_max != null
                     ? `${formatQty(inventory.goal_min)} – ${formatQty(inventory.goal_max)}${

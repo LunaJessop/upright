@@ -1,7 +1,9 @@
 "use client";
 
+import HelpIcon from "@/components/HelpIcon";
 import { SavedItemPhoto } from "@/components/ItemPhoto";
 import { brutalChrome } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { formatDate } from "@/lib/itemDetail";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
 import { FieldRow, labelClass } from "./ItemDetailChrome";
@@ -24,13 +26,16 @@ export default function ItemDetailHeader({ item, canWrite, onEdit }) {
             <h1 className="break-words text-3xl font-black uppercase leading-tight">
               {item.name}
             </h1>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span
-                className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                  isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
-                }`}
-              >
-                {isMake ? "Make" : "Buy"}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                    isMake ? "bg-nv-purple-dark" : "bg-nv-green-dark"
+                  }`}
+                >
+                  {isMake ? "Make" : "Buy"}
+                </span>
+                <HelpIcon text={HELP_TEXT.makeVsBuy} label={HELP_LABELS.makeVsBuy} />
               </span>
               <span
                 className={`border-brutal-xs border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${

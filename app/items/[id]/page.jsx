@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { ROLE_RANK } from "@/lib/auth";
 import { brutalChrome, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { isMakeItem as isMakeFlag } from "@/lib/pricing";
 import BatchesSection, { useBatches } from "./components/BatchesSection";
 import BomSection from "./components/BomSection";
@@ -211,7 +212,12 @@ export default function ItemDetailPage({ params }) {
                 />
               )}
 
-              <SectionCard title="Used In" accent="bg-nv-purple-dark">
+              <SectionCard
+                title="Used In"
+                help={HELP_TEXT.usedIn}
+                helpLabel={HELP_LABELS.usedIn}
+                accent="bg-nv-purple-dark"
+              >
                 {Array.isArray(item.used_in) && item.used_in.length > 0 ? (
                   <ul className={`${listClass} -mx-4 -mb-4`}>
                     {item.used_in.map((parent, index) => (

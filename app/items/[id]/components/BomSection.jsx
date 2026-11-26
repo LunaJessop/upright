@@ -1,12 +1,15 @@
 "use client";
 
 import BomTreeView from "@/components/BomTreeView";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { SectionCard } from "./ItemDetailChrome";
 
 export default function BomSection({ item, itemById, canWrite, onStartEdit }) {
   return (
     <SectionCard
       title="BOM"
+      help={HELP_TEXT.bom}
+      helpLabel={HELP_LABELS.bom}
       accent="bg-nv-green-dark"
       action={
         canWrite ? (

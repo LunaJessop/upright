@@ -15,6 +15,7 @@ import {
 import BomRecipeEditor from "@/components/BomRecipeEditor";
 import ItemPhotoField from "@/components/ItemPhotoField";
 import BrutalSwitch from "@/components/BrutalSwitch";
+import HelpIcon from "@/components/HelpIcon";
 import CrossKindUnitDialog from "@/components/CrossKindUnitDialog";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import TagPicker from "@/components/TagPicker";
@@ -41,6 +42,7 @@ import {
   scaleRecipeQuantities,
 } from "@/lib/itemUnitChange";
 import { sortByText } from "@/lib/optionOrder";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { isMakeItem as isMakeFlag } from "@/lib/pricing";
 import {
   PHASE_EDITOR_HIGHLIGHT_CLASS,
@@ -985,7 +987,14 @@ export default function EditItemModal({
                   />
                 </div>
 
-                <FieldRow label="Make or buy">
+                <FieldRow
+                  label={
+                    <span className="inline-flex items-center gap-1">
+                      Make or buy
+                      <HelpIcon text={HELP_TEXT.makeVsBuy} label={HELP_LABELS.makeVsBuy} />
+                    </span>
+                  }
+                >
                   <BrutalSwitch
                     ariaLabel="Make or buy"
                     value={draft.make_or_buy}

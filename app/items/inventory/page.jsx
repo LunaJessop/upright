@@ -9,11 +9,13 @@ import {
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
+import HelpIcon from "@/components/HelpIcon";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import QuantityChangeConfirm, {
   quantityChanged,
 } from "@/components/QuantityChangeConfirm";
 import { ROLE_RANK } from "@/lib/auth";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { brutalChrome, compactInputClass, rowStripe } from "@/lib/chrome";
 import {
   mergeInventorySave,
@@ -250,7 +252,12 @@ function InventoryCard({
                 />
               </label>
               {canEditGoals ? (
-                <div className="grid max-w-md gap-3 sm:grid-cols-2">
+                <div className="max-w-md space-y-1">
+                  <span className={`inline-flex items-center gap-1 ${labelClass}`}>
+                    Goal
+                    <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
+                  </span>
+                  <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block space-y-1">
                     <span className={labelClass}>
                       Min{unit ? ` ${unit}` : ""}
@@ -277,10 +284,12 @@ function InventoryCard({
                       placeholder="Optional"
                     />
                   </label>
+                  </div>
                 </div>
               ) : (
-                <p className="text-[10px] font-medium text-nv-ink/55">
+                <p className="inline-flex items-center gap-1 text-[10px] font-medium text-nv-ink/55">
                   Goal range can be set by admins and founders.
+                  <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
                 </p>
               )}
               {error && (
@@ -328,13 +337,19 @@ function InventoryCard({
                   <StockStatusIcon status={row.status} />
                 </span>
                 <span className="inline-flex flex-wrap items-center gap-1.5">
-                  <span className={labelClass}>Planned </span>
+                  <span className={`inline-flex items-center gap-1 ${labelClass}`}>
+                    Planned
+                    <HelpIcon text={HELP_TEXT.plannedQty} label={HELP_LABELS.plannedQty} />
+                  </span>
                   {formatQty(row.planned_quantity)}
                   {unitSuffix}
                   <StockStatusIcon status={row.planned_status} />
                 </span>
-                <span>
-                  <span className={labelClass}>Goal </span>
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <span className={`inline-flex items-center gap-1 ${labelClass}`}>
+                    Goal
+                    <HelpIcon text={HELP_TEXT.goal} label={HELP_LABELS.goal} />
+                  </span>
                   {row.goal_min != null && row.goal_max != null
                     ? `${formatQty(row.goal_min)} – ${formatQty(row.goal_max)}${unitSuffix}`
                     : "Not set"}
