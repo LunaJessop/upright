@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
@@ -142,26 +142,34 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadItems = useCallback(async () => {
+  const [seenTag, setSeenTag] = useState(tagFilter);
+  if (seenTag !== tagFilter) {
+    setSeenTag(tagFilter);
     setLoading(true);
     setError("");
-    try {
-      const [rows, tagRows] = await Promise.all([
-        GetAllItems(tagFilter ? { tagId: tagFilter } : {}),
-        GetTags().catch(() => []),
-      ]);
-      setItems(Array.isArray(rows) ? rows : []);
-      setTags(Array.isArray(tagRows) ? tagRows : []);
-    } catch {
-      setError("Failed to load items.");
-    } finally {
-      setLoading(false);
-    }
-  }, [tagFilter]);
+  }
 
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+    let cancelled = false;
+    Promise.all([
+      GetAllItems(tagFilter ? { tagId: tagFilter } : {}),
+      GetTags().catch(() => []),
+    ])
+      .then(([rows, tagRows]) => {
+        if (cancelled) return;
+        setItems(Array.isArray(rows) ? rows : []);
+        setTags(Array.isArray(tagRows) ? tagRows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load items.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tagFilter]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { getAdminCustomerActivity, listAdminActivity } from "@/app/api/apiHandler";
 import { formatAdminDate } from "@/components/AdminFrame";
 import { useAuth } from "@/components/AuthProvider";
@@ -35,8 +35,9 @@ export default function AdminActivityPanel({
   onForbidden,
 }) {
   const { isPlatformAdmin, loading: authLoading } = useAuth();
-  const forbiddenRef = useRef(onForbidden);
-  forbiddenRef.current = onForbidden;
+  const reportForbidden = useEffectEvent(() => {
+    onForbidden?.();
+  });
   const [types, setTypes] = useState([]);
   const [offset, setOffset] = useState(0);
   const [events, setEvents] = useState([]);
@@ -44,33 +45,45 @@ export default function AdminActivityPanel({
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const query = { types, limit: PAGE_SIZE, offset };
-      const data = customerId
-        ? await getAdminCustomerActivity(customerId, query)
-        : await listAdminActivity(query);
-      setEvents(Array.isArray(data.events) ? data.events : []);
-      setTotal(Number(data.page?.total) || 0);
-      setNotes(activitySourceNotes(data.sources));
-    } catch (err) {
-      setEvents([]);
-      setTotal(0);
-      setNotes([]);
-      if (isForbiddenError(err)) forbiddenRef.current?.();
-      else setError(err?.message || "Failed to load activity.");
-    } finally {
-      setLoading(false);
+  const requestKey =
+    authLoading || !isPlatformAdmin
+      ? ""
+      : JSON.stringify({ customerId, offset, reloadToken, types });
+  const [seenKey, setSeenKey] = useState(requestKey);
+  if (seenKey !== requestKey) {
+    setSeenKey(requestKey);
+    if (requestKey) {
+      setLoading(true);
+      setError("");
     }
-  }, [customerId, offset, types]);
+  }
 
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
-    void load();
-  }, [authLoading, isPlatformAdmin, load, reloadToken]);
+    if (!requestKey) return undefined;
+    const query = { types, limit: PAGE_SIZE, offset };
+    const pending = (
+      customerId
+        ? getAdminCustomerActivity(customerId, query)
+        : listAdminActivity(query)
+    )
+      .then((data) => {
+        setEvents(Array.isArray(data.events) ? data.events : []);
+        setTotal(Number(data.page?.total) || 0);
+        setNotes(activitySourceNotes(data.sources));
+      })
+      .catch((err) => {
+        setEvents([]);
+        setTotal(0);
+        setNotes([]);
+        if (isForbiddenError(err)) reportForbidden();
+        else setError(err?.message || "Failed to load activity.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    void pending;
+    return undefined;
+  }, [requestKey, customerId, offset, types]);
 
   function toggleType(type) {
     setOffset(0);

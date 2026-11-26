@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import {
   CancelBatch,
   CompleteBatch,
@@ -96,35 +96,44 @@ export default function BatchDetailPage({ params }) {
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   const [completeError, setCompleteError] = useState("");
 
-  const loadBatch = useCallback(async () => {
+  const [seenId, setSeenId] = useState(id);
+  if (seenId !== id) {
+    setSeenId(id);
     setLoading(true);
     setError("");
-    try {
-      const row = await GetBatchById(id);
-      setBatch(row);
-
-      const [items, item] = await Promise.all([
-        GetAllItems().catch(() => []),
-        row?.item_id
-          ? GetItemById(row.item_id).catch(() => null)
-          : Promise.resolve(null),
-      ]);
-
-      setCatalogItems(Array.isArray(items) ? items : []);
-      setBatchItem(item && item.id ? item : null);
-    } catch {
-      setError("Batch not found.");
-      setBatch(null);
-      setCatalogItems([]);
-      setBatchItem(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  }
 
   useEffect(() => {
-    void loadBatch();
-  }, [loadBatch]);
+    let cancelled = false;
+    GetBatchById(id)
+      .then((row) => {
+        if (cancelled) return null;
+        setBatch(row);
+        return Promise.all([
+          GetAllItems().catch(() => []),
+          row?.item_id
+            ? GetItemById(row.item_id).catch(() => null)
+            : Promise.resolve(null),
+        ]).then(([items, item]) => {
+          if (cancelled) return;
+          setCatalogItems(Array.isArray(items) ? items : []);
+          setBatchItem(item && item.id ? item : null);
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("Batch not found.");
+        setBatch(null);
+        setCatalogItems([]);
+        setBatchItem(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const handlePhaseStatus = async (phaseId, status) => {
     setUpdating(true);

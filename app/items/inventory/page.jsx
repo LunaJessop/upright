@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   GetAllInventory,
   UpdateItemInventory,
@@ -150,15 +150,18 @@ function InventoryCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmingQty, setConfirmingQty] = useState(false);
-
-  useEffect(() => {
-    if (!editing) return;
-    setDraftQty(row.quantity == null ? "0" : String(row.quantity));
-    setDraftGoalMin(row.goal_min == null ? "" : String(row.goal_min));
-    setDraftGoalMax(row.goal_max == null ? "" : String(row.goal_max));
-    setError("");
-    setConfirmingQty(false);
-  }, [editing, row]);
+  const editSession = editing ? row : null;
+  const [seenEdit, setSeenEdit] = useState(null);
+  if (seenEdit !== editSession) {
+    setSeenEdit(editSession);
+    if (editSession) {
+      setDraftQty(row.quantity == null ? "0" : String(row.quantity));
+      setDraftGoalMin(row.goal_min == null ? "" : String(row.goal_min));
+      setDraftGoalMax(row.goal_max == null ? "" : String(row.goal_max));
+      setError("");
+      setConfirmingQty(false);
+    }
+  }
 
   const unit = row.unit_of_measure ?? "";
   const unitSuffix = unit ? ` ${unit}` : "";
@@ -375,23 +378,26 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  const loadInventory = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const list = await GetAllInventory();
-      setRows(Array.isArray(list) ? list : []);
-    } catch (err) {
-      setError(err?.message || "Failed to load inventory.");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadInventory();
-  }, [loadInventory]);
+    let cancelled = false;
+    GetAllInventory()
+      .then((list) => {
+        if (cancelled) return;
+        setRows(Array.isArray(list) ? list : []);
+        setError("");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err?.message || "Failed to load inventory.");
+        setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-full min-w-0 max-w-full bg-nv-canvas px-4 py-6 text-nv-ink">

@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import "./neobrutal-datatables.css";
 
 export default function NeobrutalDataTable({ rows, onRowClick }) {
   const tableRef = useRef(null);
   const apiRef = useRef(null);
-  const onRowClickRef = useRef(onRowClick);
-  onRowClickRef.current = onRowClick;
+  const handleRowClick = useEffectEvent((rowData) => {
+    if (onRowClick) onRowClick(rowData);
+  });
 
   useEffect(
     () => {
@@ -104,10 +105,9 @@ export default function NeobrutalDataTable({ rows, onRowClick }) {
         });
 
         $(tableEl).on("click.brutalRow", "tbody tr", function () {
-          const handler = onRowClickRef.current;
-          if (!handler || !apiRef.current) return;
+          if (!apiRef.current) return;
           const rowData = apiRef.current.row(this).data();
-          if (rowData) handler(rowData);
+          if (rowData) handleRowClick(rowData);
         });
       })();
 

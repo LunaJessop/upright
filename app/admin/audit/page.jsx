@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { listAdminAudit } from "@/app/api/apiHandler";
 import AdminFrame, { formatAdminDate } from "@/components/AdminFrame";
 import { useAuth } from "@/components/AuthProvider";
@@ -43,30 +43,40 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [forbidden, setForbidden] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const data = await listAdminAudit({ ...filters, limit: PAGE_SIZE, offset });
-      setEvents(Array.isArray(data.events) ? data.events : []);
-      setTotal(Number(data.page?.total) || 0);
-      setUnavailable(data.sources?.admin_activity === "unavailable");
-    } catch (err) {
-      setEvents([]);
-      setTotal(0);
-      setUnavailable(false);
-      if (isForbiddenError(err)) setForbidden(true);
-      else setError(err?.message || "Failed to load the audit log.");
-    } finally {
-      setLoading(false);
+  const requestKey =
+    authLoading || !isPlatformAdmin
+      ? ""
+      : JSON.stringify({ offset, filters });
+  const [seenKey, setSeenKey] = useState(requestKey);
+  if (seenKey !== requestKey) {
+    setSeenKey(requestKey);
+    if (requestKey) {
+      setLoading(true);
+      setError("");
     }
-  }, [filters, offset]);
+  }
 
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
-    void load();
-  }, [authLoading, isPlatformAdmin, load]);
+    if (!requestKey) return undefined;
+    const pending = listAdminAudit({ ...filters, limit: PAGE_SIZE, offset })
+      .then((data) => {
+        setEvents(Array.isArray(data.events) ? data.events : []);
+        setTotal(Number(data.page?.total) || 0);
+        setUnavailable(data.sources?.admin_activity === "unavailable");
+      })
+      .catch((err) => {
+        setEvents([]);
+        setTotal(0);
+        setUnavailable(false);
+        if (isForbiddenError(err)) setForbidden(true);
+        else setError(err?.message || "Failed to load the audit log.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    void pending;
+    return undefined;
+  }, [requestKey, filters, offset]);
 
   function applyFilters(event) {
     event.preventDefault();

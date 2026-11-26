@@ -19,8 +19,8 @@ test("what's new uses a green version heading and plain update text", () => {
   assert.match(html, /<p[^>]*>Security and reliability improvements\.<\/p>/);
   assert.match(
     html,
-    /<h1[^>]*bg-nv-green-dark[^>]*>v0\.6 · Upcoming<\/h1>/
+    /<h1[^>]*bg-nv-green-dark[^>]*>v0\.6 · November 8, 2026<\/h1>/
   );
-  assert.match(html, /<h2[^>]*>A photo on the item<\/h2>/);
+  assert.match(html, /<h2[^>]*>A photo on every item<\/h2>/);
   assert.doesNotMatch(html, /shadow-brutal|bg-nv-paper|bg-nv-purple-dark/);
 });

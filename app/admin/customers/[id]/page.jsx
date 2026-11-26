@@ -111,13 +111,20 @@ export default function AdminCustomerPage({ params }) {
   const [confirm, setConfirm] = useState(null);
   const [viewReason, setViewReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const customerKey = authLoading || !isPlatformAdmin ? "" : String(id);
+  const [seenCustomerKey, setSeenCustomerKey] = useState(customerKey);
+  if (seenCustomerKey !== customerKey) {
+    setSeenCustomerKey(customerKey);
+    if (customerKey) {
+      setLoading(true);
+      setError("");
+      setForbidden(false);
+    }
+  }
 
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
+    if (!customerKey) return undefined;
     let cancelled = false;
-    setLoading(true);
-    setError("");
-    setForbidden(false);
     getAdminCustomer(id)
       .then((data) => {
         if (!cancelled) setPayload(data);
@@ -135,7 +142,7 @@ export default function AdminCustomerPage({ params }) {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, id, isPlatformAdmin]);
+  }, [customerKey, id]);
 
   const refresh = useCallback(async () => {
     const data = await getAdminCustomer(id);
@@ -143,11 +150,19 @@ export default function AdminCustomerPage({ params }) {
     setReloadToken((current) => current + 1);
   }, [id]);
 
+  const billingKey = customerKey ? `${customerKey}:${reloadToken}` : "";
+  const [seenBillingKey, setSeenBillingKey] = useState(billingKey);
+  if (seenBillingKey !== billingKey) {
+    setSeenBillingKey(billingKey);
+    if (billingKey) {
+      setBillingLoading(true);
+      setBillingError("");
+    }
+  }
+
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
+    if (!billingKey) return undefined;
     let cancelled = false;
-    setBillingLoading(true);
-    setBillingError("");
     getAdminCustomerBilling(id)
       .then((data) => {
         if (!cancelled) setBilling(data);
@@ -164,7 +179,7 @@ export default function AdminCustomerPage({ params }) {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, id, isPlatformAdmin, reloadToken]);
+  }, [billingKey, id]);
 
   function ask(next) {
     setViewReason("");
