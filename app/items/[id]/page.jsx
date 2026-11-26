@@ -6,6 +6,7 @@ import {
   GetAllItems,
   GetItemById,
   GetRouterPhaseTemplates,
+  GetRouters,
   GetTags,
   GetVendors,
 } from "@/app/api/apiHandler";
@@ -34,6 +35,7 @@ export default function ItemDetailPage({ params }) {
   const [error, setError] = useState("");
   const [catalogItems, setCatalogItems] = useState([]);
   const [phaseTemplates, setPhaseTemplates] = useState([]);
+  const [routers, setRouters] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [tagCatalog, setTagCatalog] = useState([]);
   const openedFromQuery = useRef(false);
@@ -64,6 +66,7 @@ export default function ItemDetailPage({ params }) {
         const rows = await GetAllItems().catch(() => []);
         const allItems = Array.isArray(rows) ? rows : [];
         const templates = await GetRouterPhaseTemplates().catch(() => []);
+        const routerRows = await GetRouters().catch(() => []);
         const vendorRows = await GetVendors().catch(() => []);
         const tagRows = await GetTags().catch(() => []);
         if (cancelled) return;
@@ -71,6 +74,7 @@ export default function ItemDetailPage({ params }) {
           allItems.filter((entry) => String(entry.id) !== String(id))
         );
         setPhaseTemplates(Array.isArray(templates) ? templates : []);
+        setRouters(Array.isArray(routerRows) ? routerRows : []);
         setVendors(Array.isArray(vendorRows) ? vendorRows : []);
         setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
         // Fallback while the server lacks GET /api/items/:id
@@ -251,6 +255,7 @@ export default function ItemDetailPage({ params }) {
               catalogItems={catalogItems}
               phaseTemplates={phaseTemplates}
               vendors={vendors}
+              routers={routers}
               tagCatalog={tagCatalog}
               setTagCatalog={setTagCatalog}
               setItem={setItem}

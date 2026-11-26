@@ -185,6 +185,13 @@ export default function HelpGuide() {
                 When you start a batch later, these steps become the checklist
                 for that production run.
               </p>
+              <p>
+                To reuse the same steps, save them under{" "}
+                <InAppLink href="/settings/routers">Routers</InAppLink>. On a
+                make item, start from that router to copy the phases. The item
+                keeps its own copy, so you can change its steps and materials
+                without changing the saved router.
+              </p>
             </StepCard>
           </div>
         </section>

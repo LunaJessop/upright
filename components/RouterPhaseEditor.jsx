@@ -10,6 +10,7 @@ import {
   phaseEditorKey,
 } from "@/lib/phaseEditorFocus";
 import { HeldAssignments, PhaseIngredients } from "./PhaseIngredients.jsx";
+import { RouterStartPrompt, StartedFromNote } from "./RouterStartPrompt.jsx";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -51,6 +52,9 @@ export default function RouterPhaseEditor({
   onMoveUp,
   onMoveDown,
   onReorderPhases,
+  routers = [],
+  startedFromName = "",
+  onStartFromRouter,
   itemId = null,
   highlightPhaseKey = "",
   tone = "cyan",
@@ -58,6 +62,28 @@ export default function RouterPhaseEditor({
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
   const [openPhaseId, setOpenPhaseId] = useState(null);
+  const [pendingRouter, setPendingRouter] = useState(null);
+  const savedRouters = sortByText(
+    Array.isArray(routers) ? routers : [],
+    (router) => router.name
+  );
+
+  const chooseRouter = (routerId) => {
+    const selected = savedRouters.find((row) => String(row.id) === String(routerId));
+    if (!selected || !onStartFromRouter) return;
+    if (phases.length === 0) {
+      onStartFromRouter(selected, "replace");
+      setPendingRouter(null);
+      return;
+    }
+    setPendingRouter(selected);
+  };
+
+  const confirmPending = (mode) => {
+    if (!pendingRouter || !onStartFromRouter) return;
+    onStartFromRouter(pendingRouter, mode);
+    setPendingRouter(null);
+  };
   const plan = phaseIngredientPlan(phases, bomLines, phaseTemplates);
   const uniqueTargets = plan.resolved.filter((phase) => plan.editable.get(phase.id));
 
@@ -111,6 +137,52 @@ export default function RouterPhaseEditor({
           </Link>
         </div>
       </div>
+
+      {onStartFromRouter ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {savedRouters.length > 0 ? (
+              <label className="flex min-w-0 flex-1 items-center gap-1">
+                <span className="sr-only">Start from a router</span>
+                <select
+                  value=""
+                  onChange={(event) => {
+                    const routerId = event.target.value;
+                    if (routerId) chooseRouter(routerId);
+                  }}
+                  className={`${inputClass} max-w-[16rem] cursor-pointer py-1 text-[10px]`}
+                >
+                  <option value="">Start from a router…</option>
+                  {savedRouters.map((router) => (
+                    <option key={router.id} value={router.id}>
+                      {router.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="text-[10px] font-medium text-nv-ink/50">
+                No saved routers yet.
+              </p>
+            )}
+            <Link
+              href="/settings/routers"
+              className="text-[10px] font-black uppercase tracking-wide text-nv-violet hover:underline"
+            >
+              Routers
+            </Link>
+          </div>
+          {pendingRouter ? (
+            <RouterStartPrompt
+              routerName={pendingRouter.name}
+              onReplace={() => confirmPending("replace")}
+              onAppend={() => confirmPending("append")}
+              onCancel={() => setPendingRouter(null)}
+            />
+          ) : null}
+          <StartedFromNote name={phases.length > 0 ? startedFromName : ""} />
+        </div>
+      ) : null}
 
       {phases.length > 0 ? (
         <ul className={listClass}>
