@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { ClearAllFiltersButton, ListFilterField } from "@/components/ListFilterField";
 import ItemPhotoThumb from "@/components/ItemPhotoThumb";
 import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { itemHasListPhoto } from "@/lib/itemPhoto";
+import {
+  ITEM_LIST_DEFAULTS,
+  ITEM_LIST_FILTER_KEY,
+  itemListFiltersActive,
+  sanitizeItemListFilters,
+} from "@/lib/listFilters";
 import { formatMoney, isMakeItem, itemDisplayPrice } from "@/lib/pricing";
+import { useRememberedListFilters } from "@/lib/useRememberedListFilters";
 
 const ITEM_CSV_HEADERS = [
   "id",
@@ -139,15 +147,27 @@ function ItemListRow({ item, index }) {
 }
 
 export default function ItemsPage() {
-  const { canWrite } = useAuth();
+  const { canWrite, user, impersonating } = useAuth();
   const [items, setItems] = useState([]);
   const [tags, setTags] = useState([]);
-  const [tagFilter, setTagFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [query, setQuery] = useState("");
+  const [tagsStatus, setTagsStatus] = useState("loading");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const remembered = useRememberedListFilters({
+    user,
+    impersonating,
+    baseKey: ITEM_LIST_FILTER_KEY,
+    empty: ITEM_LIST_DEFAULTS,
+    sanitize: sanitizeItemListFilters,
+    refine: (filters) =>
+      tagsStatus === "ready"
+        ? sanitizeItemListFilters(filters, { tagIds: tags.map((tag) => tag.id) })
+        : filters,
+  });
+  const { type: typeFilter, status: statusFilter, tag: tagFilter, query } = remembered.filters;
+  const filtersActive = itemListFiltersActive(remembered.filters);
+  const tagKnown = tags.some((tag) => String(tag.id) === tagFilter);
+  const tagGate = tagFilter ? tagsStatus : "ready";
 
   const [seenTag, setSeenTag] = useState(tagFilter);
   if (seenTag !== tagFilter) {
@@ -158,14 +178,30 @@ export default function ItemsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      GetAllItems(tagFilter ? { tagId: tagFilter } : {}),
-      GetTags().catch(() => []),
-    ])
-      .then(([rows, tagRows]) => {
+    GetTags()
+      .then((rows) => {
+        if (cancelled) return;
+        setTags(Array.isArray(rows) ? rows : []);
+        setTagsStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTags([]);
+        setTagsStatus("failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!remembered.ready || tagGate === "loading") return undefined;
+    let cancelled = false;
+    GetAllItems(tagFilter ? { tagId: tagFilter } : {})
+      .then((rows) => {
         if (cancelled) return;
         setItems(Array.isArray(rows) ? rows : []);
-        setTags(Array.isArray(tagRows) ? tagRows : []);
+        setError("");
       })
       .catch(() => {
         if (!cancelled) setError("Failed to load items.");
@@ -176,7 +212,7 @@ export default function ItemsPage() {
     return () => {
       cancelled = true;
     };
-  }, [tagFilter]);
+  }, [remembered.ready, tagGate, tagFilter]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -259,66 +295,84 @@ export default function ItemsPage() {
                   </span>
                 ) : null}
               </h2>
+              {filtersActive ? <ClearAllFiltersButton onClear={remembered.reset} /> : null}
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block space-y-1 sm:col-span-2 lg:col-span-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Search
-                </span>
+              <ListFilterField
+                id="items-filter-search"
+                label="Search"
+                active={query.trim() !== ""}
+                onClear={() => remembered.update({ query: "" })}
+                className="sm:col-span-2 lg:col-span-1"
+              >
                 <input
+                  id="items-filter-search"
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  maxLength={200}
+                  onChange={(e) => remembered.update({ query: e.target.value })}
                   placeholder="Name, tag, SKU…"
-                  className={`w-full ${controlClass}`}
+                  className={`w-full [&::-webkit-search-cancel-button]:hidden ${controlClass}`}
                 />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Type
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-type"
+                label="Type"
+                active={typeFilter !== ITEM_LIST_DEFAULTS.type}
+                onClear={() => remembered.update({ type: ITEM_LIST_DEFAULTS.type })}
+              >
                 <select
+                  id="items-filter-type"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ type: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="all">All</option>
                   <option value="make">Make</option>
                   <option value="buy">Buy</option>
                 </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Status
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-status"
+                label="Status"
+                active={statusFilter !== ITEM_LIST_DEFAULTS.status}
+                onClear={() => remembered.update({ status: ITEM_LIST_DEFAULTS.status })}
+              >
                 <select
+                  id="items-filter-status"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ status: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="all">All</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Tag
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-tag"
+                label="Tag"
+                active={tagFilter !== ""}
+                onClear={() => remembered.update({ tag: "" })}
+              >
                 <select
+                  id="items-filter-tag"
                   value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ tag: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="">All tags</option>
+                  {tagFilter && !tagKnown ? (
+                    <option value={tagFilter}>Saved tag</option>
+                  ) : null}
                   {tags.map((tag) => (
                     <option key={tag.id} value={String(tag.id)}>
                       {tag.name}
                     </option>
                   ))}
                 </select>
-              </label>
+              </ListFilterField>
             </div>
           </div>
 
