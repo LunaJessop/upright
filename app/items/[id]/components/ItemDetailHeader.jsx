@@ -1,13 +1,12 @@
 "use client";
 
-import ItemPhoto from "@/components/ItemPhoto";
+import { SavedItemPhoto } from "@/components/ItemPhoto";
 import { brutalChrome } from "@/lib/chrome";
 import { formatDate } from "@/lib/itemDetail";
-import { applyItemPhoto } from "@/lib/itemPhoto";
 import { formatMoney, isMakeItem as isMakeFlag, itemDisplayPrice } from "@/lib/pricing";
-import { FieldBlock, FieldRow, labelClass } from "./ItemDetailChrome";
+import { FieldRow, labelClass } from "./ItemDetailChrome";
 
-export default function ItemDetailHeader({ item, canWrite, setItem, onEdit }) {
+export default function ItemDetailHeader({ item, canWrite, onEdit }) {
   const isMake = isMakeFlag(item.make_or_buy);
   const lotSkus = Array.isArray(item.item_skus) ? item.item_skus : [];
   const headerLabel = isMake
@@ -54,8 +53,25 @@ export default function ItemDetailHeader({ item, canWrite, setItem, onEdit }) {
         </div>
 
         <div className="border-t-brutal-xs border-black bg-nv-paper p-4 text-nv-ink">
+          <div className="flex flex-col gap-4 border-b border-black/10 py-3 sm:flex-row sm:items-start">
+            <div className="w-full shrink-0 sm:w-40">
+              <p className={labelClass}>Photo</p>
+              <div className="mt-2">
+                <SavedItemPhoto
+                  itemId={item.id}
+                  itemName={item.name || "this item"}
+                  photo={item.photo ?? null}
+                />
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={labelClass}>Description</p>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-nv-ink">
+                {item.description === "" || item.description == null ? "—" : item.description}
+              </p>
+            </div>
+          </div>
           <div className="space-y-1">
-            <FieldBlock label="Description" value={item.description} />
             {!isMake && (
               <FieldRow
                 label="Vendor"
@@ -101,18 +117,6 @@ export default function ItemDetailHeader({ item, canWrite, setItem, onEdit }) {
           </div>
         </div>
       </header>
-
-      <div className="mb-6">
-        <ItemPhoto
-          itemId={item.id}
-          itemName={item.name}
-          photo={item.photo ?? null}
-          canWrite={canWrite}
-          onPhotoChange={(nextPhoto) => {
-            setItem((current) => applyItemPhoto(current, nextPhoto));
-          }}
-        />
-      </div>
     </>
   );
 }

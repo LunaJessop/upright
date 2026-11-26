@@ -174,7 +174,6 @@ export default function ItemDetailPage({ params }) {
             <ItemDetailHeader
               item={item}
               canWrite={canWrite}
-              setItem={setItem}
               onEdit={() => editor.startEditing()}
             />
 

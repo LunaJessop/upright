@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import {
   ChangeItemUnit,
   DeleteItem,
+  DeleteItemPhoto,
   GetRouterPhaseTemplates,
   GetTags,
   UpdateItem,
+  UploadItemPhoto,
 } from "@/app/api/apiHandler";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import ItemPhotoField from "@/components/ItemPhotoField";
 import BrutalSwitch from "@/components/BrutalSwitch";
 import CrossKindUnitDialog from "@/components/CrossKindUnitDialog";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
@@ -60,7 +63,21 @@ import {
   tagsForSave,
   upsertTagCatalog,
 } from "@/lib/tagCreate";
+import {
+  applyItemPhoto,
+  commitStagedPhoto,
+  initialPhotoStage,
+  messageForPhotoFailure,
+} from "@/lib/itemPhoto";
 import { editInputClass, FieldBlock, FieldRow, labelClass } from "./ItemDetailChrome";
+
+function savedPhotoError(error) {
+  const failure = new Error(
+    `${messageForPhotoFailure(error)} Your other changes are saved.`
+  );
+  failure.photoAfterSave = true;
+  return failure;
+}
 
 export function useItemEditor({
   id,
@@ -88,6 +105,8 @@ export function useItemEditor({
   const [sourceRouterChoice, setSourceRouterChoice] = useState(null);
   const [crossKind, setCrossKind] = useState(null);
   const [phaseFocus, setPhaseFocus] = useState(null);
+  const [photoStage, setPhotoStage] = useState(initialPhotoStage);
+  const [photoEpoch, setPhotoEpoch] = useState(0);
   const bomLineIdRef = useRef(1);
   const routerPhaseIdRef = useRef(1);
   const editingRef = useRef(false);
@@ -95,6 +114,11 @@ export function useItemEditor({
 
   const setDraftField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const clearPhotoStage = () => {
+    setPhotoEpoch((value) => value + 1);
+    setPhotoStage(initialPhotoStage());
   };
 
   const changeDraftUnit = (nextUnit) => {
@@ -138,6 +162,7 @@ export function useItemEditor({
     setSourceRouterChoice(null);
     setBomSelectedIds([]);
     setSaveError("");
+    clearPhotoStage();
     editingRef.current = true;
     setEditing(true);
   };
@@ -162,6 +187,7 @@ export function useItemEditor({
     setConfirmingDelete(false);
     setDeleting(false);
     setCrossKind(null);
+    clearPhotoStage();
   };
 
   const addSelectedBomLines = () => {
@@ -358,7 +384,21 @@ export function useItemEditor({
       ? withSourceRouter(payload, sourceRouterChoice?.id)
       : payload;
     const updated = await UpdateItem(id, payloadWithRouter);
-    setItem(updated && updated.id ? updated : payloadWithRouter);
+    let nextItem = updated && updated.id ? updated : payloadWithRouter;
+    try {
+      const photoResult = await commitStagedPhoto(photoStage, {
+        itemId: id,
+        upload: UploadItemPhoto,
+        remove: DeleteItemPhoto,
+      });
+      if (photoResult.applied !== "none") {
+        nextItem = applyItemPhoto(nextItem, photoResult.photo);
+      }
+    } catch (error) {
+      setItem(nextItem);
+      throw savedPhotoError(error);
+    }
+    setItem(nextItem);
     const templates = await GetRouterPhaseTemplates().catch(() => []);
     setPhaseTemplates(Array.isArray(templates) ? templates : []);
     const tagRows = await GetTags().catch(() => []);
@@ -371,6 +411,7 @@ export function useItemEditor({
     setSourceRouterChoice(null);
     setBomSelectedIds([]);
     setCrossKind(null);
+    clearPhotoStage();
     if (unitPlan.action === "change" || unitPlan.action === "cross") {
       await reloadInventory();
       if (!isMakeFlag(item.make_or_buy)) await reloadPurchaseLots();
@@ -425,6 +466,15 @@ export function useItemEditor({
       }
       await persistDraft({ unitPlan, changedItem, lines: bomLines });
     } catch (err) {
+      if (err?.photoAfterSave) {
+        if (unitChangedOnServer) {
+          await reloadInventory();
+          if (!isMakeFlag(item.make_or_buy)) await reloadPurchaseLots();
+        }
+        setSaveError(err.message);
+        toast.error(err.message);
+        return;
+      }
       if (unitPlan.action === "cross" && err?.code === "CONVERSION_FACTOR_REQUIRED") {
         setCrossKind({
           question: err.message,
@@ -586,6 +636,16 @@ export function useItemEditor({
         draftSnapshot: scaled.draft,
       });
     } catch (err) {
+      if (err?.photoAfterSave) {
+        setCrossKind(null);
+        if (unitChangedOnServer) {
+          await reloadInventory();
+          if (!isMakeFlag(item.make_or_buy)) await reloadPurchaseLots();
+        }
+        setSaveError(err.message);
+        toast.error(err.message);
+        return;
+      }
       if (!unitChangedOnServer && err?.code === "INVALID_CONVERSION_FACTOR") {
         setCrossKind((prev) => ({
           ...prev,
@@ -689,6 +749,9 @@ export function useItemEditor({
     moveRouterPhase,
     sourceRouterChoice,
     startFromRouter,
+    photoStage,
+    setPhotoStage,
+    photoEpoch,
     saveDraft,
     previewCrossKind,
     confirmCrossKind,
@@ -741,12 +804,17 @@ export default function EditItemModal({
     moveRouterPhase,
     sourceRouterChoice,
     startFromRouter,
+    photoStage,
+    setPhotoStage,
+    photoEpoch,
     saveDraft,
     previewCrossKind,
     confirmCrossKind,
     cancelCrossKind,
     handleDelete,
   } = editor;
+  const [photoPreparing, setPhotoPreparing] = useState(false);
+  const photoBusy = saving || deleting || photoPreparing;
 
   if (!item) return null;
 
@@ -821,7 +889,7 @@ export default function EditItemModal({
                         setConfirmingDelete(true);
                         setSaveError("");
                       }}
-                      disabled={saving || deleting}
+                      disabled={photoBusy}
                       className="border-brutal-xs border-black bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                     >
                       Delete
@@ -837,7 +905,7 @@ export default function EditItemModal({
                     <button
                       type="button"
                       onClick={() => void saveDraft()}
-                      disabled={saving || deleting}
+                      disabled={photoBusy}
                       className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
                     >
                       {saving ? "Saving…" : "Save"}
@@ -874,6 +942,19 @@ export default function EditItemModal({
                     placeholder="Optional notes about this item…"
                   />
                 </FieldBlock>
+
+                <ItemPhotoField
+                  className="border-b border-black/10 py-3"
+                  itemId={item.id}
+                  itemName={draft.name?.trim() || item.name}
+                  savedPhoto={item.photo ?? null}
+                  stage={photoStage}
+                  onStage={setPhotoStage}
+                  discardEpoch={photoEpoch}
+                  canWrite
+                  busy={saving || deleting}
+                  onBusyChange={setPhotoPreparing}
+                />
 
                 <div className="border-b border-black/10 py-3">
                   <TagPicker
