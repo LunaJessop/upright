@@ -15,6 +15,7 @@ import BomTreeView from "@/components/BomTreeView";
 import { BatchDataList } from "@/components/BatchDataFields";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import BatchReceipt from "@/components/BatchReceipt";
+import { BatchDetailSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
@@ -218,9 +219,7 @@ export default function BatchDetailPage({ params }) {
           ← Production
         </Link>
 
-        {loading && (
-          <p className="text-xs font-medium text-nv-ink/55">Loading batch…</p>
-        )}
+        {loading && <BatchDetailSkeleton />}
 
         {!loading && error && (
           <div className={`${brutalChrome} bg-nv-paper p-6`}>

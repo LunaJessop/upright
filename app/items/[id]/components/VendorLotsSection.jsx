@@ -7,6 +7,7 @@ import {
   GetItemById,
   GetPurchaseLots,
 } from "@/app/api/apiHandler";
+import { LotListSkeleton } from "@/components/Skeleton";
 import { useToast } from "@/components/Toast";
 import { listClass, rowStripe } from "@/lib/chrome";
 import { formatDate, formatQty } from "@/lib/itemDetail";
@@ -290,9 +291,7 @@ export default function VendorLotsSection({ item, canWrite, editing, model }) {
         </div>
       )}
 
-      {purchaseLotsLoading && (
-        <p className="text-xs font-medium text-nv-ink/55">Loading lots…</p>
-      )}
+      {purchaseLotsLoading && <LotListSkeleton />}
 
       {!purchaseLotsLoading && purchaseLots.length > 0 ? (
         <ul className={`${listClass} -mx-4`}>

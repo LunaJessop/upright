@@ -127,6 +127,19 @@ test("history stays in a fixed-height list, newest row first, with load more", (
   assert.match(html, />Load more</);
 });
 
+test("history shows a grey outline while the first rows are loading", () => {
+  const html = renderToStaticMarkup(
+    createElement(InventoryTransactionList, { loading: true, transactions: [] })
+  );
+  assert.match(html, /Loading history/);
+  assert.match(html, /data-skeleton="history"/);
+  assert.match(html, /aria-busy="true"/);
+  assert.match(html, /bg-nv-grey/);
+  assert.match(html, /max-h-40/);
+  assert.doesNotMatch(html, /History starts from today/);
+  assert.doesNotMatch(html, /Loading history…/);
+});
+
 test("an item with no stock changes yet says history starts from today", () => {
   const html = renderToStaticMarkup(
     createElement(InventoryTransactionList, { transactions: [] })
