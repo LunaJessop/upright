@@ -1,5 +1,6 @@
 "use client";
 
+import HelpIcon from "@/components/HelpIcon";
 import { brutalChrome, compactInputClass } from "@/lib/chrome";
 
 export const labelClass =
@@ -35,6 +36,8 @@ export function FieldBlock({ label, value, children }) {
 
 export function SectionCard({
   title,
+  help,
+  helpLabel,
   accent = "bg-nv-green-dark",
   action,
   children,
@@ -45,7 +48,12 @@ export function SectionCard({
       <header
         className={`flex flex-wrap items-center justify-between gap-2 border-b-brutal-xs border-black ${accent} px-4 py-2`}
       >
-        <h2 className="text-sm font-black uppercase tracking-wide">{title}</h2>
+        <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-black uppercase tracking-wide">
+          <span>{title}</span>
+          {help ? (
+            <HelpIcon text={help} label={helpLabel || `Help: ${title}`} />
+          ) : null}
+        </h2>
         {action}
       </header>
       <div className="p-4">{children}</div>

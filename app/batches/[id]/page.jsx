@@ -20,6 +20,8 @@ import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
 import { applyProgressSave } from "@/lib/batchProgress";
 import { brutalChrome } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
+import { SectionCard } from "@/app/items/[id]/components/ItemDetailChrome";
 
 const STATUS_STYLES = {
   planned: "bg-nv-paper text-nv-ink/70",
@@ -44,19 +46,6 @@ function formatDate(value) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function SectionCard({ title, accent = "bg-nv-green-dark", children }) {
-  return (
-    <section className={`${brutalChrome} bg-nv-paper`}>
-      <header className={`border-b-brutal-xs border-black ${accent} px-4 py-2`}>
-        <h2 className="text-sm font-black uppercase tracking-wide">
-          {title}
-        </h2>
-      </header>
-      <div className="p-4">{children}</div>
-    </section>
-  );
 }
 
 function phasesReadyToComplete(phases) {
@@ -301,7 +290,12 @@ export default function BatchDetailPage({ params }) {
                 />
               </SectionCard>
 
-              <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">
+              <SectionCard
+                title="Batch Receipt"
+                help={HELP_TEXT.batchReceipt}
+                helpLabel={HELP_LABELS.batchReceipt}
+                accent="bg-nv-green-dark"
+              >
                 <BatchReceipt
                   components={receiptComponents}
                   quantity={batch.quantity}
@@ -429,7 +423,12 @@ export default function BatchDetailPage({ params }) {
                 )}
               </SectionCard>
 
-              <SectionCard title="BOM" accent="bg-nv-green-dark">
+              <SectionCard
+                title="BOM"
+                help={HELP_TEXT.bom}
+                helpLabel={HELP_LABELS.bom}
+                accent="bg-nv-green-dark"
+              >
                 {bomLines.length > 0 ? (
                   <>
                     <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
@@ -454,7 +453,12 @@ export default function BatchDetailPage({ params }) {
               </SectionCard>
             </div>
 
-            <SectionCard title="Production phases" accent="bg-nv-green-dark">
+            <SectionCard
+              title="Production phases"
+              help={HELP_TEXT.productionPhases}
+              helpLabel={HELP_LABELS.productionPhases}
+              accent="bg-nv-green-dark"
+            >
               <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
                 Nested by item — make children first, then this item&apos;s own
                 steps. Use Complete batch above when floor work is done.

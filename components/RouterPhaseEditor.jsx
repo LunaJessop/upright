@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import HelpIcon from "@/components/HelpIcon";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIngredientPlan } from "@/lib/phaseAssignment";
 import {
@@ -96,7 +98,13 @@ export default function RouterPhaseEditor({
   return (
     <div className="w-full space-y-2 bg-nv-paper">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={labelClass}>Production router</p>
+        <p className={`inline-flex items-center gap-1 ${labelClass}`}>
+          Production router
+          <HelpIcon
+            text={HELP_TEXT.productionPhases}
+            label={HELP_LABELS.productionPhases}
+          />
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           {phaseTemplates.length > 0 ? (
             <label className="flex items-center gap-1">

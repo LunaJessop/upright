@@ -6,6 +6,7 @@ import {
   prefersReducedMotion,
   revealPhaseEditor,
 } from "@/lib/phaseEditorFocus";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { SectionCard } from "./ItemDetailChrome";
 
 export default function ProductionPhasesSection({
@@ -17,7 +18,12 @@ export default function ProductionPhasesSection({
 }) {
   return (
     <div className="lg:col-span-2">
-      <SectionCard title="Production phases" accent="bg-nv-purple-dark">
+      <SectionCard
+        title="Production phases"
+        help={HELP_TEXT.productionPhases}
+        helpLabel={HELP_LABELS.productionPhases}
+        accent="bg-nv-purple-dark"
+      >
         <NestedProductionPhases
           rootItem={item}
           itemById={itemById}

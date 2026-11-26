@@ -7,6 +7,7 @@ import { CreateBatch, GetItemById } from "@/app/api/apiHandler";
 import BomTreeView from "@/components/BomTreeView";
 import { useToast } from "@/components/Toast";
 import { brutalChrome, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { batchCountLabel, formatDate, formatSkuSource } from "@/lib/itemDetail";
 import { SectionCard } from "./ItemDetailChrome";
 
@@ -147,6 +148,8 @@ export default function BatchesSection({
     <>
       <SectionCard
         title="Batches"
+        help={HELP_TEXT.batches}
+        helpLabel={HELP_LABELS.batches}
         accent="bg-nv-purple-dark"
         action={
           <div className="flex items-center gap-2">
