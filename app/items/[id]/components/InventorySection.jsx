@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CreateItemInventoryTransaction,
   GetItemInventory,
+  GetItemInventoryTransactions,
   UpdateItemInventory,
   UpdateItemInventoryGoal,
 } from "@/app/api/apiHandler";
@@ -14,7 +16,20 @@ import QuantityChangeConfirm, {
 import { useToast } from "@/components/Toast";
 import { mergeInventorySave, validateInventoryEdit } from "@/lib/inventoryEdit";
 import { formatPlannedDelta, formatQty, stockStatusLabel } from "@/lib/itemDetail";
+import {
+  TRANSACTION_PAGE_LIMIT,
+  emptyTransactionDraft,
+  formatOnHandAfter,
+  mergeTransactionPages,
+  prepareManualTransaction,
+  projectOnHand,
+} from "@/lib/inventoryTransaction";
 import { editInputClass, labelClass, SectionCard } from "./ItemDetailChrome";
+import {
+  InventoryCardActions,
+  InventoryTransactionList,
+  InventoryTransactionModal,
+} from "./InventoryTransactions";
 
 const STOCK_STATUS_STYLES = {
   below: "bg-red-600",
@@ -33,11 +48,69 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
   const [inventorySaving, setInventorySaving] = useState(false);
   const [inventoryError, setInventoryError] = useState("");
   const [confirmingInventoryQty, setConfirmingInventoryQty] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(Boolean(itemId));
+  const [transactionsLoadingMore, setTransactionsLoadingMore] = useState(false);
+  const [transactionsError, setTransactionsError] = useState("");
+  const [transactionsHasMore, setTransactionsHasMore] = useState(false);
+  const [transactionsNextBefore, setTransactionsNextBefore] = useState(null);
+  const [transactionSaving, setTransactionSaving] = useState(false);
+  const historyRequest = useRef(0);
+  const activeItemId = useRef(id);
+
+  const applyTransactionPage = useCallback((page, { append }) => {
+    const rows = Array.isArray(page?.transactions) ? page.transactions : [];
+    setTransactions((current) => (append ? mergeTransactionPages(current, rows) : rows));
+    setTransactionsHasMore(Boolean(page?.has_more));
+    setTransactionsNextBefore(page?.next_before ?? null);
+  }, []);
+
+  const refreshTransactions = useCallback(async () => {
+    if (!id) return;
+    const token = ++historyRequest.current;
+    setTransactionsLoading(true);
+    setTransactionsError("");
+    try {
+      const page = await GetItemInventoryTransactions(id, {
+        limit: TRANSACTION_PAGE_LIMIT,
+      });
+      if (token !== historyRequest.current) return;
+      applyTransactionPage(page, { append: false });
+    } catch (err) {
+      if (token !== historyRequest.current) return;
+      setTransactionsError(err?.message || "Failed to load stock history.");
+    } finally {
+      if (token === historyRequest.current) setTransactionsLoading(false);
+    }
+  }, [id, applyTransactionPage]);
+
+  const loadMoreTransactions = useCallback(async () => {
+    if (!id || transactionsNextBefore == null || transactionsLoadingMore || transactionsLoading) {
+      return;
+    }
+    const token = historyRequest.current;
+    setTransactionsLoadingMore(true);
+    setTransactionsError("");
+    try {
+      const page = await GetItemInventoryTransactions(id, {
+        limit: TRANSACTION_PAGE_LIMIT,
+        before: transactionsNextBefore,
+      });
+      if (token !== historyRequest.current) return;
+      applyTransactionPage(page, { append: true });
+    } catch (err) {
+      if (token !== historyRequest.current) return;
+      setTransactionsError(err?.message || "Failed to load stock history.");
+    } finally {
+      if (token === historyRequest.current) setTransactionsLoadingMore(false);
+    }
+  }, [id, transactionsNextBefore, transactionsLoadingMore, transactionsLoading, applyTransactionPage]);
 
   const loadInventory = useCallback(async () => {
     if (!id) return;
     setInventoryLoading(true);
     setInventoryError("");
+    const historyPromise = refreshTransactions();
     try {
       const row = await GetItemInventory(id);
       setInventory(row);
@@ -46,7 +119,8 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
     } finally {
       setInventoryLoading(false);
     }
-  }, [id]);
+    await historyPromise;
+  }, [id, refreshTransactions]);
 
   const inventoryKey = itemId ? `${id}:${itemId}` : "";
   const [seenInventoryKey, setSeenInventoryKey] = useState(inventoryKey);
@@ -55,6 +129,11 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
     setInventory(null);
     setInventoryError("");
     setInventoryLoading(Boolean(itemId));
+    setTransactions([]);
+    setTransactionsError("");
+    setTransactionsHasMore(false);
+    setTransactionsNextBefore(null);
+    setTransactionsLoading(Boolean(itemId));
   }
 
   useEffect(() => {
@@ -76,6 +155,31 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
       cancelled = true;
     };
   }, [itemId, id]);
+
+  useEffect(() => {
+    activeItemId.current = id;
+  }, [id]);
+
+  useEffect(() => {
+    if (!itemId) return undefined;
+    let cancelled = false;
+    const token = ++historyRequest.current;
+    GetItemInventoryTransactions(id, { limit: TRANSACTION_PAGE_LIMIT })
+      .then((page) => {
+        if (cancelled || token !== historyRequest.current) return;
+        applyTransactionPage(page, { append: false });
+      })
+      .catch((err) => {
+        if (cancelled || token !== historyRequest.current) return;
+        setTransactionsError(err?.message || "Failed to load stock history.");
+      })
+      .finally(() => {
+        if (!cancelled && token === historyRequest.current) setTransactionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId, id, applyTransactionPage]);
 
   const startInventoryEdit = () => {
     setInventoryDraftQty(
@@ -131,6 +235,7 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
 
       setInventory(mergeInventorySave(quantityRow, goalRow));
       setInventoryEditing(false);
+      await refreshTransactions();
       toast.success("Inventory updated.");
     } catch (err) {
       const message = err?.message || "Failed to save inventory.";
@@ -159,6 +264,38 @@ export function useInventorySection({ id, itemId, canEditGoals }) {
     startInventoryEdit,
     cancelInventoryEdit,
     saveInventoryEdit,
+    transactions,
+    transactionsLoading,
+    transactionsLoadingMore,
+    transactionsError,
+    transactionsHasMore,
+    loadMoreTransactions,
+    transactionSaving,
+    recordTransaction: async (payload) => {
+      const requestId = id;
+      if (!requestId) return { ok: false, error: "Item not found." };
+      setTransactionSaving(true);
+      try {
+        const result = await CreateItemInventoryTransaction(requestId, payload);
+        if (activeItemId.current !== requestId) return { ok: true };
+        if (result?.inventory) {
+          setInventory(result.inventory);
+        } else {
+          const row = await GetItemInventory(requestId);
+          if (activeItemId.current !== requestId) return { ok: true };
+          setInventory(row);
+        }
+        toast.success("Transaction saved.");
+        await refreshTransactions();
+        return { ok: true };
+      } catch (err) {
+        const message = err?.message || "Failed to record the stock change.";
+        toast.error(message);
+        return { ok: false, error: message };
+      } finally {
+        setTransactionSaving(false);
+      }
+    },
   };
 }
 
@@ -180,44 +317,94 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
     startInventoryEdit,
     cancelInventoryEdit,
     saveInventoryEdit,
+    transactions,
+    transactionsLoading,
+    transactionsLoadingMore,
+    transactionsError,
+    transactionsHasMore,
+    loadMoreTransactions,
+    transactionSaving,
+    recordTransaction,
   } = model;
+  const [transactionOpen, setTransactionOpen] = useState(false);
+  const [transactionDraft, setTransactionDraft] = useState(() => emptyTransactionDraft());
+  const [transactionError, setTransactionError] = useState("");
+  if (!inventory && transactionOpen) {
+    setTransactionOpen(false);
+    setTransactionError("");
+  }
+
+  const unit = inventory?.unit_of_measure ?? "";
+  const projection = transactionOpen
+    ? projectOnHand({
+        onHand: inventory?.quantity ?? 0,
+        direction: transactionDraft.direction,
+        quantityRaw: transactionDraft.quantity,
+      })
+    : null;
+  const prepared = transactionOpen
+    ? prepareManualTransaction({
+        direction: transactionDraft.direction,
+        reason: transactionDraft.reason,
+        quantityRaw: transactionDraft.quantity,
+        unitPriceRaw: transactionDraft.unitPrice,
+        noteRaw: transactionDraft.note,
+        occurredOn: transactionDraft.occurredOn,
+        onHand: inventory?.quantity ?? 0,
+      })
+    : null;
+  const quantityText = String(transactionDraft.quantity ?? "").trim();
+  const priceText = String(transactionDraft.unitPrice ?? "").trim();
+  const typingDecimal =
+    (prepared?.code === "quantity" && (quantityText === "" || /^\d+\.$/.test(quantityText))) ||
+    (prepared?.code === "price" && /^\d+\.$/.test(priceText));
+  const transactionMessage =
+    transactionError ||
+    (prepared && !prepared.ok && !typingDecimal ? prepared.error : "");
+
+  const closeTransaction = useCallback(() => {
+    if (transactionSaving) return;
+    setTransactionOpen(false);
+    setTransactionError("");
+  }, [transactionSaving]);
+
+  const openTransaction = () => {
+    setTransactionDraft(emptyTransactionDraft());
+    setTransactionError("");
+    setTransactionOpen(true);
+  };
+
+  const saveTransaction = async () => {
+    if (!prepared?.ok) {
+      setTransactionError(prepared?.error || "Check the stock change and try again.");
+      return;
+    }
+    setTransactionError("");
+    const result = await recordTransaction(prepared.payload);
+    if (result?.ok) {
+      setTransactionOpen(false);
+      return;
+    }
+    if (result?.error) setTransactionError(result.error);
+  };
 
   return (
+    <>
     <SectionCard
       title="Inventory"
       accent="bg-nv-purple-dark"
       action={
-        inventoryEditing ? (
-          confirmingInventoryQty ? null : (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={cancelInventoryEdit}
-                disabled={inventorySaving}
-                className="border-brutal-xs border-black bg-nv-paper px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveInventoryEdit(false)}
-                disabled={inventorySaving}
-                className="border-brutal-xs border-black bg-nv-violet px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white disabled:opacity-40"
-              >
-                {inventorySaving ? "Saving…" : "Save"}
-              </button>
-            </div>
-          )
-        ) : canWrite ? (
-          <button
-            type="button"
-            onClick={startInventoryEdit}
-            disabled={!inventory}
-            className="border-brutal-xs border-black bg-nv-green-tint px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-40"
-          >
-            Edit
-          </button>
-        ) : null
+        <InventoryCardActions
+          canWrite={canWrite}
+          inventoryEditing={inventoryEditing}
+          confirmingInventoryQty={confirmingInventoryQty}
+          inventorySaving={inventorySaving}
+          inventoryReady={Boolean(inventory)}
+          onEdit={startInventoryEdit}
+          onCancelEdit={cancelInventoryEdit}
+          onSaveEdit={() => void saveInventoryEdit(false)}
+          onTransaction={openTransaction}
+        />
       }
     >
       {inventoryLoading && !inventory && (
@@ -388,8 +575,34 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
               />
             </div>
           )}
+          <InventoryTransactionList
+            transactions={transactions}
+            loading={transactionsLoading}
+            loadingMore={transactionsLoadingMore}
+            error={transactionsError}
+            hasMore={transactionsHasMore}
+            onLoadMore={() => void loadMoreTransactions()}
+          />
         </>
       )}
     </SectionCard>
+    <InventoryTransactionModal
+      open={transactionOpen}
+      unit={unit}
+      draft={transactionDraft}
+      onChange={(partial) => {
+        setTransactionError("");
+        setTransactionDraft((current) => ({ ...current, ...partial }));
+      }}
+      onHandAfter={
+        projection ? formatOnHandAfter(projection.resulting, unit) : ""
+      }
+      message={transactionMessage}
+      saving={transactionSaving}
+      saveDisabled={!prepared?.ok}
+      onCancel={closeTransaction}
+      onSave={() => void saveTransaction()}
+    />
+    </>
   );
 }

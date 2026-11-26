@@ -458,6 +458,38 @@ export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
   return data;
 };
 
+export const GetItemInventoryTransactions = async (id, { limit, before } = {}) => {
+  const params = new URLSearchParams();
+  if (limit != null && limit !== "") params.set("limit", String(limit));
+  if (before != null && before !== "") params.set("before", String(before));
+  const qs = params.toString();
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/items/${id}/inventory/transactions${qs ? `?${qs}` : ""}`,
+    { headers: authHeaders() }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load stock history");
+  }
+  return data;
+};
+
+export const CreateItemInventoryTransaction = async (id, body) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/items/${id}/inventory/transactions`,
+    {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Could not record the stock change");
+  }
+  return data;
+};
+
 export const GetPurchaseLots = async (itemId) => {
   const response = await apiFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
