@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -121,35 +121,34 @@ export default function BatchesPage() {
     [batches]
   );
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [batchRows, itemRows] = await Promise.all([
-        GetAllBatches(),
-        GetAllItems(),
-      ]);
-      setBatches(Array.isArray(batchRows) ? batchRows : []);
-      const items = Array.isArray(itemRows) ? itemRows : [];
-      setCatalogItems(items);
-      setMakeItems(
-        items.filter(
-          (item) =>
-            item.make_or_buy === "make" ||
-            item.make_or_buy === true ||
-            item.make_or_buy === "true"
-        )
-      );
-    } catch {
-      setError("Failed to load production queue.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    let cancelled = false;
+    Promise.all([GetAllBatches(), GetAllItems()])
+      .then(([batchRows, itemRows]) => {
+        if (cancelled) return;
+        setBatches(Array.isArray(batchRows) ? batchRows : []);
+        const items = Array.isArray(itemRows) ? itemRows : [];
+        setCatalogItems(items);
+        setMakeItems(
+          items.filter(
+            (item) =>
+              item.make_or_buy === "make" ||
+              item.make_or_buy === true ||
+              item.make_or_buy === "true"
+          )
+        );
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load production queue.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const itemById = useMemo(() => {
     const map = new Map();

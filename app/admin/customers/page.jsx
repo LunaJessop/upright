@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { listAdminCustomers } from "@/app/api/apiHandler";
 import AdminFrame, {
   AdminReadOnlyBadge,
@@ -29,32 +29,40 @@ export default function AdminCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [forbidden, setForbidden] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setForbidden(false);
-    try {
-      const data = await listAdminCustomers({ q: query, limit: PAGE_SIZE, offset });
-      setCustomers(Array.isArray(data.customers) ? data.customers : []);
-      setTotal(Number(data.page?.total) || 0);
-    } catch (err) {
-      setCustomers([]);
-      setTotal(0);
-      if (isForbiddenError(err)) {
-        setForbidden(true);
-      } else {
-        setError(err?.message || "Failed to load customers.");
-      }
-    } finally {
-      setLoading(false);
+  const requestKey =
+    authLoading || !isPlatformAdmin ? "" : JSON.stringify({ offset, query });
+  const [seenKey, setSeenKey] = useState(requestKey);
+  if (seenKey !== requestKey) {
+    setSeenKey(requestKey);
+    if (requestKey) {
+      setLoading(true);
+      setError("");
+      setForbidden(false);
     }
-  }, [offset, query]);
+  }
 
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
-    void load();
-  }, [authLoading, isPlatformAdmin, load]);
+    if (!requestKey) return undefined;
+    const pending = listAdminCustomers({ q: query, limit: PAGE_SIZE, offset })
+      .then((data) => {
+        setCustomers(Array.isArray(data.customers) ? data.customers : []);
+        setTotal(Number(data.page?.total) || 0);
+      })
+      .catch((err) => {
+        setCustomers([]);
+        setTotal(0);
+        if (isForbiddenError(err)) {
+          setForbidden(true);
+        } else {
+          setError(err?.message || "Failed to load customers.");
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    void pending;
+    return undefined;
+  }, [requestKey, offset, query]);
 
   const windowLabel = listWindow({
     offset,

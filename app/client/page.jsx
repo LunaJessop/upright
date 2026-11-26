@@ -54,19 +54,25 @@ export default function ClientPage() {
   const [formSuccess, setFormSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const loadClient = useCallback(async () => {
+  const loadClient = useCallback(() => {
+    return getClient()
+      .then((data) => {
+        setClient(data.client);
+        setMembers(Array.isArray(data.members) ? data.members : []);
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load company.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const refreshClient = useCallback(() => {
     setLoading(true);
     setError("");
-    try {
-      const data = await getClient();
-      setClient(data.client);
-      setMembers(Array.isArray(data.members) ? data.members : []);
-    } catch (err) {
-      setError(err?.message || "Failed to load company.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return loadClient();
+  }, [loadClient]);
 
   useEffect(() => {
     void loadClient();
@@ -97,7 +103,7 @@ export default function ClientPage() {
       setRole("user");
       setFormSuccess("User account created.");
       toast.success("User account created.");
-      await loadClient();
+      await refreshClient();
     } catch (err) {
       const message = err?.message || "Could not create user.";
       setFormError(message);

@@ -23,7 +23,6 @@ export default function IngredientProgress({
   const savedRef = useRef(initial);
   const requestRef = useRef(0);
   const mountedRef = useRef(true);
-  draftRef.current = draft;
 
   useEffect(() => {
     mountedRef.current = true;

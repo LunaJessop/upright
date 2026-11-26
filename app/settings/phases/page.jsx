@@ -28,18 +28,24 @@ export default function SettingsPhasesPage() {
   const formRef = useRef(null);
   const nameRef = useRef(null);
 
-  const loadPhases = useCallback(async () => {
+  const loadPhases = useCallback(() => {
+    return GetRouterPhaseTemplates()
+      .then((rows) => {
+        setPhases(Array.isArray(rows) ? rows : []);
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load phases.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const refreshPhases = useCallback(() => {
     setLoading(true);
     setError("");
-    try {
-      const rows = await GetRouterPhaseTemplates();
-      setPhases(Array.isArray(rows) ? rows : []);
-    } catch (err) {
-      setError(err?.message || "Failed to load phases.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return loadPhases();
+  }, [loadPhases]);
 
   useEffect(() => {
     void loadPhases();
@@ -101,7 +107,7 @@ export default function SettingsPhasesPage() {
         toast.success("Phase added.");
       }
       cancelEdit();
-      await loadPhases();
+      await refreshPhases();
     } catch (err) {
       const message = err?.message || "Could not save phase.";
       setFormError(message);
@@ -116,7 +122,7 @@ export default function SettingsPhasesPage() {
     try {
       await DeleteRouterPhaseTemplate(id);
       if (editingId === id) cancelEdit();
-      await loadPhases();
+      await refreshPhases();
       toast.success("Phase deleted.");
     } catch (err) {
       const message = err?.message || "Could not delete phase.";

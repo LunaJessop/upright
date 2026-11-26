@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   CHANGELOG_SEEN_KEY,
-  changelogHasUnread,
+  changelogUnreadFrom,
 } from "@/lib/changelog";
+
+function subscribeChangelog() {
+  return () => {};
+}
+
+function readChangelogUnread() {
+  return changelogUnreadFrom(() => window.localStorage.getItem(CHANGELOG_SEEN_KEY));
+}
 
 export default function ChangelogLink({
   className = "",
@@ -13,17 +21,11 @@ export default function ChangelogLink({
   children = "What's new",
   onClick,
 }) {
-  const [unread, setUnread] = useState(false);
-
-  useEffect(() => {
-    let seen = null;
-    try {
-      seen = window.localStorage.getItem(CHANGELOG_SEEN_KEY);
-    } catch {
-      seen = null;
-    }
-    setUnread(changelogHasUnread(seen));
-  }, []);
+  const unread = useSyncExternalStore(
+    subscribeChangelog,
+    readChangelogUnread,
+    () => false
+  );
 
   return (
     <Link href="/changelog" className={className} onClick={onClick}>

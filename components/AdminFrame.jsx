@@ -91,7 +91,7 @@ export function AdminDenied() {
     <div className={`mt-4 ${brutalChrome} bg-nv-paper px-4 py-5`}>
       <h2 className="text-sm font-black uppercase">No access</h2>
       <p className="mt-2 text-sm font-medium text-nv-ink/70">
-        You don't have access to admin tools.
+        {"You don't have access to admin tools."}
       </p>
     </div>
   );

@@ -25,15 +25,13 @@ export default function ItemPhoto({ itemId, itemName, photo, canWrite, onPhotoCh
   const previewRef = useRef(null);
   const viewRef = useRef({ itemId, onPhotoChange });
   const opRef = useRef(0);
-  if (!previewRef.current) {
+  if (previewRef.current == null) {
     previewRef.current = createPhotoPreview({
       createUrl: (blob) => URL.createObjectURL(blob),
       revokeUrl: (url) => URL.revokeObjectURL(url),
     });
   }
-  viewRef.current = { itemId, onPhotoChange };
   const [previewUrl, setPreviewUrl] = useState("");
-  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -47,6 +45,18 @@ export default function ItemPhoto({ itemId, itemName, photo, canWrite, onPhotoCh
     impersonating?.admin_email ?? "",
   ].join("|");
   const viewKey = photoViewKey({ itemId, photo, revision, viewerId });
+  const [seenViewKey, setSeenViewKey] = useState(viewKey);
+  const [status, setStatus] = useState(() => (viewKey ? "Loading photo…" : ""));
+  if (seenViewKey !== viewKey) {
+    setSeenViewKey(viewKey);
+    setPreviewUrl("");
+    setError("");
+    setStatus(viewKey ? "Loading photo…" : "");
+  }
+
+  useLayoutEffect(() => {
+    viewRef.current = { itemId, onPhotoChange };
+  });
 
   useEffect(() => {
     const preview = previewRef.current;
@@ -54,22 +64,24 @@ export default function ItemPhoto({ itemId, itemName, photo, canWrite, onPhotoCh
   }, []);
 
   useEffect(() => {
-    opRef.current += 1;
-    setBusy(false);
-    setConfirmingRemove(false);
-    setError("");
+    let cancelled = false;
+    // After any photo save already queued, so this reset still wins.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      opRef.current += 1;
+      setBusy(false);
+      setConfirmingRemove(false);
+      setError("");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [itemId, viewerId]);
 
   useLayoutEffect(() => {
     const preview = previewRef.current;
     const request = preview.start(viewKey);
-    setPreviewUrl("");
-    if (!viewKey) {
-      setStatus("");
-      return () => request.cancel();
-    }
-    setStatus("Loading photo…");
-    setError("");
+    if (!viewKey) return () => request.cancel();
     const controller = new AbortController();
     GetItemPhoto(itemId, { signal: controller.signal })
       .then((blob) => {

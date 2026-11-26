@@ -60,16 +60,17 @@ export default function PublicSiteHeader() {
   const onHome = pathname === "/";
   const isAuthed = Boolean(user);
   const [open, setOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setOpen(false);
+  }
   const headerRef = useRef(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
   const menuId = useId();
 
   const closeMenu = () => setOpen(false);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 768px)");
