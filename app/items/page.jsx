@@ -249,7 +249,7 @@ export default function ItemsPage() {
         <SetupChecklist />
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <div className="space-y-3 border-b-brutal-xs border-black bg-nv-cyan/30 p-3 sm:p-4">
+          <div className="space-y-3 border-b-brutal-xs border-black bg-nv-grey p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
                 <span>Catalog</span>

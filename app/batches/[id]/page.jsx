@@ -12,6 +12,7 @@ import {
   UpdateBatchPhase,
 } from "@/app/api/apiHandler";
 import BomTreeView from "@/components/BomTreeView";
+import { BatchDataList } from "@/components/BatchDataFields";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import BatchReceipt from "@/components/BatchReceipt";
 import { useAuth } from "@/components/AuthProvider";
@@ -19,7 +20,6 @@ import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
 import { applyProgressSave } from "@/lib/batchProgress";
 import { brutalChrome } from "@/lib/chrome";
-const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
 
 const STATUS_STYLES = {
   planned: "bg-nv-paper text-nv-ink/70",
@@ -44,17 +44,6 @@ function formatDate(value) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function FieldRow({ label, value }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 border-b border-black/10 py-2.5 last:border-b-0">
-      <span className={`shrink-0 ${labelClass}`}>{label}</span>
-      <span className="min-w-0 flex-1 break-words text-right text-sm font-semibold">
-        {value}
-      </span>
-    </div>
-  );
 }
 
 function SectionCard({ title, accent = "bg-nv-green-dark", children }) {
@@ -288,22 +277,28 @@ export default function BatchDetailPage({ params }) {
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
               <SectionCard title="Batch data" accent="bg-nv-purple-dark">
-                <FieldRow label="Item" value={batch.item_name} />
-                <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
-                  <span className={`shrink-0 ${labelClass}`}>Item link</span>
-                  <Link
-                    href={`/items/${batch.item_id}`}
-                    className="text-sm font-semibold text-nv-violet underline"
-                  >
-                    View item
-                  </Link>
-                </div>
-                <FieldRow label="SKU" value={batch.sku || "—"} />
-                <FieldRow label="Quantity" value={batch.quantity} />
-                <FieldRow label="Status" value={statusLabel(batch.status)} />
-                <FieldRow label="Started" value={formatDate(batch.start_date)} />
-                <FieldRow label="Completed" value={formatDate(batch.end_date)} />
-                <FieldRow label="Created" value={formatDate(batch.created_at)} />
+                <BatchDataList
+                  fields={[
+                    { label: "Item", value: batch.item_name },
+                    {
+                      label: "Item link",
+                      value: (
+                        <Link
+                          href={`/items/${batch.item_id}`}
+                          className="text-nv-violet underline"
+                        >
+                          View item
+                        </Link>
+                      ),
+                    },
+                    { label: "SKU", value: batch.sku || "—" },
+                    { label: "Quantity", value: batch.quantity },
+                    { label: "Status", value: statusLabel(batch.status) },
+                    { label: "Started", value: formatDate(batch.start_date) },
+                    { label: "Completed", value: formatDate(batch.end_date) },
+                    { label: "Created", value: formatDate(batch.created_at) },
+                  ]}
+                />
               </SectionCard>
 
               <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">

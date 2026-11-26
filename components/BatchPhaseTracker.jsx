@@ -22,7 +22,7 @@ const STATUS_LABELS = {
   skipped: "Cancelled",
 };
 
-function IconButton({ label, disabled, onClick, children, className = "" }) {
+function IconButton({ label, text, disabled, onClick, children, className = "" }) {
   return (
     <button
       type="button"
@@ -30,9 +30,10 @@ function IconButton({ label, disabled, onClick, children, className = "" }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border-brutal-xs border-black disabled:opacity-40 ${className}`}
+      className={`inline-flex h-8 w-full min-w-[6.75rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap border-brutal-xs border-black px-2 text-[10px] font-black uppercase leading-none tracking-wide disabled:opacity-40 ${className}`}
     >
       {children}
+      <span>{text}</span>
     </button>
   );
 }
@@ -269,6 +270,7 @@ function PhaseRow({
           {isClosed ? (
             <IconButton
               label="Reopen"
+              text="Reopen"
               disabled={updating}
               onClick={() => onStatusChange(phase.id, "pending")}
               className="bg-nv-lavender/40 text-nv-ink"
@@ -280,15 +282,17 @@ function PhaseRow({
               {isRunning ? (
                 <IconButton
                   label="Stop / reset"
+                  text="Stop"
                   disabled={updating}
                   onClick={() => onStatusChange(phase.id, "pending")}
-                  className="bg-nv-paper text-nv-ink"
+                  className="bg-nv-ink text-white"
                 >
                   <StopIcon />
                 </IconButton>
               ) : (
                 <IconButton
                   label="Start"
+                  text="Start"
                   disabled={updating}
                   onClick={() => onStatusChange(phase.id, "in_progress")}
                   className="bg-nv-cyan text-black"
@@ -298,6 +302,7 @@ function PhaseRow({
               )}
               <IconButton
                 label="Complete"
+                text="Complete"
                 disabled={updating}
                 onClick={() => onStatusChange(phase.id, "complete")}
                 className="bg-nv-teal text-black"
