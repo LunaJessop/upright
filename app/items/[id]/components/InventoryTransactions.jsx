@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { HistorySkeleton } from "@/components/Skeleton";
 import { formatMoney } from "@/lib/pricing";
 import { formatDate } from "@/lib/itemDetail";
 import { brutalChrome } from "@/lib/chrome";
@@ -50,9 +51,7 @@ export function InventoryTransactionList({
         role="region"
         aria-label="Stock history"
       >
-        {loading && rows.length === 0 ? (
-          <p className="py-2 text-xs font-medium text-nv-ink/55">Loading history…</p>
-        ) : null}
+        {loading && rows.length === 0 ? <HistorySkeleton /> : null}
         {!loading && error && rows.length === 0 ? (
           <p className="py-2 text-[10px] font-bold uppercase tracking-wide text-red-600">{error}</p>
         ) : null}

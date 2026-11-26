@@ -11,6 +11,7 @@ import {
   GetVendors,
 } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
+import { ItemDetailSkeleton } from "@/components/Skeleton";
 import { ROLE_RANK } from "@/lib/auth";
 import { brutalChrome, listClass, rowStripe } from "@/lib/chrome";
 import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
@@ -158,9 +159,7 @@ export default function ItemDetailPage({ params }) {
           ← All items
         </Link>
 
-        {loading && (
-          <p className="text-xs font-medium text-nv-ink/55">Loading item…</p>
-        )}
+        {loading && <ItemDetailSkeleton />}
 
         {!loading && error && (
           <div className={`${brutalChrome} bg-nv-paper p-6`}>

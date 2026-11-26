@@ -9,6 +9,7 @@ import {
   UpdateItemInventoryGoal,
 } from "@/app/api/apiHandler";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import { InventoryBodySkeleton } from "@/components/Skeleton";
 import InventoryRangeBar from "@/components/InventoryRangeBar";
 import QuantityChangeConfirm, {
   quantityChanged,
@@ -409,9 +410,7 @@ export default function InventorySection({ canWrite, canEditGoals, model }) {
         />
       }
     >
-      {inventoryLoading && !inventory && (
-        <p className="text-xs font-medium text-nv-ink/55">Loading inventory…</p>
-      )}
+      {inventoryLoading && !inventory && <InventoryBodySkeleton />}
 
       {inventoryError && !inventoryEditing && !inventory && (
         <p className="text-xs font-bold uppercase tracking-wide text-red-600">

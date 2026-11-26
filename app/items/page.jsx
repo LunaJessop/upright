@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ClearAllFiltersButton, ListFilterField } from "@/components/ListFilterField";
 import ItemPhotoThumb from "@/components/ItemPhotoThumb";
+import { ItemListSkeleton, SkeletonBlock } from "@/components/Skeleton";
 import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
@@ -289,11 +290,13 @@ export default function ItemsPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
                 <span>Catalog</span>
-                {!loading ? (
+                {loading ? (
+                  <SkeletonBlock className="inline-block h-5 w-16 border border-black" />
+                ) : (
                   <span className="border border-black bg-nv-paper px-1.5 py-0.5 font-mono text-[10px] font-bold normal-case tracking-normal text-nv-ink/70">
                     {catalogCountLabel(filteredItems.length, items.length)}
                   </span>
-                ) : null}
+                )}
               </h2>
               {filtersActive ? <ClearAllFiltersButton onClear={remembered.reset} /> : null}
             </div>
@@ -377,9 +380,7 @@ export default function ItemsPage() {
           </div>
 
           <div className="">
-            {loading && (
-              <p className="text-xs font-medium text-nv-ink/55">Loading items…</p>
-            )}
+            {loading && <ItemListSkeleton />}
 
             {error && (
               <p className="text-xs font-bold uppercase tracking-wide text-red-600">
