@@ -22,7 +22,12 @@ test("what's new uses a green version heading and plain update text", () => {
     /<h1[^>]*bg-nv-green-dark[^>]*>v0\.6 · November 8, 2026<\/h1>/
   );
   assert.match(html, /<h2[^>]*>A photo on every item<\/h2>/);
-  assert.match(html, /<h1[^>]*>v0\.7 · Upcoming<\/h1>/);
-  assert.match(html, /<h2[^>]*>A record of every stock change<\/h2>/);
+  assert.match(
+    html,
+    /<h1[^>]*bg-nv-green-dark[^>]*>v0\.7 · November 27, 2026<\/h1>/
+  );
+  assert.match(html, /<h2[^>]*>Photos, stock, and the steps you repeat<\/h2>/);
+  assert.match(html, /use Transaction to record stock going out or coming in/);
+  assert.doesNotMatch(html, /Upcoming/);
   assert.doesNotMatch(html, /shadow-brutal|bg-nv-paper|bg-nv-purple-dark/);
 });
