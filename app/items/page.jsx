@@ -1,13 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { ClearAllFiltersButton, ListFilterField } from "@/components/ListFilterField";
+import ItemPhotoThumb from "@/components/ItemPhotoThumb";
+import { ItemListSkeleton, SkeletonBlock } from "@/components/Skeleton";
 import SetupChecklist from "@/components/SetupChecklist";
 import { GetAllItems, GetTags } from "@/app/api/apiHandler";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
+import { itemHasListPhoto } from "@/lib/itemPhoto";
+import {
+  ITEM_LIST_DEFAULTS,
+  ITEM_LIST_FILTER_KEY,
+  itemListFiltersActive,
+  sanitizeItemListFilters,
+} from "@/lib/listFilters";
 import { formatMoney, isMakeItem, itemDisplayPrice } from "@/lib/pricing";
+import { useRememberedListFilters } from "@/lib/useRememberedListFilters";
 
 const ITEM_CSV_HEADERS = [
   "id",
@@ -64,13 +75,15 @@ function ItemListRow({ item, index }) {
           ? unit
           : null;
 
+  const showPhoto = itemHasListPhoto(item);
+
   return (
     <li>
       <Link
         href={`/items/${item.id}`}
         className={`block min-w-0 px-2.5 py-2 transition-colors hover:bg-nv-violet/20 sm:px-3 ${rowStripe(index)}`}
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <h3 className="truncate text-sm font-black uppercase leading-tight tracking-tight text-nv-ink">
@@ -109,22 +122,25 @@ function ItemListRow({ item, index }) {
             ) : null}
           </div>
 
-              <div className="flex max-w-[46%] shrink-0 flex-col items-end gap-1 self-center text-right">
-                {priceUnit ? (
-                  <>
-                    <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
-                      {priceLabel}
-                    </span>
-                    <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
-                      {priceUnit}
-                    </span>
-                  </>
-                ) : (
-                  <span className="font-mono text-[10px] font-bold text-nv-ink/35">
-                    —
+          <div className="flex max-w-[50%] shrink-0 items-center justify-end gap-1.5 sm:max-w-[46%] sm:gap-2">
+            <div className="flex min-w-0 flex-col items-end gap-1 text-right">
+              {priceUnit ? (
+                <>
+                  <span className="text-[8px] font-black uppercase tracking-wide text-nv-ink/45">
+                    {priceLabel}
                   </span>
-                )}
-              </div>
+                  <span className="break-words font-mono text-xs font-black tracking-tight text-nv-ink">
+                    {priceUnit}
+                  </span>
+                </>
+              ) : (
+                <span className="font-mono text-[10px] font-bold text-nv-ink/35">
+                  —
+                </span>
+              )}
+            </div>
+            {showPhoto ? <ItemPhotoThumb itemId={item.id} photo={item.photo} /> : null}
+          </div>
         </div>
       </Link>
     </li>
@@ -132,36 +148,72 @@ function ItemListRow({ item, index }) {
 }
 
 export default function ItemsPage() {
-  const { canWrite } = useAuth();
+  const { canWrite, user, impersonating } = useAuth();
   const [items, setItems] = useState([]);
   const [tags, setTags] = useState([]);
-  const [tagFilter, setTagFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [query, setQuery] = useState("");
+  const [tagsStatus, setTagsStatus] = useState("loading");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const remembered = useRememberedListFilters({
+    user,
+    impersonating,
+    baseKey: ITEM_LIST_FILTER_KEY,
+    empty: ITEM_LIST_DEFAULTS,
+    sanitize: sanitizeItemListFilters,
+    refine: (filters) =>
+      tagsStatus === "ready"
+        ? sanitizeItemListFilters(filters, { tagIds: tags.map((tag) => tag.id) })
+        : filters,
+  });
+  const { type: typeFilter, status: statusFilter, tag: tagFilter, query } = remembered.filters;
+  const filtersActive = itemListFiltersActive(remembered.filters);
+  const tagKnown = tags.some((tag) => String(tag.id) === tagFilter);
+  const tagGate = tagFilter ? tagsStatus : "ready";
 
-  const loadItems = useCallback(async () => {
+  const [seenTag, setSeenTag] = useState(tagFilter);
+  if (seenTag !== tagFilter) {
+    setSeenTag(tagFilter);
     setLoading(true);
     setError("");
-    try {
-      const [rows, tagRows] = await Promise.all([
-        GetAllItems(tagFilter ? { tagId: tagFilter } : {}),
-        GetTags().catch(() => []),
-      ]);
-      setItems(Array.isArray(rows) ? rows : []);
-      setTags(Array.isArray(tagRows) ? tagRows : []);
-    } catch {
-      setError("Failed to load items.");
-    } finally {
-      setLoading(false);
-    }
-  }, [tagFilter]);
+  }
 
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+    let cancelled = false;
+    GetTags()
+      .then((rows) => {
+        if (cancelled) return;
+        setTags(Array.isArray(rows) ? rows : []);
+        setTagsStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTags([]);
+        setTagsStatus("failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!remembered.ready || tagGate === "loading") return undefined;
+    let cancelled = false;
+    GetAllItems(tagFilter ? { tagId: tagFilter } : {})
+      .then((rows) => {
+        if (cancelled) return;
+        setItems(Array.isArray(rows) ? rows : []);
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load items.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [remembered.ready, tagGate, tagFilter]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -234,83 +286,101 @@ export default function ItemsPage() {
         <SetupChecklist />
 
         <section className={`${brutalChrome} bg-nv-paper`}>
-          <div className="space-y-3 border-b-brutal-xs border-black bg-nv-cyan/30 p-3 sm:p-4">
+          <div className="space-y-3 border-b-brutal-xs border-black bg-nv-grey p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex flex-wrap items-center gap-2 text-sm font-black uppercase tracking-wide">
                 <span>Catalog</span>
-                {!loading ? (
+                {loading ? (
+                  <SkeletonBlock className="inline-block h-5 w-16 border border-black" />
+                ) : (
                   <span className="border border-black bg-nv-paper px-1.5 py-0.5 font-mono text-[10px] font-bold normal-case tracking-normal text-nv-ink/70">
                     {catalogCountLabel(filteredItems.length, items.length)}
                   </span>
-                ) : null}
+                )}
               </h2>
+              {filtersActive ? <ClearAllFiltersButton onClear={remembered.reset} /> : null}
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block space-y-1 sm:col-span-2 lg:col-span-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Search
-                </span>
+              <ListFilterField
+                id="items-filter-search"
+                label="Search"
+                active={query.trim() !== ""}
+                onClear={() => remembered.update({ query: "" })}
+                className="sm:col-span-2 lg:col-span-1"
+              >
                 <input
+                  id="items-filter-search"
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  maxLength={200}
+                  onChange={(e) => remembered.update({ query: e.target.value })}
                   placeholder="Name, tag, SKU…"
-                  className={`w-full ${controlClass}`}
+                  className={`w-full [&::-webkit-search-cancel-button]:hidden ${controlClass}`}
                 />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Type
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-type"
+                label="Type"
+                active={typeFilter !== ITEM_LIST_DEFAULTS.type}
+                onClear={() => remembered.update({ type: ITEM_LIST_DEFAULTS.type })}
+              >
                 <select
+                  id="items-filter-type"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ type: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="all">All</option>
                   <option value="make">Make</option>
                   <option value="buy">Buy</option>
                 </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Status
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-status"
+                label="Status"
+                active={statusFilter !== ITEM_LIST_DEFAULTS.status}
+                onClear={() => remembered.update({ status: ITEM_LIST_DEFAULTS.status })}
+              >
                 <select
+                  id="items-filter-status"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ status: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="all">All</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wide text-nv-ink/55">
-                  Tag
-                </span>
+              </ListFilterField>
+              <ListFilterField
+                id="items-filter-tag"
+                label="Tag"
+                active={tagFilter !== ""}
+                onClear={() => remembered.update({ tag: "" })}
+              >
                 <select
+                  id="items-filter-tag"
                   value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
+                  onChange={(e) => remembered.update({ tag: e.target.value })}
                   className={`w-full cursor-pointer ${controlClass}`}
                 >
                   <option value="">All tags</option>
+                  {tagFilter && !tagKnown ? (
+                    <option value={tagFilter}>Saved tag</option>
+                  ) : null}
                   {tags.map((tag) => (
                     <option key={tag.id} value={String(tag.id)}>
                       {tag.name}
                     </option>
                   ))}
                 </select>
-              </label>
+              </ListFilterField>
             </div>
           </div>
 
           <div className="">
-            {loading && (
-              <p className="text-xs font-medium text-nv-ink/55">Loading items…</p>
-            )}
+            {loading && <ItemListSkeleton />}
 
             {error && (
               <p className="text-xs font-bold uppercase tracking-wide text-red-600">

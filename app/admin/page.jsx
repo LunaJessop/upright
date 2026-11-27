@@ -18,29 +18,47 @@ export default function AdminOverviewPage() {
   const [error, setError] = useState("");
   const [forbidden, setForbidden] = useState(false);
 
-  const load = useCallback(async () => {
+  const requestKey = authLoading || !isPlatformAdmin ? "" : "clients";
+  const [seenKey, setSeenKey] = useState(requestKey);
+  if (seenKey !== requestKey) {
+    setSeenKey(requestKey);
+    if (requestKey) {
+      setLoading(true);
+      setError("");
+      setForbidden(false);
+    }
+  }
+
+  const load = useCallback(() => {
+    return getAdminClients()
+      .then((data) => {
+        setClients(Array.isArray(data.clients) ? data.clients : []);
+      })
+      .catch((err) => {
+        setClients([]);
+        if (isForbiddenError(err)) {
+          setForbidden(true);
+        } else {
+          setError(err?.message || "Failed to load clients.");
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const refresh = useCallback(() => {
     setLoading(true);
     setError("");
     setForbidden(false);
-    try {
-      const data = await getAdminClients();
-      setClients(Array.isArray(data.clients) ? data.clients : []);
-    } catch (err) {
-      setClients([]);
-      if (isForbiddenError(err)) {
-        setForbidden(true);
-      } else {
-        setError(err?.message || "Failed to load clients.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return load();
+  }, [load]);
 
   useEffect(() => {
-    if (authLoading || !isPlatformAdmin) return;
+    if (!requestKey) return undefined;
     void load();
-  }, [authLoading, isPlatformAdmin, load]);
+    return undefined;
+  }, [requestKey, load]);
 
   return (
     <AdminFrame
@@ -50,7 +68,7 @@ export default function AdminOverviewPage() {
       actions={
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => void refresh()}
           className="border-brutal-xs border-black bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-black"
         >
           Refresh

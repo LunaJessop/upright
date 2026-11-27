@@ -1,28 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { getOnboardingStatus } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { brutalChrome, rowStripe } from "@/lib/chrome";
 import {
   SETUP_CHECKLIST_KEY,
   checklistComplete,
+  setupChecklistDismissed,
   setupStepHref,
 } from "@/lib/onboarding";
+
+function subscribeChecklist() {
+  return () => {};
+}
+
+function readChecklistHidden() {
+  return setupChecklistDismissed(() => window.localStorage.getItem(SETUP_CHECKLIST_KEY));
+}
+
+function checklistHiddenOnServer() {
+  return true;
+}
 
 export default function SetupChecklist() {
   const { user, loading: authLoading } = useAuth();
   const [status, setStatus] = useState(null);
-  const [hidden, setHidden] = useState(true);
-
-  useEffect(() => {
-    try {
-      setHidden(window.localStorage.getItem(SETUP_CHECKLIST_KEY) === "1");
-    } catch {
-      setHidden(false);
-    }
-  }, []);
+  const storedHidden = useSyncExternalStore(
+    subscribeChecklist,
+    readChecklistHidden,
+    checklistHiddenOnServer
+  );
+  const [dismissedNow, setDismissedNow] = useState(false);
+  const hidden = storedHidden || dismissedNow;
 
   useEffect(() => {
     if (authLoading || !user || hidden) return;
@@ -53,7 +64,7 @@ export default function SetupChecklist() {
     } catch {
       // The card can still close for this visit.
     }
-    setHidden(true);
+    setDismissedNow(true);
   }
 
   return (

@@ -24,7 +24,7 @@ import {
   loginHref,
   setStoredToken,
 } from "@/lib/auth";
-import { clearViewAsStash, readViewAsReturn, viewAsExpired } from "@/lib/viewAs";
+import { clearViewAsStash, readViewAsReturn } from "@/lib/viewAs";
 
 const AuthContext = createContext(null);
 
@@ -52,27 +52,31 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null);
   }, [clearSession, router]);
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(() => {
     const token = getStoredToken();
     if (!token) {
-      setUser(null);
-      setLoading(false);
-      return null;
+      return Promise.resolve(null).then((value) => {
+        setUser(null);
+        setLoading(false);
+        return value;
+      });
     }
 
-    try {
-      const session = await getMe();
-      setUser(session.user);
-      setImpersonating(session.impersonating ?? null);
-      if (!session.impersonating) clearViewAsStash();
-      identifyAnalyticsUser(session.user);
-      return session.user;
-    } catch {
-      clearSession();
-      return null;
-    } finally {
-      setLoading(false);
-    }
+    return getMe()
+      .then((session) => {
+        setUser(session.user);
+        setImpersonating(session.impersonating ?? null);
+        if (!session.impersonating) clearViewAsStash();
+        identifyAnalyticsUser(session.user);
+        return session.user;
+      })
+      .catch(() => {
+        clearSession();
+        return null;
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [clearSession]);
 
   useEffect(() => {
@@ -128,16 +132,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!impersonating?.expires_at) return undefined;
-    if (viewAsExpired(impersonating.expires_at)) {
-      clearSession();
-      router.replace("/login");
-      return undefined;
-    }
     const ends = new Date(impersonating.expires_at).getTime();
+    const delay = Number.isFinite(ends) ? Math.max(0, ends - Date.now()) : 0;
     const timer = setTimeout(() => {
       clearSession();
       router.replace("/login");
-    }, Math.max(0, ends - Date.now()));
+    }, delay);
     return () => clearTimeout(timer);
   }, [impersonating, clearSession, router]);
 

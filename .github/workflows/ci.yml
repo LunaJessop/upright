@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lint, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Next inlines NEXT_PUBLIC_* into the browser bundle at build time.
+      # example.invalid does not resolve, so this job never calls a real API.
+      NEXT_PUBLIC_API_URL: https://example.invalid
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          check-latest: true
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

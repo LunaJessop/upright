@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import {
   CancelBatch,
   CompleteBatch,
@@ -12,14 +12,17 @@ import {
   UpdateBatchPhase,
 } from "@/app/api/apiHandler";
 import BomTreeView from "@/components/BomTreeView";
+import { BatchDataList } from "@/components/BatchDataFields";
 import BatchPhaseTracker, { currentPhaseLabel } from "@/components/BatchPhaseTracker";
 import BatchReceipt from "@/components/BatchReceipt";
+import { BatchDetailSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { allocationQuantityUnit } from "@/lib/batchAllocation";
 import { applyProgressSave } from "@/lib/batchProgress";
 import { brutalChrome } from "@/lib/chrome";
-const labelClass = "text-[10px] font-black uppercase tracking-wide text-nv-ink/55";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
+import { SectionCard } from "@/app/items/[id]/components/ItemDetailChrome";
 
 const STATUS_STYLES = {
   planned: "bg-nv-paper text-nv-ink/70",
@@ -44,30 +47,6 @@ function formatDate(value) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function FieldRow({ label, value }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 border-b border-black/10 py-2.5 last:border-b-0">
-      <span className={`shrink-0 ${labelClass}`}>{label}</span>
-      <span className="min-w-0 flex-1 break-words text-right text-sm font-semibold">
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function SectionCard({ title, accent = "bg-nv-green-dark", children }) {
-  return (
-    <section className={`${brutalChrome} bg-nv-paper`}>
-      <header className={`border-b-brutal-xs border-black ${accent} px-4 py-2`}>
-        <h2 className="text-sm font-black uppercase tracking-wide">
-          {title}
-        </h2>
-      </header>
-      <div className="p-4">{children}</div>
-    </section>
-  );
 }
 
 function phasesReadyToComplete(phases) {
@@ -96,35 +75,44 @@ export default function BatchDetailPage({ params }) {
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   const [completeError, setCompleteError] = useState("");
 
-  const loadBatch = useCallback(async () => {
+  const [seenId, setSeenId] = useState(id);
+  if (seenId !== id) {
+    setSeenId(id);
     setLoading(true);
     setError("");
-    try {
-      const row = await GetBatchById(id);
-      setBatch(row);
-
-      const [items, item] = await Promise.all([
-        GetAllItems().catch(() => []),
-        row?.item_id
-          ? GetItemById(row.item_id).catch(() => null)
-          : Promise.resolve(null),
-      ]);
-
-      setCatalogItems(Array.isArray(items) ? items : []);
-      setBatchItem(item && item.id ? item : null);
-    } catch {
-      setError("Batch not found.");
-      setBatch(null);
-      setCatalogItems([]);
-      setBatchItem(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  }
 
   useEffect(() => {
-    void loadBatch();
-  }, [loadBatch]);
+    let cancelled = false;
+    GetBatchById(id)
+      .then((row) => {
+        if (cancelled) return null;
+        setBatch(row);
+        return Promise.all([
+          GetAllItems().catch(() => []),
+          row?.item_id
+            ? GetItemById(row.item_id).catch(() => null)
+            : Promise.resolve(null),
+        ]).then(([items, item]) => {
+          if (cancelled) return;
+          setCatalogItems(Array.isArray(items) ? items : []);
+          setBatchItem(item && item.id ? item : null);
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("Batch not found.");
+        setBatch(null);
+        setCatalogItems([]);
+        setBatchItem(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const handlePhaseStatus = async (phaseId, status) => {
     setUpdating(true);
@@ -231,9 +219,7 @@ export default function BatchDetailPage({ params }) {
           ← Production
         </Link>
 
-        {loading && (
-          <p className="text-xs font-medium text-nv-ink/55">Loading batch…</p>
-        )}
+        {loading && <BatchDetailSkeleton />}
 
         {!loading && error && (
           <div className={`${brutalChrome} bg-nv-paper p-6`}>
@@ -279,25 +265,36 @@ export default function BatchDetailPage({ params }) {
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
               <SectionCard title="Batch data" accent="bg-nv-purple-dark">
-                <FieldRow label="Item" value={batch.item_name} />
-                <div className="flex items-center justify-between gap-4 border-b border-black/10 py-2.5">
-                  <span className={`shrink-0 ${labelClass}`}>Item link</span>
-                  <Link
-                    href={`/items/${batch.item_id}`}
-                    className="text-sm font-semibold text-nv-violet underline"
-                  >
-                    View item
-                  </Link>
-                </div>
-                <FieldRow label="SKU" value={batch.sku || "—"} />
-                <FieldRow label="Quantity" value={batch.quantity} />
-                <FieldRow label="Status" value={statusLabel(batch.status)} />
-                <FieldRow label="Started" value={formatDate(batch.start_date)} />
-                <FieldRow label="Completed" value={formatDate(batch.end_date)} />
-                <FieldRow label="Created" value={formatDate(batch.created_at)} />
+                <BatchDataList
+                  fields={[
+                    { label: "Item", value: batch.item_name },
+                    {
+                      label: "Item link",
+                      value: (
+                        <Link
+                          href={`/items/${batch.item_id}`}
+                          className="text-nv-violet underline"
+                        >
+                          View item
+                        </Link>
+                      ),
+                    },
+                    { label: "SKU", value: batch.sku || "—" },
+                    { label: "Quantity", value: batch.quantity },
+                    { label: "Status", value: statusLabel(batch.status) },
+                    { label: "Started", value: formatDate(batch.start_date) },
+                    { label: "Completed", value: formatDate(batch.end_date) },
+                    { label: "Created", value: formatDate(batch.created_at) },
+                  ]}
+                />
               </SectionCard>
 
-              <SectionCard title="Batch Receipt" accent="bg-nv-green-dark">
+              <SectionCard
+                title="Batch Receipt"
+                help={HELP_TEXT.batchReceipt}
+                helpLabel={HELP_LABELS.batchReceipt}
+                accent="bg-nv-green-dark"
+              >
                 <BatchReceipt
                   components={receiptComponents}
                   quantity={batch.quantity}
@@ -425,7 +422,12 @@ export default function BatchDetailPage({ params }) {
                 )}
               </SectionCard>
 
-              <SectionCard title="BOM" accent="bg-nv-green-dark">
+              <SectionCard
+                title="BOM"
+                help={HELP_TEXT.bom}
+                helpLabel={HELP_LABELS.bom}
+                accent="bg-nv-green-dark"
+              >
                 {bomLines.length > 0 ? (
                   <>
                     <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
@@ -450,7 +452,12 @@ export default function BatchDetailPage({ params }) {
               </SectionCard>
             </div>
 
-            <SectionCard title="Production phases" accent="bg-nv-green-dark">
+            <SectionCard
+              title="Production phases"
+              help={HELP_TEXT.productionPhases}
+              helpLabel={HELP_LABELS.productionPhases}
+              accent="bg-nv-green-dark"
+            >
               <p className="mb-3 text-[10px] font-medium text-nv-ink/60">
                 Nested by item — make children first, then this item&apos;s own
                 steps. Use Complete batch above when floor work is done.

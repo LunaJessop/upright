@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CreateBatch, GetAllBatches, GetAllItems } from "@/app/api/apiHandler";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { groupPhasesByItem } from "@/components/BatchPhaseTracker";
 import BomTreeView from "@/components/BomTreeView";
+import { ClearAllFiltersButton, ListFilterField } from "@/components/ListFilterField";
+import { BatchListSkeleton, SkeletonBlock } from "@/components/Skeleton";
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
 import { sortByText } from "@/lib/optionOrder";
 import { downloadCsv, rowsToCsv } from "@/lib/csv";
+import {
+  BATCH_LIST_DEFAULTS,
+  BATCH_LIST_FILTER_KEY,
+  BATCH_STATUS_OPTIONS,
+  batchListFiltersActive,
+  batchMatchesListFilter,
+  sanitizeBatchListFilters,
+} from "@/lib/listFilters";
 import { formatMargin, formatMoney } from "@/lib/pricing";
+import { useRememberedListFilters } from "@/lib/useRememberedListFilters";
 
 const inputClass = `w-full ${controlClass}`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -98,8 +109,15 @@ function PhaseStrip({ phases }) {
 }
 
 export default function BatchesPage() {
-  const { canWrite } = useAuth();
+  const { canWrite, user, impersonating } = useAuth();
   const toast = useToast();
+  const remembered = useRememberedListFilters({
+    user,
+    impersonating,
+    baseKey: BATCH_LIST_FILTER_KEY,
+    empty: BATCH_LIST_DEFAULTS,
+    sanitize: sanitizeBatchListFilters,
+  });
   const [batches, setBatches] = useState([]);
   const [catalogItems, setCatalogItems] = useState([]);
   const [makeItems, setMakeItems] = useState([]);
@@ -113,43 +131,45 @@ export default function BatchesPage() {
   const [createError, setCreateError] = useState("");
   const [highlightedBatchId, setHighlightedBatchId] = useState(null);
 
-  const pendingBatches = useMemo(
+  const { status: statusFilter, query } = remembered.filters;
+  const filtersActive = batchListFiltersActive(remembered.filters);
+  const queueLoading = loading || !remembered.ready;
+  const visibleBatches = useMemo(
     () =>
-      batches.filter(
-        (batch) => batch.status !== "complete" && batch.status !== "cancelled"
+      batches.filter((batch) =>
+        batchMatchesListFilter(batch, { status: statusFilter, query })
       ),
-    [batches]
+    [batches, statusFilter, query]
   );
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [batchRows, itemRows] = await Promise.all([
-        GetAllBatches(),
-        GetAllItems(),
-      ]);
-      setBatches(Array.isArray(batchRows) ? batchRows : []);
-      const items = Array.isArray(itemRows) ? itemRows : [];
-      setCatalogItems(items);
-      setMakeItems(
-        items.filter(
-          (item) =>
-            item.make_or_buy === "make" ||
-            item.make_or_buy === true ||
-            item.make_or_buy === "true"
-        )
-      );
-    } catch {
-      setError("Failed to load production queue.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    let cancelled = false;
+    Promise.all([GetAllBatches(), GetAllItems()])
+      .then(([batchRows, itemRows]) => {
+        if (cancelled) return;
+        setBatches(Array.isArray(batchRows) ? batchRows : []);
+        const items = Array.isArray(itemRows) ? itemRows : [];
+        setCatalogItems(items);
+        setMakeItems(
+          items.filter(
+            (item) =>
+              item.make_or_buy === "make" ||
+              item.make_or_buy === true ||
+              item.make_or_buy === "true"
+          )
+        );
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load production queue.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const itemById = useMemo(() => {
     const map = new Map();
@@ -261,10 +281,19 @@ export default function BatchesPage() {
                 Queue
               </h2>
               <span className="text-[10px] font-black uppercase tracking-wide">
-                {batchCountLabel(pendingBatches.length)}
+                {queueLoading ? (
+                  <SkeletonBlock className="inline-block h-3 w-16" />
+                ) : filtersActive ? (
+                  `${visibleBatches.length} of ${batches.length} ${
+                    batches.length === 1 ? "batch" : "batches"
+                  }`
+                ) : (
+                  batchCountLabel(visibleBatches.length)
+                )}
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {filtersActive ? <ClearAllFiltersButton onClear={remembered.reset} /> : null}
               <button
                 type="button"
                 onClick={() => exportBatchesCsv(batches)}
@@ -287,32 +316,70 @@ export default function BatchesPage() {
             </div>
           </header>
 
+          <div className="border-b-brutal-xs border-black bg-nv-grey p-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ListFilterField
+                id="batches-filter-search"
+                label="Search"
+                active={query.trim() !== ""}
+                onClear={() => remembered.update({ query: "" })}
+              >
+                <input
+                  id="batches-filter-search"
+                  type="search"
+                  value={query}
+                  maxLength={200}
+                  onChange={(event) => remembered.update({ query: event.target.value })}
+                  placeholder="SKU or item…"
+                  className={`w-full [&::-webkit-search-cancel-button]:hidden ${controlClass}`}
+                />
+              </ListFilterField>
+              <ListFilterField
+                id="batches-filter-status"
+                label="Status"
+                active={statusFilter !== BATCH_LIST_DEFAULTS.status}
+                onClear={() => remembered.update({ status: BATCH_LIST_DEFAULTS.status })}
+              >
+                <select
+                  id="batches-filter-status"
+                  value={statusFilter}
+                  onChange={(event) => remembered.update({ status: event.target.value })}
+                  className={`w-full cursor-pointer ${controlClass}`}
+                >
+                  {BATCH_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </ListFilterField>
+            </div>
+          </div>
+
           <div className="md:max-h-[60vh] md:overflow-y-auto">
-            {loading && (
-              <p className="px-3 py-2 text-xs font-medium text-nv-ink/55">
-                Loading queue…
-              </p>
+            {!error && (queueLoading || visibleBatches.length > 0) && (
+              <div className="z-10 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 border-b border-black/10 bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-nv-ink/55 md:sticky md:top-0">
+                <span>Batch</span>
+                <span>Status</span>
+                <span className="text-right">Qty</span>
+              </div>
             )}
+            {queueLoading && !error && <BatchListSkeleton />}
             {error && (
               <p className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-600">
                 {error}
               </p>
             )}
-            {!loading && !error && pendingBatches.length === 0 && (
+            {!queueLoading && !error && visibleBatches.length === 0 && (
               <p className="px-3 py-2 text-xs font-medium text-nv-ink/55">
-                No batches in the queue.
-                {canWrite ? " Use + to start one." : ""}
+                {filtersActive
+                  ? "No batches match these filters."
+                  : `No batches in the queue.${canWrite ? " Use + to start one." : ""}`}
               </p>
             )}
-            {!loading && !error && pendingBatches.length > 0 && (
-              <>
-                <div className="z-10 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 border-b border-black/10 bg-nv-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-nv-ink/55 md:sticky md:top-0">
-                  <span>Batch</span>
-                  <span>Status</span>
-                  <span className="text-right">Qty</span>
-                </div>
-                <ul className={listClass}>
-                {pendingBatches.map((batch, index) => {
+            {!queueLoading && !error && visibleBatches.length > 0 && (
+              <ul className={listClass}>
+                {visibleBatches.map((batch, index) => {
                   const unit = batch.item_unit_of_measure
                     ? ` ${batch.item_unit_of_measure}`
                     : "";
@@ -369,8 +436,7 @@ export default function BatchesPage() {
                     </li>
                   );
                 })}
-                </ul>
-              </>
+              </ul>
             )}
           </div>
         </section>

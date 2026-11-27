@@ -1,34 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {checkHealth } from "@/app/api/apiHandler";
 
 export function ServerStatusIndicator() {
   const [status, setStatus] = useState("loading");
 
-  const check = useCallback(async () => {
-    const controller = new AbortController();
-    const t = window.setTimeout(() => controller.abort(), 4000);
-    try {
-      const data = await checkHealth({ signal: controller.signal });
-      setStatus(data?.ok === true ? "ok" : "offline");
-    } catch {
-      setStatus("offline");
-    } finally {
-      window.clearTimeout(t);
-    }
-  }, []);
-
   useEffect(() => {
-    void check();
-    const interval = window.setInterval(() => void check(), 15000);
-    const onFocus = () => void check();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
+    let cancelled = false;
+    const check = () => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 4000);
+      checkHealth({ signal: controller.signal })
+        .then((data) => {
+          if (!cancelled) setStatus(data?.ok === true ? "ok" : "offline");
+        })
+        .catch(() => {
+          if (!cancelled) setStatus("offline");
+        })
+        .finally(() => {
+          window.clearTimeout(timer);
+        });
     };
-  }, [check]);
+    check();
+    const interval = window.setInterval(check, 15000);
+    window.addEventListener("focus", check);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
 
   const label =
     status === "loading"

@@ -56,7 +56,13 @@ test("a phase lists its ingredients beside play and complete", () => {
   assert.doesNotMatch(melt, /<input/);
   assert.doesNotMatch(melt, /Lye/);
   assert.match(melt, /aria-label="Start"/);
+  assert.match(melt, />Start</);
+  assert.match(melt, /aria-label="Start"[^>]*class="[^"]*bg-nv-cyan[^"]*text-black/);
   assert.match(melt, /aria-label="Complete"/);
+  assert.match(melt, />Complete</);
+  assert.match(melt, /aria-label="Complete"[^>]*class="[^"]*bg-nv-teal[^"]*text-black/);
+  assert.doesNotMatch(melt, />Stop</);
+  assert.doesNotMatch(melt, /Pause/);
   assert.match(html, /aria-label="Ingredients not on one step"/);
   assert.match(html, /Lye/);
   assert.match(html, /Not assigned to a phase/);
@@ -77,8 +83,11 @@ test("an open batch can type the amount added for that step", () => {
   assert.match(html, /aria-label="Olive oil added"/);
   assert.match(html, /value="0"/);
   assert.match(html, /aria-label="Start"/);
+  assert.match(html, />Start</);
   assert.match(html, /aria-label="Complete"/);
+  assert.match(html, />Complete</);
   assert.doesNotMatch(html, /Saved/);
+  assert.doesNotMatch(html, /Pause/);
 });
 
 test("play and complete stay available when a step has no ingredients", () => {
@@ -93,6 +102,36 @@ test("play and complete stay available when a step has no ingredients", () => {
   assert.match(html, /No ingredients for this step/);
   assert.doesNotMatch(html, />Ingredients</);
   assert.match(html, /aria-label="Stop \/ reset"/);
+  assert.match(html, />Stop</);
+  assert.match(html, /aria-label="Stop \/ reset"[^>]*class="[^"]*bg-nv-ink[^"]*text-white/);
   assert.match(html, /aria-label="Complete"/);
+  assert.match(html, />Complete</);
+  assert.doesNotMatch(html, />Start</);
+  assert.doesNotMatch(html, /Pause/);
   assert.doesNotMatch(html, /Ingredients not on one step/);
+});
+
+test("a finished step shows Reopen and not Start, Stop, or Complete", () => {
+  const html = renderToStaticMarkup(
+    createElement(BatchPhaseTracker, {
+      phases: [
+        {
+          id: 9,
+          name: "Cure",
+          status: "complete",
+          source_item_id: 4,
+          source_item_name: "Soap",
+        },
+      ],
+      components: [],
+      updating: false,
+      onStatusChange() {},
+    })
+  );
+  assert.match(html, /aria-label="Reopen"/);
+  assert.match(html, />Reopen</);
+  assert.doesNotMatch(html, />Start</);
+  assert.doesNotMatch(html, />Stop</);
+  assert.doesNotMatch(html, />Complete</);
+  assert.doesNotMatch(html, /Pause/);
 });

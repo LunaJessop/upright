@@ -50,13 +50,43 @@ test("remove asks on the page and an error stays visible", () => {
   assert.doesNotMatch(markup, /type="file"/);
 });
 
-test("read-only and unsaved items cannot upload", () => {
-  const readOnly = html({ itemName: "Soap", hasPhoto: true, canWrite: false, previewUrl: "blob:photo" });
+test("a read-only photo has no upload controls", () => {
+  const readOnly = html({
+    itemName: "Soap",
+    hasPhoto: true,
+    canWrite: true,
+    readOnly: true,
+    previewUrl: "blob:photo",
+  });
   assert.match(readOnly, /alt="Soap photo"/);
   assert.doesNotMatch(readOnly, /type="file"/);
   assert.doesNotMatch(readOnly, /Remove photo/);
 
-  const unsaved = html({ savedOnly: true, canWrite: true });
-  assert.match(unsaved, /after this item is saved/);
-  assert.doesNotMatch(unsaved, /type="file"/);
+  const viewer = html({ itemName: "Soap", hasPhoto: true, canWrite: false, previewUrl: "blob:photo" });
+  assert.doesNotMatch(viewer, /type="file"/);
+  assert.doesNotMatch(viewer, /Remove photo/);
+});
+
+test("a chosen photo waits until save, and a staged removal can be kept", () => {
+  const staged = html({
+    itemName: "Soap",
+    canWrite: true,
+    hasPhoto: true,
+    previewUrl: "blob:staged",
+    status: "This photo uploads when you save.",
+  });
+  assert.match(staged, /src="blob:staged"/);
+  assert.match(staged, /This photo uploads when you save\./);
+  assert.match(staged, /aria-label="Replace photo"/);
+
+  const pending = html({
+    itemName: "Soap",
+    canWrite: true,
+    pendingRemove: true,
+    status: "This photo will be removed when you save.",
+  });
+  assert.match(pending, /This photo will be removed when you save\./);
+  assert.match(pending, />Keep photo</);
+  assert.match(pending, /aria-label="Add photo"/);
+  assert.doesNotMatch(pending, />Remove photo</);
 });

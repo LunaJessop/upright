@@ -26,18 +26,24 @@ export default function SettingsVendorsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const loadVendors = useCallback(async () => {
+  const loadVendors = useCallback(() => {
+    return GetVendors()
+      .then((rows) => {
+        setVendors(Array.isArray(rows) ? rows : []);
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load vendors.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const refreshVendors = useCallback(() => {
     setLoading(true);
     setError("");
-    try {
-      const rows = await GetVendors();
-      setVendors(Array.isArray(rows) ? rows : []);
-    } catch (err) {
-      setError(err?.message || "Failed to load vendors.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return loadVendors();
+  }, [loadVendors]);
 
   useEffect(() => {
     void loadVendors();
@@ -86,7 +92,7 @@ export default function SettingsVendorsPage() {
         toast.success("Vendor added.");
       }
       cancelEdit();
-      await loadVendors();
+      await refreshVendors();
     } catch (err) {
       const message = err?.message || "Could not save vendor.";
       setFormError(message);
@@ -103,7 +109,7 @@ export default function SettingsVendorsPage() {
     try {
       await DeleteVendor(id);
       if (editingId === id) cancelEdit();
-      await loadVendors();
+      await refreshVendors();
       toast.success("Vendor deleted.");
     } catch (err) {
       const message = err?.message || "Could not delete vendor.";
@@ -221,6 +227,10 @@ export default function SettingsVendorsPage() {
             These appear when assigning a vendor on buy items.{" "}
             <Link href="/settings/phases" className="underline">
               Phases
+            </Link>
+            {" and "}
+            <Link href="/settings/routers" className="underline">
+              Routers
             </Link>
           </p>
 

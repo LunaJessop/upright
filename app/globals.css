@@ -21,6 +21,8 @@
  *   tint  #e4f1f2  black 18.16:1   list stripes and the Edit button fill
  * Red (delete only, not a brand hue)
  *   #dc2626       white  4.83:1
+ * Grey
+ *   #e5e7eb       black 16.96:1   quiet strips in data areas
  *
  * Level-1 headers and badges use the dark shade with white text.
  * A container nested inside one of those uses the muted shade of the same hue.
@@ -46,6 +48,8 @@
   --nv-on-green-muted: #000000;
   --nv-on-green-tint: #000000;
   --nv-on-red: #ffffff;
+  --nv-grey: #e5e7eb;
+  --nv-on-grey: #000000;
 
   --nv-violet: var(--nv-purple-dark);
   --nv-violet-dark: var(--nv-purple-dark);
@@ -75,6 +79,7 @@
   --color-nv-green-dark: var(--nv-green-dark);
   --color-nv-green-muted: var(--nv-green-muted);
   --color-nv-green-tint: var(--nv-green-tint);
+  --color-nv-grey: var(--nv-grey);
   --color-nv-violet: var(--nv-violet);
   --color-nv-violet-dark: var(--nv-violet-dark);
   --color-nv-teal: var(--nv-teal);
@@ -114,11 +119,12 @@ body {
  * must not count as a dark fill, or list rows render white on white.
  *
  * White text: purple dark, green dark, violet, ink, and red-600.
- * Black text: muted and tint steps, paper, and the legacy cyan/teal/lavender
+ * Black text: muted and tint steps, grey, paper, and the legacy cyan/teal/lavender
  * fills (those button colors are too light for white type).
  */
 .bg-nv-paper,
 .bg-nv-canvas,
+.bg-nv-grey,
 .bg-nv-row-alt,
 .bg-nv-purple-muted,
 .bg-nv-purple-tint,
@@ -309,10 +315,25 @@ textarea:not(.border-0) {
   animation: toast-in 160ms ease-out;
 }
 
+.skeleton-bone {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-blob,
   .landing-fade,
-  .toast-in {
+  .toast-in,
+  .skeleton-bone {
     animation: none;
   }
 

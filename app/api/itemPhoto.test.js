@@ -7,6 +7,7 @@ process.env.NEXT_PUBLIC_API_URL = "http://api.test";
 const {
   DeleteItemPhoto,
   GetItemPhoto,
+  GetItemPhotoThumb,
   UploadItemPhoto,
   setImpersonationReadOnlyHandler,
 } = await import("./apiHandler.js");
@@ -168,6 +169,69 @@ describe("item photo requests", () => {
       return true;
     });
     assert.equal(toasted, 1);
+  });
+
+  it("reads the small photo with the version and lets the browser reuse it", async () => {
+    ensureStorage();
+    setStoredToken("token-1");
+    const version = "ab".repeat(32);
+    const bytes = Uint8Array.from([4, 5, 6]);
+    globalThis.fetch = async (url, options) => {
+      assert.equal(String(url), `http://api.test/api/items/4/photo/thumb?v=${version}`);
+      assert.equal(options.method, undefined);
+      assert.equal(options.cache, "default");
+      assert.notEqual(options.cache, "no-store");
+      assert.equal(options.headers.Authorization, "Bearer token-1");
+      assert.equal(String(url).endsWith("/photo"), false);
+      return new Response(bytes, {
+        status: 200,
+        headers: { "Content-Type": "image/webp" },
+      });
+    };
+    const blob = await GetItemPhotoThumb(4, { version, signal: undefined });
+    assert.equal(blob.type, "image/webp");
+    assert.equal(blob.size, 3);
+  });
+
+  it("still asks for the small photo when the version is missing or not a version", async () => {
+    ensureStorage();
+    setStoredToken("token-1");
+    const seen = [];
+    globalThis.fetch = async (url, options) => {
+      seen.push(String(url));
+      assert.equal(options.cache, "default");
+      assert.equal(options.headers.Authorization, "Bearer token-1");
+      return new Response(Uint8Array.from([1]), {
+        status: 200,
+        headers: { "Content-Type": "image/webp" },
+      });
+    };
+    await GetItemPhotoThumb(4, {});
+    await GetItemPhotoThumb(4, { version: "https://res.cloudinary.com/demo/secret" });
+    assert.deepEqual(seen, [
+      "http://api.test/api/items/4/photo/thumb",
+      "http://api.test/api/items/4/photo/thumb",
+    ]);
+    assert.equal(seen.some((url) => url.includes("cloudinary")), false);
+  });
+
+  it("can abort a small photo read and shows a failure instead of an empty picture", async () => {
+    ensureStorage();
+    setStoredToken("token-1");
+    const controller = new AbortController();
+    globalThis.fetch = async (_url, options) => {
+      assert.equal(options.signal, controller.signal);
+      assert.equal(String(_url), "http://api.test/api/items/4/photo/thumb");
+      return new Response(null, { status: 404 });
+    };
+    await assert.rejects(GetItemPhotoThumb(4, { signal: controller.signal }));
+
+    globalThis.fetch = async () =>
+      new Response(new Uint8Array(), {
+        status: 200,
+        headers: { "Content-Type": "image/webp" },
+      });
+    await assert.rejects(GetItemPhotoThumb(4));
   });
 
   it("does not send a file the browser has not turned into jpeg or webp", async () => {

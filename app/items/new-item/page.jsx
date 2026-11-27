@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BrutalSwitch from "@/components/BrutalSwitch";
+import HelpIcon from "@/components/HelpIcon";
 import BomRecipeEditor from "@/components/BomRecipeEditor";
+import ItemPhotoField from "@/components/ItemPhotoField";
 import RouterPhaseEditor from "@/components/RouterPhaseEditor";
 import TagPicker from "@/components/TagPicker";
 import UnitOfMeasureSelect from "@/components/UnitOfMeasureSelect";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetTags, GetVendors } from "@/app/api/apiHandler";
+import { CreateItem, GetAllItems, GetRouterPhaseTemplates, GetRouters, GetTags, GetVendors, UploadItemPhoto } from "@/app/api/apiHandler";
 import { isCrossKindUnitChange, scaleRecipeQuantities } from "@/lib/itemUnitChange";
 import {
   removeTagById,
@@ -21,8 +23,18 @@ import {
 } from "@/lib/tagCreate";
 
 import { brutalChrome, controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIdForPayload } from "@/lib/recipePhase";
+import {
+  initialPhotoStage,
+  photoFailureDestination,
+  PHOTO_SAVED_UPLOAD_FAILED,
+  stageFromQueuedItem,
+  submitQueuedItems,
+  withStagedPhoto,
+} from "@/lib/itemPhoto";
+import { routerRecordId, startItemFromRouter, withSourceRouter } from "@/lib/routerApply";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -42,6 +54,8 @@ const INITIAL_FORM = {
   bomLines: [],
   routerPhases: [],
   tags: [],
+  sourceRouterId: null,
+  sourceRouterName: "",
 };
 
 function FreeInput({
@@ -110,7 +124,7 @@ function formToItem(form, id, vendors = []) {
   const vendorId =
     isMake || form.vendor === UNSET_SELECT ? null : Number(form.vendor);
   const vendorMatch = vendors.find((v) => Number(v.id) === vendorId);
-  return {
+  const item = {
     id,
     name: form.name,
     sku: null,
@@ -148,6 +162,11 @@ function formToItem(form, id, vendors = []) {
       : [],
     tags: tagsForSave(form.tags),
   };
+  const withRouter = isMake ? withSourceRouter(item, form.sourceRouterId) : item;
+  const queued = !isMake || !form.sourceRouterName
+    ? withRouter
+    : { ...withRouter, source_router_name: form.sourceRouterName };
+  return withStagedPhoto(queued, form.photoStage);
 }
 
 function isQueuedItemMake(item) {
@@ -239,6 +258,11 @@ function QueuedItemDetails({ item, isSelected, onSelect }) {
           {item.description.trim()}
         </p>
       )}
+      {item.stagedPhoto ? (
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-nv-ink/55">
+          Photo attached
+        </p>
+      ) : null}
     </button>
   );
 }
@@ -299,12 +323,16 @@ function queuedItemToFormFields(item, bomLineIdRef, routerPhaseIdRef) {
     vendor: item.vendor == null ? UNSET_SELECT : String(item.vendor),
     bomLines,
     routerPhases,
+    sourceRouterId: routerRecordId(item.source_router_id),
+    sourceRouterName:
+      typeof item.source_router_name === "string" ? item.source_router_name : "",
     tags: Array.isArray(item.tags)
       ? item.tags.map((tag) => ({
           ...(tag.id != null ? { id: Number(tag.id) } : {}),
           name: String(tag.name ?? "").trim(),
         }))
       : [],
+    photoStage: stageFromQueuedItem(item),
   };
 }
 
@@ -349,6 +377,7 @@ export default function NewItem() {
   const routerPhaseIdRef = useRef(1);
   const [catalogItems, setCatalogItems] = useState([]);
   const [phaseTemplates, setPhaseTemplates] = useState([]);
+  const [routers, setRouters] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [tagCatalog, setTagCatalog] = useState([]);
   const [catalogError, setCatalogError] = useState(false);
@@ -369,11 +398,13 @@ export default function NewItem() {
       try {
         const rows = await GetAllItems();
         const templates = await GetRouterPhaseTemplates().catch(() => []);
+        const routerRows = await GetRouters().catch(() => []);
         const vendorRows = await GetVendors().catch(() => []);
         const tagRows = await GetTags().catch(() => []);
         if (!cancelled) {
           setCatalogItems(Array.isArray(rows) ? rows.filter((row) => row.active) : []);
           setPhaseTemplates(Array.isArray(templates) ? templates : []);
+          setRouters(Array.isArray(routerRows) ? routerRows : []);
           setVendors(Array.isArray(vendorRows) ? vendorRows : []);
           setTagCatalog(Array.isArray(tagRows) ? tagRows : []);
           setCatalogError(false);
@@ -397,7 +428,12 @@ export default function NewItem() {
   const [vendor, setVendor] = useState(INITIAL_FORM.vendor);
   const [bomLines, setBomLines] = useState(INITIAL_FORM.bomLines);
   const [routerPhases, setRouterPhases] = useState(INITIAL_FORM.routerPhases);
+  const [sourceRouterId, setSourceRouterId] = useState(INITIAL_FORM.sourceRouterId);
+  const [sourceRouterName, setSourceRouterName] = useState(INITIAL_FORM.sourceRouterName);
   const [tags, setTags] = useState(INITIAL_FORM.tags);
+  const [photoStage, setPhotoStage] = useState(initialPhotoStage);
+  const [photoEpoch, setPhotoEpoch] = useState(0);
+  const [photoPreparing, setPhotoPreparing] = useState(false);
   const [bomSelectedIds, setBomSelectedIds] = useState([]);
   const [formError, setFormError] = useState("");
   const [editingQueueId, setEditingQueueId] = useState(null);
@@ -526,6 +562,22 @@ export default function NewItem() {
     );
   };
 
+  const startFromRouter = (companyRouter, mode) => {
+    const result = startItemFromRouter({
+      phases: routerPhases,
+      bomLines,
+      router: companyRouter,
+      mode,
+      startId: routerPhaseIdRef.current,
+    });
+    if (!result.applied) return;
+    routerPhaseIdRef.current = result.nextId;
+    setRouterPhases(result.phases);
+    setSourceRouterId(result.sourceRouterId);
+    setSourceRouterName(result.sourceRouterName);
+    setFormError("");
+  };
+
   const moveRouterPhase = (phaseId, direction) => {
     setRouterPhases((prev) => {
       const index = prev.findIndex((phase) => phase.id === phaseId);
@@ -551,6 +603,9 @@ export default function NewItem() {
     bomLines,
     routerPhases,
     tags,
+    sourceRouterId,
+    sourceRouterName,
+    photoStage,
   };
 
   const canAdd = isFormComplete(form);
@@ -568,7 +623,11 @@ export default function NewItem() {
     setVendor(fields.vendor);
     setBomLines(fields.bomLines);
     setRouterPhases(fields.routerPhases);
+    setSourceRouterId(fields.sourceRouterId ?? null);
+    setSourceRouterName(fields.sourceRouterName ?? "");
     setTags(fields.tags ?? []);
+    setPhotoStage(fields.photoStage ?? initialPhotoStage());
+    setPhotoEpoch((value) => value + 1);
     setBomSelectedIds([]);
   };
 
@@ -586,7 +645,11 @@ export default function NewItem() {
     setVendor(INITIAL_FORM.vendor);
     setBomLines(INITIAL_FORM.bomLines);
     setRouterPhases(INITIAL_FORM.routerPhases);
+    setSourceRouterId(INITIAL_FORM.sourceRouterId);
+    setSourceRouterName(INITIAL_FORM.sourceRouterName);
     setTags(INITIAL_FORM.tags);
+    setPhotoStage(initialPhotoStage());
+    setPhotoEpoch((value) => value + 1);
     setBomSelectedIds([]);
   };
 
@@ -597,38 +660,50 @@ export default function NewItem() {
   };
 
   const handleSubmitAll = async () => {
+    if (photoPreparing) return;
     setSubmitting(true);
     setSubmitError("");
     try {
-      const failed = [];
-      let firstError = "";
-      for (const queuedItem of items) {
-        // Strip the local queue id — the DB assigns its own
-        const { id: _localId, ...payload } = queuedItem;
-        try {
-          await CreateItem(payload);
-        } catch (err) {
-          if (!firstError) {
-            firstError = err?.message || "Unknown error";
-          }
-          failed.push(queuedItem);
-        }
-      }
+      const { failed, createdCount, firstError, photoFailures } = await submitQueuedItems(items, {
+        create: CreateItem,
+        upload: UploadItemPhoto,
+      });
       setItems(failed);
+      const destination = photoFailureDestination(photoFailures);
+      if (photoFailures.length > 0) {
+        const savedWithoutPhoto = createdCount - photoFailures.length;
+        if (savedWithoutPhoto > 0 && failed.length === 0) {
+          toast.success(
+            savedWithoutPhoto === 1
+              ? "Item created."
+              : `${savedWithoutPhoto} items created.`
+          );
+        }
+        toast.error(PHOTO_SAVED_UPLOAD_FAILED);
+      }
+      if (photoFailures.length > 0 && failed.length === 0) {
+        if (destination) {
+          try {
+            await router.push(destination.href);
+          } catch {
+            window.location.assign(destination.href);
+          }
+        }
+        return;
+      }
       if (failed.length === 0) {
         resetForm();
         toast.success(
-          items.length === 1 ? "Item created." : `${items.length} items created.`
+          createdCount === 1 ? "Item created." : `${createdCount} items created.`
         );
-      } else {
-        const created = items.length - failed.length;
-        const message =
-          created > 0
-            ? `${created} item${created === 1 ? "" : "s"} created. ${failed.length} failed. ${firstError}`
-            : `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`;
-        setSubmitError(message);
-        toast.error(message);
+        return;
       }
+      const message =
+        createdCount > 0
+          ? `${createdCount} item${createdCount === 1 ? "" : "s"} created. ${failed.length} failed. ${firstError}`
+          : `${failed.length} item${failed.length === 1 ? "" : "s"} failed to submit. ${firstError}`;
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -636,6 +711,8 @@ export default function NewItem() {
 
   const handleAdd = (e) => {
     e.preventDefault();
+
+    if (photoPreparing) return;
 
     if (!isFormComplete(form)) {
       const message = makeOrBuy
@@ -690,9 +767,6 @@ export default function NewItem() {
                 Changes apply when you save back to the queue.
               </p>
             )}
-            <p className="mt-1 text-[10px] font-medium text-white">
-              You can add a photo after this item is saved.
-            </p>
           </header>
 
           <form
@@ -706,6 +780,17 @@ export default function NewItem() {
               value={description}
               setValue={setDescription}
               className="col-span-2"
+            />
+            <ItemPhotoField
+              className="col-span-2"
+              itemName={name.trim() || "this item"}
+              savedPhoto={null}
+              stage={photoStage}
+              onStage={setPhotoStage}
+              discardEpoch={photoEpoch}
+              canWrite
+              busy={submitting}
+              onBusyChange={setPhotoPreparing}
             />
             <label className="block space-y-1">
               <span className={labelClass}>Unit of measure</span>
@@ -757,15 +842,18 @@ export default function NewItem() {
               />
             </div>
             <div className="col-span-2 flex flex-col items-start gap-2">
-              <BrutalSwitch
-                ariaLabel="Make or buy"
-                value={makeOrBuy}
-                setValue={handleMakeOrBuyChange}
-                offValue={false}
-                onValue={true}
-                offLabel="Buy"
-                onLabel="Make"
-              />
+              <div className="flex items-center gap-2">
+                <BrutalSwitch
+                  ariaLabel="Make or buy"
+                  value={makeOrBuy}
+                  setValue={handleMakeOrBuyChange}
+                  offValue={false}
+                  onValue={true}
+                  offLabel="Buy"
+                  onLabel="Make"
+                />
+                <HelpIcon text={HELP_TEXT.makeVsBuy} label={HELP_LABELS.makeVsBuy} />
+              </div>
               {!makeOrBuy && (
                 <div className="w-full space-y-1">
                   <div className="flex items-end gap-1.5">
@@ -813,6 +901,9 @@ export default function NewItem() {
                     onMoveUp={(phaseId) => moveRouterPhase(phaseId, "up")}
                     onMoveDown={(phaseId) => moveRouterPhase(phaseId, "down")}
                     onReorderPhases={setRouterPhases}
+                    routers={routers}
+                    startedFromName={sourceRouterName}
+                    onStartFromRouter={startFromRouter}
                     tone="violet"
                   />
                   <BomRecipeEditor
@@ -852,15 +943,16 @@ export default function NewItem() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="border-brutal-xs border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5"
+                  disabled={submitting}
+                  className="border-brutal-xs border-black bg-nv-paper px-4 py-1.5 text-[10px] font-black uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!canAdd}
+                  disabled={!canAdd || photoPreparing || submitting}
                   className={`border-brutal-xs border-black px-5 py-1.5 text-[10px] font-black uppercase tracking-wide ${
-                    canAdd
+                    canAdd && !photoPreparing && !submitting
                       ? "bg-nv-violet text-white transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none"
                       : "cursor-not-allowed bg-black/10 text-black/40 shadow-black/20"
                   }`}
@@ -923,7 +1015,7 @@ export default function NewItem() {
                   <button
                     type="button"
                     onClick={() => void handleSubmitAll()}
-                    disabled={submitting}
+                    disabled={submitting || photoPreparing}
                     className="border-brutal-xs border-black bg-nv-violet px-6 py-2 text-xs font-black uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {submitting

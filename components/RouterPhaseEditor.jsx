@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import HelpIcon from "@/components/HelpIcon";
 import { controlClass, listClass, rowStripe } from "@/lib/chrome";
+import { HELP_LABELS, HELP_TEXT } from "@/lib/helpText";
 import { sortByText } from "@/lib/optionOrder";
 import { phaseIngredientPlan } from "@/lib/phaseAssignment";
+import {
+  PHASE_EDITOR_HIGHLIGHT_CLASS,
+  phaseEditorKey,
+} from "@/lib/phaseEditorFocus";
 import { HeldAssignments, PhaseIngredients } from "./PhaseIngredients.jsx";
+import { RouterStartPrompt, StartedFromNote } from "./RouterStartPrompt.jsx";
 
 const inputClass = `w-full ${controlClass} placeholder:text-black/40`;
 const labelClass = "text-[10px] font-black uppercase tracking-wide";
@@ -47,11 +54,38 @@ export default function RouterPhaseEditor({
   onMoveUp,
   onMoveDown,
   onReorderPhases,
+  routers = [],
+  startedFromName = "",
+  onStartFromRouter,
+  itemId = null,
+  highlightPhaseKey = "",
   tone = "cyan",
 }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
   const [openPhaseId, setOpenPhaseId] = useState(null);
+  const [pendingRouter, setPendingRouter] = useState(null);
+  const savedRouters = sortByText(
+    Array.isArray(routers) ? routers : [],
+    (router) => router.name
+  );
+
+  const chooseRouter = (routerId) => {
+    const selected = savedRouters.find((row) => String(row.id) === String(routerId));
+    if (!selected || !onStartFromRouter) return;
+    if (phases.length === 0) {
+      onStartFromRouter(selected, "replace");
+      setPendingRouter(null);
+      return;
+    }
+    setPendingRouter(selected);
+  };
+
+  const confirmPending = (mode) => {
+    if (!pendingRouter || !onStartFromRouter) return;
+    onStartFromRouter(pendingRouter, mode);
+    setPendingRouter(null);
+  };
   const plan = phaseIngredientPlan(phases, bomLines, phaseTemplates);
   const uniqueTargets = plan.resolved.filter((phase) => plan.editable.get(phase.id));
 
@@ -64,7 +98,13 @@ export default function RouterPhaseEditor({
   return (
     <div className="w-full space-y-2 bg-nv-paper">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={labelClass}>Production router</p>
+        <p className={`inline-flex items-center gap-1 ${labelClass}`}>
+          Production router
+          <HelpIcon
+            text={HELP_TEXT.productionPhases}
+            label={HELP_LABELS.productionPhases}
+          />
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           {phaseTemplates.length > 0 ? (
             <label className="flex items-center gap-1">
@@ -106,15 +146,66 @@ export default function RouterPhaseEditor({
         </div>
       </div>
 
+      {onStartFromRouter ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {savedRouters.length > 0 ? (
+              <label className="flex min-w-0 flex-1 items-center gap-1">
+                <span className="sr-only">Start from a router</span>
+                <select
+                  value=""
+                  onChange={(event) => {
+                    const routerId = event.target.value;
+                    if (routerId) chooseRouter(routerId);
+                  }}
+                  className={`${inputClass} max-w-[16rem] cursor-pointer py-1 text-[10px]`}
+                >
+                  <option value="">Start from a router…</option>
+                  {savedRouters.map((router) => (
+                    <option key={router.id} value={router.id}>
+                      {router.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="text-[10px] font-medium text-nv-ink/50">
+                No saved routers yet.
+              </p>
+            )}
+            <Link
+              href="/settings/routers"
+              className="text-[10px] font-black uppercase tracking-wide text-nv-violet hover:underline"
+            >
+              Routers
+            </Link>
+          </div>
+          {pendingRouter ? (
+            <RouterStartPrompt
+              routerName={pendingRouter.name}
+              onReplace={() => confirmPending("replace")}
+              onAppend={() => confirmPending("append")}
+              onCancel={() => setPendingRouter(null)}
+            />
+          ) : null}
+          <StartedFromNote name={phases.length > 0 ? startedFromName : ""} />
+        </div>
+      ) : null}
+
       {phases.length > 0 ? (
         <ul className={listClass}>
           {phases.map((phase, index) => {
             const isDragging = dragIndex === index;
             const isOver = overIndex === index && dragIndex !== index;
+            const phaseKey = phaseEditorKey(itemId, index);
+            const highlighted =
+              Boolean(highlightPhaseKey) && phaseKey === highlightPhaseKey;
 
             return (
               <li
                 key={phase.id}
+                data-phase-key={phaseKey || undefined}
+                tabIndex={phaseKey ? -1 : undefined}
                 draggable={Boolean(onReorderPhases)}
                 onDragStart={(e) => {
                   if (!onReorderPhases) return;
@@ -146,7 +237,9 @@ export default function RouterPhaseEditor({
                 }}
                 className={`space-y-2 px-2 py-2 ${rowStripe(index, tone)} ${
                   isDragging ? "opacity-50" : ""
-                } ${isOver ? "ring-2 ring-nv-violet" : ""} ${
+                } ${isOver && !highlighted ? "ring-2 ring-nv-violet" : ""} ${
+                  highlighted ? PHASE_EDITOR_HIGHLIGHT_CLASS : ""
+                } ${
                   onReorderPhases ? "cursor-grab active:cursor-grabbing" : ""
                 }`}
               >

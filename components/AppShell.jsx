@@ -166,6 +166,11 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
   const pathname = usePathname();
   const { impersonating } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+  const [navPath, setNavPath] = useState(pathname);
+  if (navPath !== pathname) {
+    setNavPath(pathname);
+    setNavOpen(false);
+  }
   const menuButtonRef = useRef(null);
 
   const dismissNav = useCallback(() => {
@@ -179,10 +184,6 @@ function AppFrame({ children, banners = null, mainClassName = "" }) {
       button.focus();
     }
   }, []);
-
-  useEffect(() => {
-    setNavOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 768px)");

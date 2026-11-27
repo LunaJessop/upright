@@ -11,6 +11,7 @@ import { activityQuery, auditQuery } from "@/lib/adminOps";
 import {
   ItemPhotoError,
   PHOTO_MESSAGES,
+  itemPhotoThumbPath,
   photoContentType,
   photoMetadata,
 } from "@/lib/itemPhoto";
@@ -458,6 +459,38 @@ export const UpdateItemInventoryGoal = async (id, { goal_min, goal_max }) => {
   return data;
 };
 
+export const GetItemInventoryTransactions = async (id, { limit, before } = {}) => {
+  const params = new URLSearchParams();
+  if (limit != null && limit !== "") params.set("limit", String(limit));
+  if (before != null && before !== "") params.set("before", String(before));
+  const qs = params.toString();
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/items/${id}/inventory/transactions${qs ? `?${qs}` : ""}`,
+    { headers: authHeaders() }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Failed to load stock history");
+  }
+  return data;
+};
+
+export const CreateItemInventoryTransaction = async (id, body) => {
+  const response = await apiFetch(
+    `${getBaseUrl()}/api/items/${id}/inventory/transactions`,
+    {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw httpError(response, data, "Could not record the stock change");
+  }
+  return data;
+};
+
 export const GetPurchaseLots = async (itemId) => {
   const response = await apiFetch(
     `${getBaseUrl()}/api/items/${itemId}/purchase-lots`,
@@ -603,6 +636,31 @@ export const GetItemPhoto = async (id, { signal } = {}) => {
   return response.blob();
 };
 
+/**
+ * The items list uses the small photo. The browser may reuse it for a few
+ * minutes. version is on the address so a replaced photo shows up inside
+ * that window. The full photo stays uncached and is not requested here.
+ */
+export const GetItemPhotoThumb = async (id, { version, signal } = {}) => {
+  const path = itemPhotoThumbPath(id, { version });
+  if (!path) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.load, "PHOTO_INVALID");
+  }
+  const response = await apiFetch(`${getBaseUrl()}${path}`, {
+    headers: authHeaders(),
+    cache: "default",
+    signal,
+  });
+  if (!response.ok) {
+    await photoError(response, PHOTO_MESSAGES.load);
+  }
+  const blob = await response.blob();
+  if (!blob || blob.size < 1) {
+    throw new ItemPhotoError(PHOTO_MESSAGES.load, "PHOTO_INVALID");
+  }
+  return blob;
+};
+
 export const UploadItemPhoto = async (id, file) => {
   const contentType = photoContentType(file);
   if (!contentType) {
@@ -724,6 +782,54 @@ export const DeleteRouterPhaseTemplate = async (id) => {
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     throw new Error(data?.error ?? `Delete phase failed (${response.status})`);
+  }
+  return true;
+};
+
+export const GetRouters = async () => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to load routers"));
+  }
+  return response.json();
+};
+
+export const CreateRouter = async (router) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(router),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Create router failed (${response.status})`);
+  }
+  return data;
+};
+
+export const UpdateRouter = async (id, router) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers/${id}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(router),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `Update router failed (${response.status})`);
+  }
+  return data;
+};
+
+export const DeleteRouter = async (id) => {
+  const response = await apiFetch(`${getBaseUrl()}/api/routers/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Delete router failed (${response.status})`);
   }
   return true;
 };

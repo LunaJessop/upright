@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CreateRouterPhaseTemplate,
@@ -28,18 +29,24 @@ export default function SettingsPhasesPage() {
   const formRef = useRef(null);
   const nameRef = useRef(null);
 
-  const loadPhases = useCallback(async () => {
+  const loadPhases = useCallback(() => {
+    return GetRouterPhaseTemplates()
+      .then((rows) => {
+        setPhases(Array.isArray(rows) ? rows : []);
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load phases.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const refreshPhases = useCallback(() => {
     setLoading(true);
     setError("");
-    try {
-      const rows = await GetRouterPhaseTemplates();
-      setPhases(Array.isArray(rows) ? rows : []);
-    } catch (err) {
-      setError(err?.message || "Failed to load phases.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return loadPhases();
+  }, [loadPhases]);
 
   useEffect(() => {
     void loadPhases();
@@ -101,7 +108,7 @@ export default function SettingsPhasesPage() {
         toast.success("Phase added.");
       }
       cancelEdit();
-      await loadPhases();
+      await refreshPhases();
     } catch (err) {
       const message = err?.message || "Could not save phase.";
       setFormError(message);
@@ -116,7 +123,7 @@ export default function SettingsPhasesPage() {
     try {
       await DeleteRouterPhaseTemplate(id);
       if (editingId === id) cancelEdit();
-      await loadPhases();
+      await refreshPhases();
       toast.success("Phase deleted.");
     } catch (err) {
       const message = err?.message || "Could not delete phase.";
@@ -134,8 +141,12 @@ export default function SettingsPhasesPage() {
           </p>
           <h1 className="text-3xl font-black uppercase leading-tight">Phases</h1>
           <p className="mt-2 text-sm font-medium text-white/90">
-            Company-wide production steps. Build routers on items by picking from
-            this library.
+            Company-wide production steps. Pick them on a make item, or save an
+            ordered list under{" "}
+            <Link href="/settings/routers" className="underline">
+              Routers
+            </Link>
+            .
           </p>
         </header>
 
